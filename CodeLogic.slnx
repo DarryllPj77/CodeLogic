@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CodeLogic.Application/CodeLogic.Application.csproj" />
+    <Project Path="src/CodeLogic.Domain/CodeLogic.Domain.csproj" />
+    <Project Path="src/CodeLogic.Infrastructure/CodeLogic.Infrastructure.csproj" />
+    <Project Path="src/CodeLogic.Web/CodeLogic.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CodeLogic.IntegrationTests/CodeLogic.IntegrationTests.csproj" />
+    <Project Path="tests/CodeLogic.UnitTests/CodeLogic.UnitTests.csproj" />
+  </Folder>
+</Solution>

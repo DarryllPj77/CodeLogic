@@ -3,8 +3,8 @@
 ## Roadmap Status
 
 - Last updated: 2026-10-31
-- Current completed milestone: Prompt 03 — Windows and Visual Studio setup
-- Exact next numbered task: Prompt 04 — Solution skeleton
+- Current completed milestone: Prompt 04 — Solution skeleton
+- Exact next numbered task: Prompt 05 — Design system and application shell
 - Source coverage: Prompts 00–10 have been supplied; Prompts 11–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
@@ -34,8 +34,8 @@
 | 01 | Product charter and scope | Complete | `docs/PRODUCT.md` defines users, outcomes, accessible MVP, deterministic learning, deferred features, and non-goals. |
 | 02 | Architecture decisions and six-level mapping | Complete | `docs/ARCHITECTURE.md` and ADRs define boundaries, tradeoffs, diagrams, and extraction seams. |
 | 03 | Windows and Visual Studio setup | Complete | `docs/SETUP_WINDOWS.md` records validated prerequisites and exact optional gaps without installing software. |
-| 04 | Solution skeleton | **Next** | Solution restores, builds, tests, and opens in Visual Studio. |
-| 05 | Design system and application shell | Planned | Pages render, navigation works, and accessibility smoke checks are documented. |
+| 04 | Solution skeleton | Complete | Solution restores, builds, tests, runs locally, and loads through Visual Studio. |
+| 05 | Design system and application shell | **Next** | Pages render, navigation works, and accessibility smoke checks are documented. |
 | 06 | Core domain model | Planned | Domain tests prove invariants and the Domain project has no framework dependencies. |
 | 07 | Curriculum specification | Planned | Curriculum schema validates and two complete pilot lessons display. |
 | 08 | Lesson reading UI | Planned | Two seeded lessons are navigable, responsive, and tested as feasible. |
@@ -87,11 +87,11 @@ Completed outcomes:
 - recorded Docker Desktop as optional and currently absent;
 - confirmed no required prerequisite is missing for Prompt 04.
 
-## Next Task Detail
+## Completed Solution Skeleton
 
 ### Prompt 04 — Solution skeleton
 
-Planned scope from the supplied playbook:
+Completed scope:
 
 - create `CodeLogic.slnx`, or `.sln` only if the IDE requires it;
 - create `src/CodeLogic.Web` as the minimal executable Blazor Web App;
@@ -102,18 +102,21 @@ Planned scope from the supplied playbook:
 - create `tests/CodeLogic.IntegrationTests`;
 - target .NET 10 with nullable reference types and analyzers;
 - add central project settings only when they provide a clear benefit;
-- provide a minimal executable home page, without beginning the design-system task.
+- provided a minimal executable home page without beginning the design-system task;
+- added shared nullable and analyzer settings, SDK selection, and repository ignores;
+- established inward project references and two test-project smoke checks.
 
 Acceptance gate:
 
-- solution restores;
-- solution builds;
-- tests run successfully;
-- solution opens in Visual Studio.
+- solution restores successfully;
+- all six projects build with zero warnings and zero errors;
+- both smoke tests pass;
+- the Blazor home page returns HTTP 200 with the expected content;
+- Visual Studio Community 2026 loads the `.slnx` and builds all six projects.
 
 Prompt 04 must not implement design-system navigation, domain features, curriculum, lesson UI, quizzes, persistence, code analysis, or deployment.
 
-## Planned Tasks 05–10
+## Next Task and Planned Tasks 05–10
 
 ### Prompt 05 — Design system and application shell
 
