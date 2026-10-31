@@ -8,6 +8,8 @@
 
 This model gives later tasks a small, framework-independent vocabulary. It encodes rules that are true regardless of UI, database, or hosting choices. It does not define persistence, curriculum seed data, quiz evaluation, or application workflows.
 
+Prompt 07 now layers a validated typed curriculum manifest over these concepts. See [CURRICULUM.md](CURRICULUM.md) for the seed contract, pilot content, safe subset, and validation rules.
+
 ## Relationships
 
 ```mermaid
@@ -141,7 +143,7 @@ The initial tests cover:
 
 ## Explicitly Deferred
 
-- curriculum manifests and pilot lesson content;
+- lesson reading workflows and curriculum persistence;
 - draft/published lesson lifecycle;
 - answer choices and correct-answer specifications;
 - deterministic answer evaluation and feedback;

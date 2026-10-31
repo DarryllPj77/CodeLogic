@@ -390,6 +390,118 @@ pre code {
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.curriculum-summary {
+    background: var(--color-brand-strong);
+    border-radius: var(--radius-md);
+    color: var(--color-white);
+    display: grid;
+    gap: var(--space-4);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: var(--space-5);
+}
+
+.curriculum-summary div {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.curriculum-summary strong {
+    font-size: var(--font-size-xl);
+}
+
+.curriculum-summary span {
+    color: #e1e8ff;
+}
+
+.lesson-grid {
+    display: grid;
+    gap: var(--space-6);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.lesson-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    min-width: 0;
+    padding: var(--space-6);
+}
+
+.lesson-card__meta {
+    align-items: baseline;
+    color: var(--color-text-muted);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: var(--font-size-sm);
+    gap: var(--space-3);
+    justify-content: space-between;
+}
+
+.lesson-card__objective {
+    color: var(--color-text-muted);
+}
+
+.lesson-card__details {
+    display: flex;
+    gap: var(--space-6);
+    margin: var(--space-5) 0;
+}
+
+.lesson-card__details div {
+    display: grid;
+    gap: var(--space-1);
+}
+
+.lesson-card__details dt {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+.lesson-card__details dd {
+    color: var(--color-ink);
+    font-weight: 800;
+    margin: 0;
+}
+
+.lesson-card__criterion {
+    margin-bottom: 0;
+}
+
+.draft-list {
+    display: grid;
+    gap: var(--space-4);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    list-style-position: inside;
+    margin: 0;
+    padding: 0;
+}
+
+.draft-list li {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-5);
+}
+
+.draft-list li::marker {
+    color: var(--color-brand);
+    font-weight: 800;
+}
+
+.draft-list__difficulty {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    margin-left: var(--space-2);
+}
+
+.draft-list p {
+    color: var(--color-text-muted);
+    margin-bottom: 0;
+}
+
 .empty-state {
     align-items: center;
     display: grid;
@@ -469,6 +581,9 @@ pre code {
 
 @media (max-width: 38rem) {
     .card-grid,
+    .curriculum-summary,
+    .draft-list,
+    .lesson-grid,
     .two-column {
         grid-template-columns: 1fr;
     }

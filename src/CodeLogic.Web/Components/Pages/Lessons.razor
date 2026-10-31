@@ -1,45 +1,112 @@
 @page "/lessons"
+@inject ICurriculumCatalog CurriculumCatalog
 
 <PageTitle>Lessons | CodeLogic</PageTitle>
 
 <HeadContent>
-    <meta name="description" content="Preview the planned CodeLogic path for learning C# fundamentals." />
+    <meta name="description" content="Explore CodeLogic's first complete C# lessons and the planned beginner curriculum." />
 </HeadContent>
 
 <section class="page-header" aria-labelledby="lessons-title">
     <p class="eyebrow">Lessons</p>
     <h1 id="lessons-title">Build your C# foundation</h1>
-    <p>Lesson content is not available yet. This preview shows the planned direction without pretending the curriculum has been implemented.</p>
+    <p>
+        Start with two complete pilot specifications, then preview the seven topics still being developed.
+        Lesson reading and exercises arrive in later reviewed tasks.
+    </p>
 </section>
 
-<section class="section" aria-labelledby="lesson-preview-title">
+<section class="curriculum-summary" aria-label="Curriculum summary">
+    <div>
+        <strong>@CompleteLessons.Count()</strong>
+        <span>complete pilots</span>
+    </div>
+    <div>
+        <strong>@DraftLessons.Count()</strong>
+        <span>draft lessons</span>
+    </div>
+    <div>
+        <strong>@Manifest.SafeSnippetPolicy.MaximumNestingDepth</strong>
+        <span>maximum snippet nesting</span>
+    </div>
+</section>
+
+<section class="section" aria-labelledby="pilot-lessons-title">
     <div class="section-heading">
-        <h2 id="lesson-preview-title">Planned starting topics</h2>
-        <p>The curriculum specification and first complete lessons belong to Prompt 07.</p>
+        <p class="eyebrow">Ready specifications</p>
+        <h2 id="pilot-lessons-title">Complete pilot lessons</h2>
+        <p>These specifications include reviewed objectives, content sections, sample code, quiz criteria, and safe-snippet rules.</p>
     </div>
 
-    <div class="card-grid">
-        <article class="feature-card">
-            <p class="status-badge">Planned</p>
-            <h3>Variables and types</h3>
-            <p>Learn how names, types, and values work together in a simple C# program.</p>
-        </article>
-
-        <article class="feature-card">
-            <p class="status-badge">Planned</p>
-            <h3>Decisions</h3>
-            <p>Follow an <code>if</code>/<code>else</code> condition and understand why one path is selected.</p>
-        </article>
-
-        <article class="feature-card">
-            <p class="status-badge">Planned</p>
-            <h3>Loops</h3>
-            <p>Trace repeated work and identify a loop's starting point, condition, body, and update.</p>
-        </article>
+    <div class="lesson-grid">
+        @foreach (var curriculumLesson in CompleteLessons)
+        {
+            <article class="lesson-card">
+                <div class="lesson-card__meta">
+                    <span class="status-badge">@curriculumLesson.StatusLabel</span>
+                    <span>Lesson @curriculumLesson.Order · @curriculumLesson.DifficultyLabel</span>
+                </div>
+                <h3>@curriculumLesson.Lesson.Title</h3>
+                <p class="lesson-card__objective">@curriculumLesson.Lesson.Objective</p>
+                <dl class="lesson-card__details">
+                    <div>
+                        <dt>Sections</dt>
+                        <dd>@curriculumLesson.Lesson.Sections.Count</dd>
+                    </div>
+                    <div>
+                        <dt>Practice type</dt>
+                        <dd>@curriculumLesson.QuizCriteria.ResponseKind</dd>
+                    </div>
+                </dl>
+                <pre aria-label="Sample C# code for @curriculumLesson.Lesson.Title"><code>@curriculumLesson.SampleCode</code></pre>
+                <p class="lesson-card__criterion">
+                    <strong>Quiz checks:</strong> @curriculumLesson.QuizCriteria.AssessmentGoal
+                </p>
+            </article>
+        }
     </div>
 </section>
 
-<aside class="notice" aria-labelledby="lesson-notice-title">
-    <h2 id="lesson-notice-title">What works today?</h2>
-    <p>Navigation and the responsive application shell are ready. Lessons, exercises, and completion state are deliberately deferred.</p>
+<section class="section" aria-labelledby="draft-lessons-title">
+    <div class="section-heading">
+        <p class="eyebrow">Planned curriculum</p>
+        <h2 id="draft-lessons-title">Draft lessons</h2>
+        <p>Drafts define direction and safety boundaries, but their teaching content is not yet complete.</p>
+    </div>
+
+    <ol class="draft-list" start="3">
+        @foreach (var curriculumLesson in DraftLessons)
+        {
+            <li>
+                <div>
+                    <span class="status-badge">@curriculumLesson.StatusLabel</span>
+                    <span class="draft-list__difficulty">@curriculumLesson.DifficultyLabel</span>
+                </div>
+                <h3>@curriculumLesson.Lesson.Title</h3>
+                <p>@curriculumLesson.Lesson.Objective</p>
+            </li>
+        }
+    </ol>
+</section>
+
+<aside class="notice notice--warning" aria-labelledby="safe-subset-title">
+    <h2 id="safe-subset-title">Safe snippet boundary</h2>
+    <p>
+        Curriculum samples are limited to @Manifest.SafeSnippetPolicy.MaximumCharacters characters and
+        @Manifest.SafeSnippetPolicy.MaximumNestingDepth levels of nesting. The policy is
+        <strong>@Manifest.SafeSnippetPolicy.ExecutionPolicy</strong>: CodeLogic does not execute learner code.
+    </p>
 </aside>
+
+@code {
+    private CurriculumManifest Manifest { get; set; } = null!;
+
+    private IEnumerable<CurriculumLesson> CompleteLessons =>
+        Manifest.Lessons.Where(lesson => lesson.Status == CurriculumLessonStatus.Complete);
+
+    private IEnumerable<CurriculumLesson> DraftLessons =>
+        Manifest.Lessons.Where(lesson => lesson.Status == CurriculumLessonStatus.Draft);
+
+    protected override void OnInitialized() =>
+        Manifest = CurriculumCatalog.GetManifest();
+}

@@ -1,9 +1,12 @@
+using CodeLogic.Application.Curriculum;
+using CodeLogic.Infrastructure.Curriculum;
 using CodeLogic.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents();
+builder.Services.AddSingleton<ICurriculumCatalog, SeededCurriculumCatalog>();
 
 var app = builder.Build();
 

@@ -3,8 +3,8 @@
 ## Roadmap Status
 
 - Last updated: 2026-10-31
-- Current completed milestone: Prompt 06 — Core domain model
-- Exact next numbered task: Prompt 07 — Curriculum specification
+- Current completed milestone: Prompt 07 — Curriculum specification
+- Exact next numbered task: Prompt 08 — Lesson reading UI
 - Source coverage: Prompts 00–10 have been supplied; Prompts 11–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
@@ -37,8 +37,8 @@
 | 04 | Solution skeleton | Complete | Solution restores, builds, tests, runs locally, and loads through Visual Studio. |
 | 05 | Design system and application shell | Complete | Pages render, navigation works, and accessibility smoke checks are documented. |
 | 06 | Core domain model | Complete | Domain tests prove invariants and the Domain project has no framework dependencies. |
-| 07 | Curriculum specification | **Next** | Curriculum schema validates and two complete pilot lessons display. |
-| 08 | Lesson reading UI | Planned | Two seeded lessons are navigable, responsive, and tested as feasible. |
+| 07 | Curriculum specification | Complete | Curriculum schema validates and two complete pilot lessons display. |
+| 08 | Lesson reading UI | **Next** | Two seeded lessons are navigable, responsive, and tested as feasible. |
 | 09 | Deterministic quiz evaluator | Planned | Correct, incorrect, and boundary tests pass with no arbitrary user-code execution. |
 | 10 | First end-to-end learning vertical slice | Planned | A student completes a lesson and sees updated in-session progress. |
 | 11–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
@@ -161,11 +161,32 @@ Acceptance gate:
 - Domain has no package or project references;
 - an architecture test rejects ASP.NET Core, EF Core, Roslyn, Web, Infrastructure, and Application references.
 
-## Next Task and Planned Tasks 07–10
+## Completed Curriculum Specification
 
 ### Prompt 07 — Curriculum specification
 
-Define a data-driven curriculum schema for the planned foundational topics. Complete two pilot lessons and mark remaining content honestly as draft.
+Completed outcomes:
+
+- created a versioned typed curriculum manifest and catalog contract in Application;
+- reused Domain topics, lessons, sections, and exercises in the seed;
+- seeded complete Variables and Types and Operators pilot specifications;
+- added Input/Output, Sequence, Branching, Loops, Methods, Algorithms, and Debugging drafts;
+- defined objectives, sample code, quiz criteria, difficulty, ordering, and allowed concepts for every lesson;
+- defined a global static-analysis-only safe snippet policy and forbidden capabilities;
+- added semantic schema validation and negative safety/schema tests;
+- rendered both pilots and all seven drafts from the manifest on the Lessons page.
+
+Acceptance gate:
+
+- manifest validation passes for all nine topics;
+- exactly two complete pilots and seven drafts are present;
+- four focused curriculum integration tests pass;
+- `/lessons` returns HTTP 200 and displays both pilot specifications and samples;
+- full solution builds with zero warnings and all 28 tests pass.
+
+Prompt 07 does not implement lesson detail navigation, answer evaluation, persistence, or code execution.
+
+## Next Task and Planned Tasks 08–10
 
 ### Prompt 08 — Lesson reading UI
 
