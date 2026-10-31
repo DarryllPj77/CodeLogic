@@ -1,4 +1,5 @@
 using CodeLogic.Application.Curriculum;
+using CodeLogic.Application.Progress;
 
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -34,6 +35,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddDbContext<CodeLogicDbContext>(options =>
             options.UseSqlite(connectionStringBuilder.ConnectionString));
         services.AddScoped<ICurriculumCatalog, EfCurriculumCatalog>();
+        services.AddScoped<IUserLearningProgressStore, EfUserLearningProgressStore>();
 
         return services;
     }

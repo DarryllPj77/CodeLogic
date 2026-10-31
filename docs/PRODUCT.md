@@ -106,7 +106,7 @@ flowchart LR
 5. **Understand feedback:** Correct and incorrect answers receive deterministic explanations.
 6. **Explore:** A simple editor allows changes within the supported C# subset and clearly states its limitations.
 7. **Visualize:** CodeLogic produces a stable flowchart and bounded textual trace from validated analysis; it does not execute the learner's program.
-8. **Continue:** The learner sees in-session progress and a recommended next lesson without being forced forward.
+8. **Continue:** A signed-in learner sees saved progress and a recommended next lesson without being forced forward.
 
 ## Prioritized MVP
 
@@ -281,8 +281,8 @@ CodeLogic is not intended to:
 
 ### End-to-end learning slice
 
-1. From a fresh session, a learner can open a pilot lesson, read it, answer its exercise, revise a supported example, view its flowchart and text trace, mark the lesson complete, and see updated in-session progress.
-2. The product clearly labels in-session progress as temporary until persistence is implemented.
+1. A learner can open a pilot lesson anonymously; after signing in, they can answer its exercise, mark the lesson complete, and see durable account-owned progress.
+2. The product clearly explains that lessons are public while quiz submission and saved progress require an account.
 3. The end-to-end flow requires no AI service, cloud deployment, or arbitrary-code runner.
 
 ## MVP Review Checklist

@@ -2,27 +2,27 @@
 
 ## Document Status
 
-- Task: Prompt 11 — Persistence foundation
+- Task: Updated through Prompt 12 — Identity and owned progress
 - Last updated: 2026-10-31
 - Provider: EF Core 10.0.5 with SQLite
 - Development database: `src/CodeLogic.Web/App_Data/CodeLogic.db`
 
 ## Scope
 
-Prompt 11 persists the curriculum catalog only. The application reads nine seeded topics and their lesson specifications through the existing `ICurriculumCatalog` Application interface.
-
-Anonymous quiz attempts and completion remain in temporary ASP.NET Core session memory. Without user accounts, there is no safe identity to associate with durable learner progress.
+Prompt 11 introduced curriculum persistence. Prompt 12 adds standard ASP.NET Core Identity tables and durable, account-owned attempt and completion records. See `docs/IDENTITY.md` for the anonymous-study and security decisions.
 
 ## Boundary and Data Model
 
 `CodeLogicDbContext`, mappings, migrations, seed conversion, and `EfCurriculumCatalog` live in Infrastructure. Web supplies the configured connection string and selects the EF adapter. Domain and Application do not reference EF Core or SQLite.
 
-The initial schema has two tables:
+The application-owned schema has four tables in addition to standard Identity tables:
 
 | Table | Purpose |
 | --- | --- |
 | `CurriculumTopics` | Stable topic ID, order, slug, title, and description. |
 | `CurriculumLessons` | Lesson, exercise, sample, quiz, status, and difficulty fields with a required topic foreign key. |
+| `UserExerciseAttempts` | Outcome-only attempt history owned by a user; raw answers are not stored. |
+| `UserLessonProgress` | One completion row per user and lesson. |
 
 Sections, allowed concepts, and answer options are stored as JSON text inside the lesson row. They are small ordered values loaded with the lesson and do not yet need independent querying or lifecycle. If authoring or section-level queries become real requirements, a reviewed migration can normalize them later.
 
@@ -91,6 +91,5 @@ A separate temporary file-database test disposes its first `DbContext`, opens a 
 - SQLite behavior is not identical to Azure SQL or PostgreSQL; provider-specific testing is required before switching.
 - Nested lesson collections use JSON text and are not independently queryable.
 - Curriculum writes and an authoring UI are not implemented.
-- Learner attempts and completion are still temporary session state.
-- No user accounts or identity tables exist.
+- Email confirmation, password recovery, two-factor authentication, and account management are not implemented yet.
 - Only Development has a checked-in local connection string; other environments must supply `ConnectionStrings__CodeLogic` through their configuration or secret system.

@@ -1,6 +1,7 @@
 @page "/lessons/{LessonSlug}"
 @inject ICurriculumCatalog CurriculumCatalog
-@inject SessionLearningProgressStore ProgressStore
+@inject IUserLearningProgressStore ProgressStore
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 @if (ReadingContext is null)
 {
@@ -74,43 +75,47 @@ else
                     <p>@ReadingContext.Current.Exercise.Prompt</p>
                     <p><strong>This checks:</strong> @ReadingContext.Current.QuizCriteria.AssessmentGoal</p>
 
-                    <form class="quiz-form" method="post" action="/lessons/@ReadingContext.Slug/quiz">
-                        <AntiforgeryToken />
-                        @if (ReadingContext.Current.QuizCriteria.ResponseKind == QuizResponseKind.MultipleChoice)
-                        {
-                            <fieldset>
-                                <legend>Choose one answer</legend>
-                                <div class="quiz-options">
-                                    @for (var index = 0; index < ReadingContext.Current.QuizCriteria.AnswerOptions.Count; index++)
-                                    {
-                                        var option = ReadingContext.Current.QuizCriteria.AnswerOptions[index];
-                                        var optionId = $"quiz-option-{index}";
-                                        <label class="quiz-option" for="@optionId">
-                                            <input id="@optionId"
-                                                   type="radio"
-                                                   name="answer"
-                                                   value="@option"
-                                                   required />
-                                            <span>@option</span>
-                                        </label>
-                                    }
-                                </div>
-                            </fieldset>
-                        }
-                        else
-                        {
-                            <label class="quiz-input-label" for="quiz-answer">Your answer</label>
-                            <input id="quiz-answer"
-                                   class="quiz-input"
-                                   type="text"
-                                   name="answer"
-                                   maxlength="100"
-                                   autocomplete="off"
-                                   required />
-                        }
+                    <AuthorizeView>
+                        <Authorized>
+                            <form class="quiz-form" method="post" action="/lessons/@ReadingContext.Slug/quiz">
+                                <AntiforgeryToken />
+                                @if (ReadingContext.Current.QuizCriteria.ResponseKind == QuizResponseKind.MultipleChoice)
+                                {
+                                    <fieldset>
+                                        <legend>Choose one answer</legend>
+                                        <div class="quiz-options">
+                                            @for (var index = 0; index < ReadingContext.Current.QuizCriteria.AnswerOptions.Count; index++)
+                                            {
+                                                var option = ReadingContext.Current.QuizCriteria.AnswerOptions[index];
+                                                var optionId = $"quiz-option-{index}";
+                                                <label class="quiz-option" for="@optionId">
+                                                    <input id="@optionId" type="radio" name="answer" value="@option" required />
+                                                    <span>@option</span>
+                                                </label>
+                                            }
+                                        </div>
+                                    </fieldset>
+                                }
+                                else
+                                {
+                                    <label class="quiz-input-label" for="quiz-answer">Your answer</label>
+                                    <input id="quiz-answer" class="quiz-input" type="text" name="answer" maxlength="100" autocomplete="off" required />
+                                }
 
-                        <button class="button button--primary" type="submit">Check answer</button>
-                    </form>
+                                <button class="button button--primary" type="submit">Check answer and save attempt</button>
+                            </form>
+                        </Authorized>
+                        <NotAuthorized>
+                            <aside class="notice" aria-labelledby="practice-account-title">
+                                <h3 id="practice-account-title">Sign in to practise</h3>
+                                <p>Reading is open without an account. Sign in before submitting so the attempt belongs only to you and remains after a restart.</p>
+                                <div class="button-row">
+                                    <a class="button button--primary" href="/account/login?returnUrl=@PracticeReturnUrl">Sign in</a>
+                                    <a class="button button--secondary" href="/account/register?returnUrl=@PracticeReturnUrl">Create account</a>
+                                </div>
+                            </aside>
+                        </NotAuthorized>
+                    </AuthorizeView>
 
                     @if (EvaluationResult is not null)
                     {
@@ -125,24 +130,26 @@ else
 
                         @if (EvaluationResult.IsCorrect)
                         {
-                            <p><a class="text-link" href="/progress">View your updated session progress →</a></p>
+                            <p><a class="text-link" href="/progress">View your saved progress →</a></p>
                         }
                     }
 
-                    <p class="quiz-privacy-note">Answers are compared as text. Attempt outcomes and lesson completion remain only in this temporary browser session.</p>
+                    <p class="quiz-privacy-note">Answers are compared as text and are never stored. Signed-in accounts save only the attempt outcome, timestamp, and completion state.</p>
                 </section>
             </div>
 
             <aside class="lesson-reading__sidebar" aria-labelledby="lesson-status-title">
                 <section class="completion-stub">
-                    <p class="status-badge">@(IsLessonComplete ? "Complete this session" : "Not complete")</p>
+                    <p class="status-badge">@(IsLessonComplete ? "Complete" : "Not complete")</p>
                     <h2 id="lesson-status-title">@(IsLessonComplete ? "Lesson completed" : "Finish the practice")</h2>
                     <p>
                         @(IsLessonComplete
-                            ? "A correct attempt completed this lesson for the current session."
-                            : "Submit a correct practice answer to complete this lesson for the current session.")
+                            ? "A correct saved attempt completed this lesson for your account."
+                            : IsAuthenticated
+                                ? "Submit a correct practice answer to complete this lesson."
+                                : "Sign in to save attempts and lesson completion.")
                     </p>
-                    <a class="text-link" href="/progress">View session progress</a>
+                    <a class="text-link" href="/progress">View saved progress</a>
                 </section>
 
                 <section class="safe-concepts" aria-labelledby="safe-concepts-title">
@@ -201,6 +208,10 @@ else
 
     private QuizEvaluationResult? EvaluationResult { get; set; }
 
+    private bool IsAuthenticated { get; set; }
+
+    private string PracticeReturnUrl => Uri.EscapeDataString($"/lessons/{ReadingContext?.Slug}#practice-preview");
+
     private bool IsLessonComplete => ReadingContext is not null
         && SessionProgress.IsLessonComplete(ReadingContext.Current.Lesson.Id);
 
@@ -217,12 +228,17 @@ else
         _ => "Answer needed",
     };
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
         ReadingContext = CurriculumLessonNavigator.Resolve(
             CurriculumCatalog.GetManifest(),
             LessonSlug);
-        SessionProgress = ProgressStore.Load();
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var userId = authenticationState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        IsAuthenticated = !string.IsNullOrEmpty(userId);
+        SessionProgress = IsAuthenticated
+            ? await ProgressStore.LoadAsync(userId!)
+            : new LearningSessionProgress();
 
         EvaluationResult = ResolveEvaluationResult();
     }

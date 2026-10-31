@@ -4,7 +4,7 @@
 
 - Task: Prompt 10 — First end-to-end learning vertical slice
 - Last checked: 2026-10-31
-- Scope: Home, Lessons, lesson detail and deterministic quiz feedback, temporary session progress dashboard, recovery states, Playground, not-found page, and shared navigation shell
+- Scope: Home, Lessons, lesson detail and deterministic quiz feedback, account forms, saved progress dashboard, recovery states, Playground, not-found page, and shared navigation shell
 - Standard target: WCAG 2.2 AA for the core learning experience
 
 These checks cover the application shell, lesson reading, deterministic practice forms, and temporary progress dashboard. Every later interactive feature needs its own keyboard, screen-reader, zoom, contrast, error, and reduced-motion review.
@@ -24,7 +24,7 @@ These checks cover the application shell, lesson reading, deterministic practice
 - Multiple-choice answers use a grouped `fieldset` and `legend`; value answers use an explicitly labeled text input.
 - Quiz controls use native radio, text-input, and submit-button semantics and remain usable without client-side JavaScript.
 - Correct, incorrect, and required states use text headings and feedback rather than color alone; the result region has status semantics.
-- Practice states clearly that answers are compared as text and only outcomes are stored as temporary session progress.
+- Practice states clearly that answers are compared as text, raw answers are not stored, and saved outcomes belong to the signed-in account.
 - Progress uses a native `progress` element plus an equivalent text percentage and numeric summary.
 - Lesson and attempt states include explicit words such as “Complete,” “Not complete,” “Correct,” and “Incorrect.”
 - Attempt history is an ordered list with exercise, lesson, attempt number, outcome, and UTC time in text.

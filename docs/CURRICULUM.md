@@ -24,7 +24,7 @@ This separation keeps EF Core and SQLite out of Domain, Application, and Blazor 
 - The initial migration inserts two complete pilots and seven drafts with deterministic IDs.
 - The application never calls `EnsureCreated`; tests and development use the real migration.
 - Curriculum migrations are explicit and are not applied automatically at web startup.
-- Learner attempts and completion remain separate temporary session state.
+- Learner attempts and completion remain separate from curriculum content and are saved only for the authenticated owner.
 
 See [PERSISTENCE.md](PERSISTENCE.md) for apply, migration, reset, and test instructions.
 
@@ -107,7 +107,7 @@ The Application-layer evaluator compares submitted text with the expected answer
 
 Blank answers receive an answer-required result without revealing the explanation. Valid correct and incorrect submissions receive concise feedback and the human-authored explanation. Multiple-choice specifications must define at least two unique non-blank choices containing the expected answer. Value-input specifications cannot define choices.
 
-Lesson practice uses antiforgery-protected HTML POST forms so refreshes do not create duplicate attempts. Responses are evaluated as text and are never compiled or executed. Correct and incorrect outcomes are converted into temporary session attempts; raw answers are not stored in progress.
+Lesson practice uses authorized, antiforgery-protected HTML POST forms so refreshes do not create duplicate attempts. Responses are evaluated as text and are never compiled or executed. Correct and incorrect outcomes are saved for the authenticated owner; raw answers are not stored in progress.
 
 ## Safe Snippet Subset
 

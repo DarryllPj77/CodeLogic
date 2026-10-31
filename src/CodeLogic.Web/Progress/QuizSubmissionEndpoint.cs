@@ -1,6 +1,8 @@
 using CodeLogic.Application.Curriculum;
+using CodeLogic.Application.Progress;
 
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace CodeLogic.Web.Progress;
 
@@ -10,18 +12,27 @@ public static class QuizSubmissionEndpoint
     {
         endpoints.MapPost(
             "/lessons/{lessonSlug}/quiz",
-            SubmitQuiz);
+            SubmitQuizAsync)
+            .RequireAuthorization();
 
         return endpoints;
     }
 
-    private static IResult SubmitQuiz(
+    private static async Task<IResult> SubmitQuizAsync(
         string lessonSlug,
         [FromForm] QuizSubmission submission,
+        ClaimsPrincipal user,
         ICurriculumCatalog curriculumCatalog,
-        SessionLearningProgressStore progressStore,
-        TimeProvider timeProvider)
+        IUserLearningProgressStore progressStore,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
     {
+        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Results.Challenge();
+        }
+
         var readingContext = CurriculumLessonNavigator.Resolve(
             curriculumCatalog.GetManifest(),
             lessonSlug);
@@ -39,10 +50,12 @@ public static class QuizSubmissionEndpoint
                 $"/lessons/{readingContext.Slug}?answerRequired=true#practice-preview");
         }
 
-        var attempt = progressStore.RecordAttempt(
+        var attempt = await progressStore.RecordAttemptAsync(
+            userId,
             readingContext.Current,
             evaluation,
-            timeProvider.GetUtcNow());
+            timeProvider.GetUtcNow(),
+            cancellationToken);
 
         return Results.LocalRedirect(
             $"/lessons/{readingContext.Slug}?attempt={attempt.Id.Value:D}#practice-preview");

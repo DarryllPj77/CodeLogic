@@ -1,20 +1,31 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+
+using CodeLogic.Infrastructure.Identity;
 
 namespace CodeLogic.Infrastructure.Persistence;
 
 public sealed class CodeLogicDbContext(DbContextOptions<CodeLogicDbContext> options)
-    : DbContext(options)
+    : IdentityDbContext<CodeLogicUser>(options)
 {
     public DbSet<CurriculumTopicEntity> CurriculumTopics => Set<CurriculumTopicEntity>();
 
     public DbSet<CurriculumLessonEntity> CurriculumLessons => Set<CurriculumLessonEntity>();
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        ArgumentNullException.ThrowIfNull(modelBuilder);
+    public DbSet<UserExerciseAttemptEntity> UserExerciseAttempts => Set<UserExerciseAttemptEntity>();
 
-        ConfigureCurriculumTopic(modelBuilder);
-        ConfigureCurriculumLesson(modelBuilder);
+    public DbSet<UserLessonProgressEntity> UserLessonProgress => Set<UserLessonProgressEntity>();
+
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        base.OnModelCreating(builder);
+
+        ConfigureCurriculumTopic(builder);
+        ConfigureCurriculumLesson(builder);
+        ConfigureUserExerciseAttempt(builder);
+        ConfigureUserLessonProgress(builder);
     }
 
     private static void ConfigureCurriculumTopic(ModelBuilder modelBuilder)
@@ -60,5 +71,43 @@ public sealed class CodeLogicDbContext(DbContextOptions<CodeLogicDbContext> opti
             .HasForeignKey(entity => entity.TopicId)
             .OnDelete(DeleteBehavior.Restrict);
         lesson.HasData(CurriculumPersistenceSeed.CreateLessons());
+    }
+
+    private static void ConfigureUserExerciseAttempt(ModelBuilder modelBuilder)
+    {
+        var attempt = modelBuilder.Entity<UserExerciseAttemptEntity>();
+        attempt.ToTable("UserExerciseAttempts");
+        attempt.HasKey(entity => entity.Id);
+        attempt.Property(entity => entity.UserId).HasMaxLength(450).IsRequired();
+        attempt.Property(entity => entity.AttemptNumber).IsRequired();
+        attempt.Property(entity => entity.Outcome).IsRequired();
+        attempt.Property(entity => entity.AttemptedAtUtc).IsRequired();
+        attempt.HasIndex(entity => new { entity.UserId, entity.ExerciseId, entity.AttemptNumber })
+            .IsUnique();
+        attempt.HasOne<CodeLogicUser>()
+            .WithMany()
+            .HasForeignKey(entity => entity.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+        attempt.HasOne<CurriculumLessonEntity>()
+            .WithMany()
+            .HasForeignKey(entity => entity.LessonId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+
+    private static void ConfigureUserLessonProgress(ModelBuilder modelBuilder)
+    {
+        var progress = modelBuilder.Entity<UserLessonProgressEntity>();
+        progress.ToTable("UserLessonProgress");
+        progress.HasKey(entity => new { entity.UserId, entity.LessonId });
+        progress.Property(entity => entity.UserId).HasMaxLength(450).IsRequired();
+        progress.Property(entity => entity.CompletedAtUtc).IsRequired();
+        progress.HasOne<CodeLogicUser>()
+            .WithMany()
+            .HasForeignKey(entity => entity.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+        progress.HasOne<CurriculumLessonEntity>()
+            .WithMany()
+            .HasForeignKey(entity => entity.LessonId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

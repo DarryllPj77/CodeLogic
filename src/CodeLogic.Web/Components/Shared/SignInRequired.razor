@@ -1,0 +1,24 @@
+@inject NavigationManager Navigation
+
+<PageTitle>Sign in required | CodeLogic</PageTitle>
+
+<section class="empty-state" aria-labelledby="sign-in-required-title">
+    <div class="empty-state__mark" aria-hidden="true">!</div>
+    <div>
+        <p class="eyebrow">Account required</p>
+        <h1 id="sign-in-required-title">Sign in to view your saved progress</h1>
+        <p>Lessons are open to everyone. An account is required only when work needs to be saved to one learner.</p>
+        <div class="button-row">
+            <a class="button button--primary" href="@LoginUrl">Sign in</a>
+            <a class="button button--secondary" href="@RegisterUrl">Create account</a>
+        </div>
+    </div>
+</section>
+
+@code {
+    private string ReturnPath => "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
+
+    private string LoginUrl => $"/account/login?returnUrl={Uri.EscapeDataString(ReturnPath)}";
+
+    private string RegisterUrl => $"/account/register?returnUrl={Uri.EscapeDataString(ReturnPath)}";
+}

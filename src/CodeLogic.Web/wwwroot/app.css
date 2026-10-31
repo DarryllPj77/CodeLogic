@@ -790,6 +790,51 @@ pre code {
     margin-top: var(--space-5);
 }
 
+.account-panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    margin: var(--space-8) auto;
+    max-width: 38rem;
+    padding: clamp(1.5rem, 5vw, 3rem);
+}
+
+.account-panel h1 {
+    font-size: clamp(2.1rem, 6vw, 3.5rem);
+}
+
+.account-form {
+    display: grid;
+    gap: var(--space-3);
+    margin: var(--space-6) 0;
+}
+
+.account-form label {
+    color: var(--color-ink);
+    font-weight: 800;
+}
+
+.account-form input {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-ink);
+    padding: var(--space-3) var(--space-4);
+    width: 100%;
+}
+
+.account-form .button {
+    justify-self: start;
+    margin-top: var(--space-3);
+}
+
+.form-help {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    margin: calc(-1 * var(--space-2)) 0 var(--space-2);
+}
+
 .progress-summary {
     background: var(--color-surface);
     border: 1px solid var(--color-border);

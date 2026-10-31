@@ -112,7 +112,7 @@ Invariants:
 - capture timestamp uses UTC;
 - completion percentage is derived and rounded to two decimal places.
 
-The snapshot has no learner or account identifier. Prompt 10 creates it from temporary session state; identity and durable persistence remain deferred.
+The snapshot has no learner or account identifier because ownership is an application/persistence concern. Prompt 12 builds it after loading only the authenticated learner's durable records.
 
 ### LearningSessionProgress application workflow
 
@@ -124,7 +124,7 @@ The snapshot has no learner or account identifier. Prompt 10 creates it from tem
 - keeps completed lesson IDs unique when a learner answers correctly more than once;
 - produces a `ProgressSnapshot` for the dashboard.
 
-The Web adapter serializes only attempt metadata and completed lesson IDs. Raw submitted answers are not stored in session progress.
+The Infrastructure adapter stores only attempt metadata and completed lesson IDs for an Identity user. Raw submitted answers are not stored.
 
 ## Dependency Boundary
 

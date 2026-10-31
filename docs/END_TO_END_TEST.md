@@ -1,66 +1,51 @@
-# Prompt 10 End-to-End Manual Test
+# Prompt 12 End-to-End Manual Test
 
 ## Purpose
 
-This script proves the first complete CodeLogic learning journey: read a lesson, submit practice attempts, complete the lesson, and see the same browser session update its dashboard.
-
-Progress is intentionally temporary. It is stored in server memory and identified by a session cookie; it is not connected to an account or database.
+This script proves registration, sign-in, sign-out, authorization, persistent progress, and cross-user isolation while keeping lessons available anonymously.
 
 ## Prerequisites
 
 1. Open `CodeLogic.slnx` in Visual Studio.
-2. Apply the local development migration using the command in `docs/PERSISTENCE.md`.
-3. Set `CodeLogic.Web` as the startup project.
-4. Run with **Ctrl+F5** or the HTTP launch profile.
-5. Use a fresh InPrivate window for a predictable empty session.
+2. Apply the migration from `docs/IDENTITY.md`.
+3. Set `CodeLogic.Web` as the startup project and run with **Ctrl+F5**.
+4. Prepare two unique test email addresses and two passwords that meet the displayed rules. Do not use a real password.
 
-## Variables and Types Journey
+## Anonymous Learning
 
-1. Open **Progress** from the primary navigation.
-   - Expect `0 of 2 pilot lessons complete`.
-   - Expect `0` attempts and the `No attempts yet` message.
-   - Confirm the temporary-session notice says state can disappear.
-2. Select **Start learning**.
-   - Expect the Variables and Types lesson.
-   - Expect its sidebar status to say `Not complete`.
-3. In Practice, choose `double` and select **Check answer**.
-   - Expect `Try again` and the human-authored explanation.
-   - Expect the lesson to remain `Not complete`.
-4. Open **Progress**.
-   - Expect one incorrect attempt.
-   - Expect `0 of 2 pilot lessons complete`.
-5. Return to Variables and Types, choose `int`, and select **Check answer**.
-   - Expect `Correct answer`.
-   - Expect the sidebar to say `Complete this session`.
-   - Expect a link to updated session progress.
-6. Follow that link.
-   - Expect two attempts: attempt 1 incorrect and attempt 2 correct.
-   - Expect `1 of 2 pilot lessons complete` and `50% complete this session`.
-   - Expect Operators to be recommended next.
+1. In a fresh InPrivate window, open `/lessons/variables-and-types`.
+2. Confirm the full lesson and sample code are readable.
+3. Confirm Practice offers **Sign in** and **Create account** instead of an answer form.
+4. Open `/progress` and confirm the app sends you to Sign in with a return URL.
 
-## Complete the Second Pilot
+## First Learner
 
-1. Open Operators from the recommendation.
-2. Enter ` TRUE `, including surrounding spaces, and select **Check answer**.
-   - Expect the normalized answer to be correct.
-3. Open Progress.
-   - Expect `2 of 2 pilot lessons complete` and `100% complete this session`.
-   - Expect three total attempts and two correct attempts.
-   - Expect the pilot-complete message.
+1. Create the first account. Confirm registration signs you in and returns you to the requested page.
+2. Open Variables and Types and submit `double`.
+3. Confirm the saved attempt is incorrect and the lesson remains incomplete.
+4. Submit `int` and confirm the correct result completes the lesson.
+5. Open Progress. Expect two saved attempts, `1 of 2` lessons complete, and `50%`.
+6. Sign out. Confirm the home page no longer displays the account and `/progress` requires sign-in.
+7. Sign in with an incorrect password five times. Confirm the generic error changes to a temporary lockout message. Use a disposable account for this check because lockout lasts 15 minutes.
 
-## Session Isolation and Honesty
+## Cross-User Isolation
 
-1. Keep the original browser window open.
-2. Open a separate InPrivate window and navigate directly to `/progress`.
-   - Expect the new session to start at `0 of 2` with no attempts.
-3. Return to the original window and refresh Progress.
-   - Expect its completed lessons and attempt history to remain while that session is active.
-4. Stop and restart `CodeLogic.Web`.
-   - Progress may disappear because the backing store is process memory. This is expected for Prompt 10.
+1. In another InPrivate window, create the second account.
+2. Open Progress. Expect zero attempts and `0 of 2` lessons complete.
+3. Confirm no first-account email, attempt, or completion appears.
+4. Sign out and sign back in as the first account. Confirm its attempts are still present.
 
-## Accessibility Smoke Check
+## Restart Persistence
 
-1. Repeat one quiz using only `Tab`, arrow keys, and `Enter`.
-2. Confirm focus outlines remain visible.
-3. At 200% zoom and at 320 CSS pixels wide, confirm the progress summary, lesson cards, attempt history, and next action do not overlap or require page-level horizontal scrolling.
-4. Confirm correct, incorrect, complete, and incomplete states remain understandable without relying on color.
+1. Stop and restart `CodeLogic.Web`.
+2. Sign in as the first account.
+3. Open Progress and confirm its two attempts and completed lesson remain.
+
+## Accessibility and Security Smoke Checks
+
+1. Complete registration, sign-in, quiz submission, and sign-out using only the keyboard.
+2. Confirm every field has a visible label and focus remains visible.
+3. Confirm errors are readable without relying on color.
+4. At 200% zoom and 320 CSS pixels wide, confirm account forms do not require page-level horizontal scrolling.
+5. Confirm the browser stores an authentication cookie named `CodeLogic.Identity`; do not edit or share its value.
+6. Confirm a signed-out direct POST to a quiz or logout endpoint is rejected or challenged.

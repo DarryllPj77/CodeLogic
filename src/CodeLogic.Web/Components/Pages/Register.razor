@@ -1,0 +1,43 @@
+@page "/account/register"
+
+<PageTitle>Create account | CodeLogic</PageTitle>
+
+<section class="account-panel" aria-labelledby="register-title">
+    <p class="eyebrow">Save your learning</p>
+    <h1 id="register-title">Create an account</h1>
+    <p>Your password is hashed by ASP.NET Core Identity. CodeLogic never stores it as readable text.</p>
+
+    @if (Error == "password")
+    {
+        <div class="quiz-feedback quiz-feedback--incorrect" role="alert">Use at least 12 characters with uppercase, lowercase, a number, and a symbol.</div>
+    }
+    else if (Error == "invalid")
+    {
+        <div class="quiz-feedback quiz-feedback--incorrect" role="alert">The account could not be created. Check the fields or sign in if you already registered.</div>
+    }
+
+    <form class="account-form" method="post" action="/account/register">
+        <AntiforgeryToken />
+        <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+        <label for="register-email">Email</label>
+        <input id="register-email" name="email" type="email" autocomplete="username" required />
+        <label for="register-password">Password</label>
+        <input id="register-password" name="password" type="password" autocomplete="new-password" minlength="12" required aria-describedby="password-help" />
+        <p id="password-help" class="form-help">At least 12 characters with uppercase, lowercase, a number, and a symbol.</p>
+        <label for="register-confirm-password">Confirm password</label>
+        <input id="register-confirm-password" name="confirmPassword" type="password" autocomplete="new-password" minlength="12" required />
+        <button class="button button--primary" type="submit">Create account</button>
+    </form>
+
+    <p>Already registered? <a href="@LoginUrl">Sign in</a>.</p>
+</section>
+
+@code {
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? Error { get; set; }
+
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    private string LoginUrl => $"/account/login?returnUrl={Uri.EscapeDataString(ReturnUrl ?? "/progress")}";
+}

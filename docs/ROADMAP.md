@@ -3,9 +3,9 @@
 ## Roadmap Status
 
 - Last updated: 2026-10-31
-- Current completed milestone: Prompt 11 — Persistence foundation
-- Exact next numbered task: Not supplied; Prompt 12 remains awaiting definition
-- Source coverage: Prompts 00–11 have been supplied; Prompts 12–29 have not yet been added to the repository
+- Current completed milestone: Prompt 12 — Identity and owned progress
+- Exact next numbered task: Not supplied; Prompt 13 remains awaiting definition
+- Source coverage: Prompts 00–12 have been supplied; Prompts 13–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
 
@@ -42,7 +42,8 @@
 | 09 | Deterministic quiz evaluator | Complete | Correct, incorrect, and boundary tests pass with no arbitrary user-code execution. |
 | 10 | First end-to-end learning vertical slice | Complete | A student completes a lesson and sees updated, explicitly temporary in-session progress. |
 | 11 | Persistence foundation | Complete | Migration applies cleanly, tests use isolated SQLite databases, and seeded curriculum survives restart. |
-| 12–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
+| 12 | Identity and owned progress | Complete | Identity account flows work; authenticated progress persists and cross-user access is denied. |
+| 13–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
 
 ## Completed Foundation
 
@@ -286,9 +287,32 @@ Acceptance gate:
 
 Prompt 11 does not add Identity, user accounts, durable learner progress, curriculum authoring, automatic production migrations, or a hosted database provider.
 
+## Completed Identity and Owned Progress
+
+### Prompt 12 — Identity and owned progress
+
+Completed outcomes:
+
+- added ASP.NET Core Identity registration, sign-in, sign-out, cookie authentication, lockout, and authorization;
+- allowed anonymous lesson reading while requiring an account for quiz submission and saved progress;
+- replaced temporary session ownership with EF-backed, user-owned attempts and lesson completion;
+- kept raw learner answers out of persistence;
+- derived ownership from authenticated claims rather than browser-supplied user IDs;
+- added migration, user-isolation tests, restart-persistence tests, and an account-flow manual script.
+
+Acceptance gate:
+
+- two users see only their own attempts and completion;
+- unauthenticated progress and quiz requests are challenged;
+- authenticated progress survives application restart;
+- passwords are handled by ASP.NET Core Identity rather than application code;
+- solution restores, builds with zero warnings, and the full test suite passes.
+
+Prompt 12 does not add email delivery, email confirmation, password recovery, two-factor authentication, social login, account deletion, or later playbook features.
+
 ## Awaiting the Next Supplied Prompt
 
-Prompts 12–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
+Prompts 13–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
 
 ## Six-Level Growth Map
 
@@ -305,6 +329,6 @@ Prompts 12–29 remain undefined in the repository. The owner must provide the e
 
 - Do not mark future implementation complete based only on documentation.
 - When a task is completed, update its status and evidence in this file within that task's allowed documentation scope.
-- Do not fill Prompts 11–29 with guessed requirements. Add them only from the owner's playbook.
+- Do not fill Prompts 13–29 with guessed requirements. Add them only from the owner's playbook.
 - If a new prompt conflicts with the accepted product charter or architecture, surface the conflict and obtain an owner decision before implementation.
 - Preserve historical ADRs; supersede decisions with a new ADR rather than rewriting accepted history.

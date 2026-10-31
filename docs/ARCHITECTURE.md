@@ -2,10 +2,10 @@
 
 ## Document Status
 
-- Status: Implemented through Prompt 11
-- Playbook task: 11 — Persistence foundation
+- Status: Implemented through Prompt 12
+- Playbook task: 12 — Identity and owned progress
 - Last updated: 2026-10-31
-- Implementation status: The modular-monolith projects, curriculum flow, session learning slice, and SQLite curriculum persistence adapter are implemented. Roslyn, Mermaid, Identity, and hosted infrastructure remain planned.
+- Implementation status: The modular-monolith projects, curriculum flow, SQLite persistence, ASP.NET Core Identity, and account-owned progress are implemented. Roslyn, Mermaid, and hosted infrastructure remain planned.
 
 ## Architectural Goal
 
@@ -96,7 +96,7 @@ Prompt 06 establishes the initial framework-independent concepts described in [D
 - Practice: exercise specifications, answer evaluation, and feedback.
 - Progress: attempts, completion state, and progress summaries.
 - Code explanation: supported-code validation, graph construction, flowchart generation, and bounded trace descriptions.
-- Identity: sign-in and user association through ASP.NET Core Identity when persistence is introduced.
+- Identity: ASP.NET Core Identity registration, sign-in, sign-out, authorization, and user association.
 
 Modules should communicate through application use cases and explicit contracts. They may share one process and one database initially, but one module must not directly mutate another module's tables or internal entities.
 
@@ -115,9 +115,9 @@ The levels are a growth path, not six layers that must all be implemented immedi
 
 ## Persistence
 
-Prompt 10 uses ASP.NET Core session with the built-in distributed-memory cache for explicitly temporary learner attempts and completion. The session cookie contains an opaque identifier; attempt metadata and completed lesson IDs remain in server memory and can disappear on session expiry or process restart.
+Prompt 12 replaces temporary session ownership with ASP.NET Core Identity and account-owned database records. Anonymous visitors may read lessons, while quiz submission and progress require authentication. Web derives the owner from the authenticated claim rather than accepting a browser-supplied user ID.
 
-The Application `LearningSessionProgress` workflow remains independent of ASP.NET Core, which provides the replacement seam for later durable storage.
+The Application `LearningSessionProgress` workflow remains independent of ASP.NET Core. `IUserLearningProgressStore` is the narrow application port implemented by EF Core in Infrastructure.
 
 - Prompt 11 implements EF Core 10 as the curriculum persistence adapter behind `ICurriculumCatalog`.
 - SQLite stores the development curriculum because it is file-based and requires little setup.
@@ -205,7 +205,7 @@ Possible future trigger: multiple independently deployed services, demanding sca
 
 | Seam | Current form | Potential evolution | Evidence required before evolution |
 | --- | --- | --- | --- |
-| Persistence | EF Core SQLite catalog adapter behind `ICurriculumCatalog` | Azure SQL/PostgreSQL provider and later account-aware progress storage | Hosted environment, identity, concurrency, backup, or scale requirement |
+| Persistence | EF Core SQLite adapters behind curriculum and account-progress application ports | Azure SQL/PostgreSQL provider | Hosted environment, provider compatibility, backup, or scale requirement |
 | Code analysis | In-process adapter producing graph IR | Isolated worker or service | CPU/memory contention, security isolation, or independent scaling need |
 | Visualization | Mermaid renderer consuming graph IR | Alternate renderer/export service | Accessibility, export, or rendering requirement Mermaid cannot meet |
 | Curriculum content | Module-owned storage accessed via application contracts | Content service or external authoring system | Independent publishing workflow or ownership need |
@@ -235,5 +235,5 @@ An extraction seam is permission to evolve, not a commitment to distribute the s
 ## Known Documentation Gaps
 
 - The hosted relational provider is not selected.
-- Account-aware progress persistence is not designed because Identity is not in scope yet.
+- Identity email confirmation, recovery, two-factor authentication, and account lifecycle remain deferred.
 - Roslyn, graph IR, Mermaid, and delivery infrastructure await their numbered tasks.

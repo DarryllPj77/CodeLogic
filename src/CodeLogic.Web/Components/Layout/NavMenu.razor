@@ -12,5 +12,21 @@
         <li>
             <NavLink href="/progress">Progress</NavLink>
         </li>
+        <AuthorizeView>
+            <Authorized>
+                <li class="account-name" title="Signed in account">@context.User.Identity?.Name</li>
+                <li>
+                    <form method="post" action="/account/logout">
+                        <AntiforgeryToken />
+                        <button type="submit">Sign out</button>
+                    </form>
+                </li>
+            </Authorized>
+            <NotAuthorized>
+                <li>
+                    <NavLink href="/account/login">Sign in</NavLink>
+                </li>
+            </NotAuthorized>
+        </AuthorizeView>
     </ul>
 </nav>

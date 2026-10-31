@@ -1,35 +1,37 @@
 @page "/progress"
+@attribute [Authorize]
 @inject ICurriculumCatalog CurriculumCatalog
-@inject SessionLearningProgressStore ProgressStore
+@inject IUserLearningProgressStore ProgressStore
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject TimeProvider TimeProvider
 
 <PageTitle>Progress | CodeLogic</PageTitle>
 
 <HeadContent>
-    <meta name="description" content="Review temporary CodeLogic lesson completion and practice attempts for this browser session." />
+    <meta name="description" content="Review saved CodeLogic lesson completion and practice attempts for your account." />
 </HeadContent>
 
 <section class="page-header" aria-labelledby="progress-title">
     <p class="eyebrow">Progress</p>
     <h1 id="progress-title">Your learning journey</h1>
-    <p>Review lesson completion and practice attempts from this browser session.</p>
+    <p>Review lesson completion and practice attempts saved to your account.</p>
 </section>
 
-<aside class="notice notice--warning" aria-labelledby="temporary-progress-title">
-    <h2 id="temporary-progress-title">Temporary session progress</h2>
-    <p>This information is held only in server memory for your current browser session. It can disappear when the session expires or the app restarts, and it is not connected to an account or database.</p>
+<aside class="notice" aria-labelledby="owned-progress-title">
+    <h2 id="owned-progress-title">Private account progress</h2>
+    <p>This page loads only the signed-in learner's attempts and completion state from the database. Answers themselves are not stored.</p>
 </aside>
 
 <section class="progress-summary" aria-labelledby="progress-summary-title">
     <div class="section-heading">
-        <p class="eyebrow">Session summary</p>
+        <p class="eyebrow">Account summary</p>
         <h2 id="progress-summary-title">@Snapshot.CompletedLessonCount of @Snapshot.TotalLessonCount pilot lessons complete</h2>
     </div>
 
     <progress value="@Snapshot.CompletedLessonCount" max="@Snapshot.TotalLessonCount">
         @Snapshot.CompletionPercentage%
     </progress>
-    <p>@Snapshot.CompletionPercentage% complete this session</p>
+    <p>@Snapshot.CompletionPercentage% complete</p>
 
     <dl class="progress-stats">
         <div>
@@ -59,7 +61,7 @@
             var isComplete = SessionProgress.IsLessonComplete(lesson.Lesson.Id);
             <article class="lesson-progress-card">
                 <div>
-                    <p class="status-badge">@(isComplete ? "Complete this session" : "Not complete")</p>
+                    <p class="status-badge">@(isComplete ? "Complete" : "Not complete")</p>
                     <h3>@lesson.Lesson.Title</h3>
                     <p>@lesson.Lesson.Objective</p>
                 </div>
@@ -74,7 +76,7 @@
 <section class="section" aria-labelledby="attempt-history-title">
     <div class="section-heading">
         <p class="eyebrow">Practice history</p>
-        <h2 id="attempt-history-title">Attempts in this session</h2>
+        <h2 id="attempt-history-title">Saved attempts</h2>
     </div>
 
     @if (SessionProgress.Attempts.Count == 0)
@@ -116,7 +118,7 @@
         <div>
             <p class="eyebrow">Recommended next</p>
             <h2 id="progress-next-title">@RecommendedLesson.Lesson.Title</h2>
-            <p>Continue with the first pilot lesson that is not complete in this session.</p>
+            <p>Continue with the first pilot lesson that is not complete for your account.</p>
         </div>
         <a class="button button--primary" href="/lessons/@GetSlug(RecommendedLesson)">Continue learning</a>
     }
@@ -124,8 +126,8 @@
     {
         <div>
             <p class="eyebrow">Pilot complete</p>
-            <h2 id="progress-next-title">You completed both pilot lessons this session</h2>
-            <p>Review either lesson whenever you want. Persistent progress is still intentionally deferred.</p>
+            <h2 id="progress-next-title">You completed both pilot lessons</h2>
+            <p>Review either lesson whenever you want. Your completion remains saved to this account.</p>
         </div>
         <a class="button button--secondary" href="/lessons">Review lessons</a>
     }
@@ -143,13 +145,16 @@
     private CurriculumLesson? RecommendedLesson => CompleteLessons.FirstOrDefault(
         lesson => !SessionProgress.IsLessonComplete(lesson.Lesson.Id));
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         Manifest = CurriculumCatalog.GetManifest();
         CompleteLessons = Manifest.Lessons
             .Where(lesson => lesson.Status == CurriculumLessonStatus.Complete)
             .ToArray();
-        SessionProgress = ProgressStore.Load();
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var userId = authenticationState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? throw new InvalidOperationException("An authenticated user identifier is required.");
+        SessionProgress = await ProgressStore.LoadAsync(userId);
         Snapshot = SessionProgress.CreateSnapshot(
             CompleteLessons.Count,
             TimeProvider.GetUtcNow());

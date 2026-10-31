@@ -1,0 +1,40 @@
+@page "/account/login"
+
+<PageTitle>Sign in | CodeLogic</PageTitle>
+
+<section class="account-panel" aria-labelledby="login-title">
+    <p class="eyebrow">Welcome back</p>
+    <h1 id="login-title">Sign in</h1>
+    <p>Use your CodeLogic account to continue your saved learning progress.</p>
+
+    @if (Error == "invalid")
+    {
+        <div class="quiz-feedback quiz-feedback--incorrect" role="alert">The email or password was not accepted.</div>
+    }
+    else if (Error == "locked")
+    {
+        <div class="quiz-feedback quiz-feedback--incorrect" role="alert">This account is temporarily locked after repeated failed sign-in attempts. Try again in 15 minutes.</div>
+    }
+
+    <form class="account-form" method="post" action="/account/login">
+        <AntiforgeryToken />
+        <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+        <label for="login-email">Email</label>
+        <input id="login-email" name="email" type="email" autocomplete="username" required />
+        <label for="login-password">Password</label>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required />
+        <button class="button button--primary" type="submit">Sign in</button>
+    </form>
+
+    <p>New to CodeLogic? <a href="@RegisterUrl">Create an account</a>.</p>
+</section>
+
+@code {
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? Error { get; set; }
+
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    private string RegisterUrl => $"/account/register?returnUrl={Uri.EscapeDataString(ReturnUrl ?? "/progress")}";
+}
