@@ -1,0 +1,52 @@
+# ADR 0003: EF Core with SQLite for Local Development
+
+- Status: Proposed
+- Date: 2026-10-31
+
+## Context
+
+CodeLogic will eventually persist curriculum, identity, attempts, and progress. Local development should work with minimal machine configuration, while hosted deployment may need a managed relational database.
+
+## Decision
+
+Use Entity Framework Core as the relational persistence adapter and SQLite for local development. Keep EF Core configuration and migrations in Infrastructure. Domain and Application code must not use provider-specific types or behavior.
+
+Use application-focused persistence ports or narrow query abstractions only where a boundary or test requires them. Do not introduce a generic repository solely to wrap EF Core.
+
+Production database selection is deferred. Azure SQL and PostgreSQL are candidates and must be validated with provider-specific integration tests before adoption.
+
+## Alternatives Considered
+
+### SQL Server LocalDB
+
+Closer to Azure SQL behavior, but Windows-specific and requires more local setup. It may be used in provider compatibility tests later.
+
+### PostgreSQL in a local container
+
+Provides production-like behavior when PostgreSQL is selected, but requires Docker and container lifecycle management too early in the learning path.
+
+### In-memory database as the primary development store
+
+Easy to start, but it does not reproduce relational constraints, transactions, or SQL translation accurately enough for persistence confidence.
+
+### Handwritten SQL or a micro-ORM
+
+Offers explicit query control, but adds mapping work that is not currently justified. It remains an option for measured hot paths later.
+
+## Consequences and Tradeoffs
+
+### Benefits
+
+- File-based local setup is simple and portable.
+- EF Core migrations and mappings support an incremental relational model.
+- Persistence stays replaceable behind application behavior.
+
+### Costs
+
+- SQLite differs from hosted databases in concurrency, types, functions, and migration behavior.
+- Provider switching is not automatic; tests and migration review are required.
+- Careless EF Core usage can leak persistence concerns into domain or UI code.
+
+## Future Extraction Seams
+
+Infrastructure owns the database provider and mappings. Moving to Azure SQL or PostgreSQL should change Infrastructure and deployment configuration, not core learning rules. A module may receive separate storage only when ownership, scale, or isolation evidence justifies it.
