@@ -696,6 +696,100 @@ pre code {
     box-shadow: none;
 }
 
+.quiz-form {
+    display: grid;
+    gap: var(--space-4);
+    margin-top: var(--space-6);
+}
+
+.quiz-form fieldset {
+    border: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.quiz-form legend,
+.quiz-input-label {
+    color: var(--color-ink);
+    font-weight: 800;
+    margin-bottom: var(--space-3);
+}
+
+.quiz-options {
+    display: grid;
+    gap: var(--space-3);
+}
+
+.quiz-option {
+    align-items: center;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+}
+
+.quiz-option:has(input:checked) {
+    background: var(--color-brand-soft);
+    border-color: var(--color-brand);
+}
+
+.quiz-option input {
+    accent-color: var(--color-brand);
+    height: 1.2rem;
+    margin: 0;
+    width: 1.2rem;
+}
+
+.quiz-input {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-ink);
+    max-width: 28rem;
+    padding: var(--space-3) var(--space-4);
+    width: 100%;
+}
+
+.quiz-form .button {
+    justify-self: start;
+}
+
+.quiz-feedback {
+    border: 1px solid var(--color-border);
+    border-left-width: 0.35rem;
+    border-radius: var(--radius-sm);
+    margin-top: var(--space-6);
+    padding: var(--space-4) var(--space-5);
+}
+
+.quiz-feedback h3 {
+    margin-bottom: var(--space-2);
+}
+
+.quiz-feedback p:last-child {
+    margin-bottom: 0;
+}
+
+.quiz-feedback--correct {
+    background: var(--color-accent-soft);
+    border-color: var(--color-accent);
+}
+
+.quiz-feedback--incorrect,
+.quiz-feedback--required {
+    background: var(--color-warning-soft);
+    border-color: var(--color-warning);
+}
+
+.quiz-privacy-note {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    margin-top: var(--space-5);
+}
+
 .lesson-pagination {
     border-top: 1px solid var(--color-border);
     display: grid;

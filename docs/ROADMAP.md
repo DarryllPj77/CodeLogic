@@ -3,8 +3,8 @@
 ## Roadmap Status
 
 - Last updated: 2026-10-31
-- Current completed milestone: Prompt 08 — Lesson reading UI
-- Exact next numbered task: Prompt 09 — Deterministic quiz evaluator
+- Current completed milestone: Prompt 09 — Deterministic quiz evaluator
+- Exact next numbered task: Prompt 10 — First end-to-end learning vertical slice
 - Source coverage: Prompts 00–10 have been supplied; Prompts 11–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
@@ -39,8 +39,8 @@
 | 06 | Core domain model | Complete | Domain tests prove invariants and the Domain project has no framework dependencies. |
 | 07 | Curriculum specification | Complete | Curriculum schema validates and two complete pilot lessons display. |
 | 08 | Lesson reading UI | Complete | Two seeded lessons are navigable, responsive, and tested; missing IDs recover gracefully. |
-| 09 | Deterministic quiz evaluator | **Next** | Correct, incorrect, and boundary tests pass with no arbitrary user-code execution. |
-| 10 | First end-to-end learning vertical slice | Planned | A student completes a lesson and sees updated in-session progress. |
+| 09 | Deterministic quiz evaluator | Complete | Correct, incorrect, and boundary tests pass with no arbitrary user-code execution. |
+| 10 | First end-to-end learning vertical slice | **Next** | A student completes a lesson and sees updated in-session progress. |
 | 11–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
 
 ## Completed Foundation
@@ -209,11 +209,31 @@ Acceptance gate:
 
 Prompt 08 does not implement answer evaluation, interactive exercise controls, saved completion, persistence, or code execution.
 
-## Next Task and Planned Task 09–10
+## Completed Deterministic Quiz Evaluator
 
 ### Prompt 09 — Deterministic quiz evaluator
 
-Implement specification-driven multiple-choice and value-based evaluation with normalized rules and human-authored feedback. Do not execute learner code.
+Completed outcomes:
+
+- implemented a pure Application-layer text comparator for multiple-choice and value-input specifications;
+- defined exact, trim, and trim-and-ignore-case behavior explicitly;
+- added answer-required, correct, and incorrect results with human-authored explanations;
+- added validated answer options for multiple-choice specifications while keeping value inputs option-free;
+- replaced the practice preview with native server-rendered forms and accessible feedback;
+- treated code-shaped input only as text and introduced no compiler, scripting, reflection, or process APIs;
+- added focused correct, incorrect, normalization, blank, invalid-rule, code-like input, and manifest-boundary tests.
+
+Acceptance gate:
+
+- both complete pilot exercises accept their specified correct answers;
+- exact and normalized boundaries behave as documented;
+- incorrect and blank answers return clear, deterministic feedback;
+- no learner response is compiled or executed;
+- solution builds with zero warnings and the full test suite passes.
+
+Prompt 09 does not record attempts, persist answers, update completion, or implement the Prompt 10 learning journey.
+
+## Next Task
 
 ### Prompt 10 — First end-to-end learning vertical slice
 

@@ -77,7 +77,8 @@ public sealed class SeededCurriculumCatalog : ICurriculumCatalog
                 "Identify the type that stores a whole number.",
                 "int",
                 AnswerNormalization.Exact,
-                "The int type stores whole numbers such as 5 or 42."),
+                "The int type stores whole numbers such as 5 or 42.",
+                ["int", "double", "string"]),
             ExerciseTitle: "Choose a whole-number type",
             ExercisePrompt: "Which C# type should store the number of completed lessons?",
             AllowedConcepts:
@@ -112,7 +113,8 @@ public sealed class SeededCurriculumCatalog : ICurriculumCatalog
                 "Predict the Boolean result after evaluating the sample expression.",
                 "true",
                 AnswerNormalization.TrimAndIgnoreCase,
-                "The total is 10, so both comparisons are true and true && true evaluates to true."),
+                "The total is 10, so both comparisons are true and true && true evaluates to true.",
+                []),
             ExerciseTitle: "Predict an operator result",
             ExercisePrompt: "What value is stored in isReady after the sample runs?",
             AllowedConcepts:
@@ -229,7 +231,8 @@ public sealed class SeededCurriculumCatalog : ICurriculumCatalog
                 $"Check the learner can predict one result from {title.ToLowerInvariant()}.",
                 expectedAnswer,
                 AnswerNormalization.TrimAndIgnoreCase,
-                "The final explanation will be reviewed when the draft lesson is completed."),
+                "The final explanation will be reviewed when the draft lesson is completed.",
+                []),
             $"Check {topicSlug}",
             exercisePrompt,
             allowedConcepts);
@@ -265,7 +268,8 @@ public sealed class SeededCurriculumCatalog : ICurriculumCatalog
             seed.Quiz.AssessmentGoal,
             seed.Quiz.ExpectedAnswer,
             seed.Quiz.Normalization,
-            seed.Quiz.Explanation);
+            seed.Quiz.Explanation,
+            Array.AsReadOnly(seed.Quiz.AnswerOptions.ToArray()));
 
         return new CurriculumLesson(
             seed.Order,
@@ -332,7 +336,8 @@ public sealed class SeededCurriculumCatalog : ICurriculumCatalog
         string AssessmentGoal,
         string ExpectedAnswer,
         AnswerNormalization Normalization,
-        string Explanation);
+        string Explanation,
+        IReadOnlyList<string> AnswerOptions);
 
     private sealed record LessonSeed(
         int Order,

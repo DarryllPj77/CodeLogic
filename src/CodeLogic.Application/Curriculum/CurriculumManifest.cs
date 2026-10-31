@@ -17,7 +17,8 @@ public sealed record QuizCriteria(
     string AssessmentGoal,
     string ExpectedAnswer,
     AnswerNormalization Normalization,
-    string Explanation);
+    string Explanation,
+    IReadOnlyList<string> AnswerOptions);
 
 public sealed record CurriculumLesson(
     int Order,

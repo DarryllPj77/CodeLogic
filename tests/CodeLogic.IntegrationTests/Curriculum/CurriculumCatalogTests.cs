@@ -37,6 +37,18 @@ public sealed class CurriculumCatalogTests
                 Assert.False(string.IsNullOrWhiteSpace(lesson.QuizCriteria.AssessmentGoal));
                 Assert.NotEmpty(lesson.AllowedConcepts);
             });
+
+        var multipleChoice = Assert.Single(
+            completeLessons,
+            lesson => lesson.QuizCriteria.ResponseKind == QuizResponseKind.MultipleChoice);
+        Assert.Contains(
+            multipleChoice.QuizCriteria.ExpectedAnswer,
+            multipleChoice.QuizCriteria.AnswerOptions);
+
+        var valueInput = Assert.Single(
+            completeLessons,
+            lesson => lesson.QuizCriteria.ResponseKind == QuizResponseKind.ValueInput);
+        Assert.Empty(valueInput.QuizCriteria.AnswerOptions);
     }
 
     [Fact]
@@ -64,6 +76,33 @@ public sealed class CurriculumCatalogTests
 
         Assert.Contains(errors, error => error.Contains("unknown safe concept", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("Lesson order", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ValidatorRejectsInvalidAnswerOptionShapes()
+    {
+        var source = CreateManifest();
+        var lessons = source.Lessons.ToArray();
+        lessons[0] = lessons[0] with
+        {
+            QuizCriteria = lessons[0].QuizCriteria with
+            {
+                AnswerOptions = ["double", "string"],
+            },
+        };
+        lessons[1] = lessons[1] with
+        {
+            QuizCriteria = lessons[1].QuizCriteria with
+            {
+                AnswerOptions = ["true", "false"],
+            },
+        };
+        var manifest = new CurriculumManifest(1, source.SafeSnippetPolicy, source.Topics, lessons);
+
+        var errors = CurriculumManifestValidator.Validate(manifest);
+
+        Assert.Contains(errors, error => error.Contains("must contain the expected answer", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("cannot define multiple-choice options", StringComparison.Ordinal));
     }
 
     private static CurriculumManifest CreateManifest() =>

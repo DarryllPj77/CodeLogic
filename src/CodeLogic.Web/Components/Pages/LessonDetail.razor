@@ -68,14 +68,63 @@ else
                 </section>
 
                 <section id="practice-preview" class="practice-preview" aria-labelledby="practice-preview-title">
-                    <p class="eyebrow">Practice preview</p>
+                    <p class="eyebrow">Practice</p>
                     <h2 id="practice-preview-title">@ReadingContext.Current.Exercise.Title</h2>
                     <p>@ReadingContext.Current.Exercise.Prompt</p>
                     <p><strong>This checks:</strong> @ReadingContext.Current.QuizCriteria.AssessmentGoal</p>
-                    <div class="notice">
-                        <h3>Practice is not interactive yet</h3>
-                        <p>The deterministic evaluator and answer feedback belong to Prompt 09. No answer is collected or stored on this page.</p>
-                    </div>
+
+                    <form class="quiz-form" method="get" action="/lessons/@ReadingContext.Slug#practice-preview">
+                        @if (ReadingContext.Current.QuizCriteria.ResponseKind == QuizResponseKind.MultipleChoice)
+                        {
+                            <fieldset>
+                                <legend>Choose one answer</legend>
+                                <div class="quiz-options">
+                                    @for (var index = 0; index < ReadingContext.Current.QuizCriteria.AnswerOptions.Count; index++)
+                                    {
+                                        var option = ReadingContext.Current.QuizCriteria.AnswerOptions[index];
+                                        var optionId = $"quiz-option-{index}";
+                                        <label class="quiz-option" for="@optionId">
+                                            <input id="@optionId"
+                                                   type="radio"
+                                                   name="answer"
+                                                   value="@option"
+                                                   checked="@(SubmittedAnswer == option)"
+                                                   required />
+                                            <span>@option</span>
+                                        </label>
+                                    }
+                                </div>
+                            </fieldset>
+                        }
+                        else
+                        {
+                            <label class="quiz-input-label" for="quiz-answer">Your answer</label>
+                            <input id="quiz-answer"
+                                   class="quiz-input"
+                                   type="text"
+                                   name="answer"
+                                   value="@SubmittedAnswer"
+                                   maxlength="100"
+                                   autocomplete="off"
+                                   required />
+                        }
+
+                        <button class="button button--primary" type="submit">Check answer</button>
+                    </form>
+
+                    @if (EvaluationResult is not null)
+                    {
+                        <div class="quiz-feedback @FeedbackClass" role="status" aria-live="polite">
+                            <h3>@FeedbackHeading</h3>
+                            <p>@EvaluationResult.Feedback</p>
+                            @if (EvaluationResult.Explanation is not null)
+                            {
+                                <p><strong>Why:</strong> @EvaluationResult.Explanation</p>
+                            }
+                        </div>
+                    }
+
+                    <p class="quiz-privacy-note">Answers are compared as text and are not executed or stored as progress.</p>
                 </section>
             </div>
 
@@ -130,12 +179,38 @@ else
     [Parameter]
     public string LessonSlug { get; set; } = string.Empty;
 
+    [SupplyParameterFromQuery(Name = "answer")]
+    public string? SubmittedAnswer { get; set; }
+
     private CurriculumLessonReadingContext? ReadingContext { get; set; }
 
-    protected override void OnParametersSet() =>
+    private QuizEvaluationResult? EvaluationResult { get; set; }
+
+    private string FeedbackClass => EvaluationResult?.Status == QuizEvaluationStatus.Correct
+        ? "quiz-feedback--correct"
+        : EvaluationResult?.Status == QuizEvaluationStatus.Incorrect
+            ? "quiz-feedback--incorrect"
+            : "quiz-feedback--required";
+
+    private string FeedbackHeading => EvaluationResult?.Status switch
+    {
+        QuizEvaluationStatus.Correct => "Correct answer",
+        QuizEvaluationStatus.Incorrect => "Try again",
+        _ => "Answer needed",
+    };
+
+    protected override void OnParametersSet()
+    {
         ReadingContext = CurriculumLessonNavigator.Resolve(
             CurriculumCatalog.GetManifest(),
             LessonSlug);
+
+        EvaluationResult = ReadingContext is not null && SubmittedAnswer is not null
+            ? DeterministicQuizEvaluator.Evaluate(
+                ReadingContext.Current.QuizCriteria,
+                SubmittedAnswer)
+            : null;
+    }
 
     private static string FormatConcept(string concept) =>
         concept.Replace('-', ' ');

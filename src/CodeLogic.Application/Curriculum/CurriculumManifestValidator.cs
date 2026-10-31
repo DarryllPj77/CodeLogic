@@ -225,6 +225,34 @@ public static class CurriculumManifestValidator
         {
             errors.Add($"{lessonLabel} quiz explanation is required.");
         }
+
+        if (criteria.ResponseKind == QuizResponseKind.MultipleChoice)
+        {
+            ValidateUniqueNonBlankValues(
+                criteria.AnswerOptions,
+                $"{lessonLabel} multiple-choice options",
+                errors);
+
+            if (criteria.AnswerOptions.Count < 2)
+            {
+                errors.Add($"{lessonLabel} multiple-choice quiz must define at least two options.");
+            }
+
+            if (Enum.IsDefined(criteria.Normalization)
+                && !criteria.AnswerOptions.Any(option =>
+                    DeterministicQuizEvaluator.AnswersMatch(
+                        criteria.ExpectedAnswer,
+                        option,
+                        criteria.Normalization)))
+            {
+                errors.Add($"{lessonLabel} multiple-choice options must contain the expected answer.");
+            }
+        }
+        else if (criteria.ResponseKind == QuizResponseKind.ValueInput
+            && criteria.AnswerOptions.Count != 0)
+        {
+            errors.Add($"{lessonLabel} value-input quiz cannot define multiple-choice options.");
+        }
     }
 
     private static void ValidateUniqueNonBlankValues(
