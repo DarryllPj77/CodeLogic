@@ -3,9 +3,9 @@
 ## Roadmap Status
 
 - Last updated: 2026-10-31
-- Current completed milestone: Prompt 12 — Identity and owned progress
-- Exact next numbered task: Not supplied; Prompt 13 remains awaiting definition
-- Source coverage: Prompts 00–12 have been supplied; Prompts 13–29 have not yet been added to the repository
+- Current completed milestone: Prompt 13 — Editor playground UI
+- Exact next numbered task: Not supplied; Prompt 14 remains awaiting definition
+- Source coverage: Prompts 00–13 have been supplied; Prompts 14–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
 
@@ -43,7 +43,8 @@
 | 10 | First end-to-end learning vertical slice | Complete | A student completes a lesson and sees updated, explicitly temporary in-session progress. |
 | 11 | Persistence foundation | Complete | Migration applies cleanly, tests use isolated SQLite databases, and seeded curriculum survives restart. |
 | 12 | Identity and owned progress | Complete | Identity account flows work; authenticated progress persists and cross-user access is denied. |
-| 13–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
+| 13 | Editor playground UI | Complete | Curated snippets can be edited, saved locally, restored, and reset within visible safety and size limits. |
+| 14–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
 
 ## Completed Foundation
 
@@ -310,9 +311,33 @@ Acceptance gate:
 
 Prompt 12 does not add email delivery, email confirmation, password recovery, two-factor authentication, social login, account deletion, or later playbook features.
 
+## Completed Editor Playground UI
+
+### Prompt 13 — Editor playground UI
+
+Completed outcomes:
+
+- replaced the placeholder with an accessible plain-text C# editor;
+- loaded the two complete curriculum samples without duplicating lesson source;
+- enforced the curriculum's 1,200-character size limit in HTML and editor state;
+- added one browser-local draft with save, restore, and reset behavior;
+- added `Ctrl+S` save and `Ctrl+Alt+R` reset shortcuts without trapping Tab;
+- documented visible limitations and the non-execution boundary;
+- added focused state, boundary, reset, and invalid-snippet tests.
+
+Acceptance gate:
+
+- a learner can load, edit, save, restore, and reset curated snippets;
+- keyboard controls and live status feedback are available;
+- oversized text is rejected without replacing the current editor content;
+- no learner code is parsed, compiled, executed, or submitted for analysis;
+- solution restores, builds, and tests successfully.
+
+Prompt 13 does not add Roslyn, syntax validation, code execution, Mermaid, traces, multiple saved files, account-synced code, or Monaco.
+
 ## Awaiting the Next Supplied Prompt
 
-Prompts 13–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
+Prompts 14–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
 
 ## Six-Level Growth Map
 
@@ -329,6 +354,6 @@ Prompts 13–29 remain undefined in the repository. The owner must provide the e
 
 - Do not mark future implementation complete based only on documentation.
 - When a task is completed, update its status and evidence in this file within that task's allowed documentation scope.
-- Do not fill Prompts 13–29 with guessed requirements. Add them only from the owner's playbook.
+- Do not fill Prompts 14–29 with guessed requirements. Add them only from the owner's playbook.
 - If a new prompt conflicts with the accepted product charter or architecture, surface the conflict and obtain an owner decision before implementation.
 - Preserve historical ADRs; supersede decisions with a new ADR rather than rewriting accepted history.

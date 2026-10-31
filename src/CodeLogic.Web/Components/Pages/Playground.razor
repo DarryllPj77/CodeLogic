@@ -1,43 +1,257 @@
 @page "/playground"
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@inject ICurriculumCatalog CurriculumCatalog
+@inject IJSRuntime JavaScript
 
 <PageTitle>Playground | CodeLogic</PageTitle>
 
 <HeadContent>
-    <meta name="description" content="Preview CodeLogic's planned safe and deterministic C# visualization playground." />
+    <meta name="description" content="Edit and save short curated C# snippets without compiling or executing them." />
 </HeadContent>
 
 <section class="page-header" aria-labelledby="playground-title">
-    <p class="eyebrow">Playground</p>
-    <h1 id="playground-title">Understand supported code visually</h1>
-    <p>The editor and analyzer are not implemented yet. This placeholder explains the intended safety boundary.</p>
+    <p class="eyebrow">Editor playground</p>
+    <h1 id="playground-title">Experiment with short C# snippets</h1>
+    <p>Edit a curated example and save one browser-local draft. CodeLogic does not compile, run, or analyze this text yet.</p>
 </section>
 
-<div class="two-column">
-    <section class="placeholder-panel" aria-labelledby="editor-preview-title">
-        <p class="status-badge">Preview only</p>
-        <h2 id="editor-preview-title">Simple code editor</h2>
-        <pre aria-label="Example C# code"><code>int score = 8;
+<aside class="notice notice--warning" aria-labelledby="editor-limitations-title">
+    <h2 id="editor-limitations-title">Visible limitations</h2>
+    <ul>
+        <li>This is an accessible plain-text editor, not Visual Studio or Monaco.</li>
+        <li>Code is never compiled or executed. Output, validation, flowcharts, and traces are not available in this task.</li>
+        <li>The editor accepts at most @EditorState.MaximumCharacters.ToString("N0") characters.</li>
+        <li>Save keeps one draft only in this browser's local storage. It is not synced to your account or another device.</li>
+    </ul>
+</aside>
 
-if (score &gt;= 5)
-{
-    Console.WriteLine("Keep going!");
-}</code></pre>
-        <p>A later task will introduce an editor for short examples from a documented C# subset.</p>
+<div class="playground-layout">
+    <section class="editor-panel" aria-labelledby="editor-title">
+        <div class="section-heading">
+            <p class="eyebrow">Plain-text editor</p>
+            <h2 id="editor-title">Edit a supported learning example</h2>
+            <p>Tab moves to the next control so keyboard users are never trapped inside the editor.</p>
+        </div>
+
+        <div class="snippet-picker">
+            <label for="snippet-select">Curated snippet</label>
+            <select id="snippet-select" @bind="SelectedSnippetId" disabled="@(!BrowserReady)">
+                @foreach (var snippet in EditorState.Snippets)
+                {
+                    <option value="@snippet.Id">@snippet.Title</option>
+                }
+            </select>
+            <button class="button button--secondary" type="button" @onclick="LoadSelectedSnippet" disabled="@(!BrowserReady)">
+                Load snippet
+            </button>
+        </div>
+
+        <p class="snippet-description">@EditorState.ActiveSnippet.Description</p>
+
+        <label class="editor-label" for="code-editor">C# source text</label>
+        <textarea id="code-editor"
+                  @ref="EditorElement"
+                  class="code-editor"
+                  value="@EditorState.CurrentCode"
+                  @oninput="UpdateCode"
+                  @onkeydown="HandleEditorKeyDown"
+                  maxlength="@EditorState.MaximumCharacters"
+                  rows="18"
+                  spellcheck="false"
+                  autocomplete="off"
+                  autocapitalize="off"
+                  disabled="@(!BrowserReady)"
+                  aria-describedby="editor-help editor-character-count editor-status"></textarea>
+
+        <div class="editor-meta">
+            <p id="editor-help">
+                Shortcuts: <kbd>Ctrl</kbd>+<kbd>S</kbd> saves; <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd> resets.
+            </p>
+            <p id="editor-character-count">@EditorState.CurrentCode.Length / @EditorState.MaximumCharacters characters</p>
+        </div>
+
+        <div class="button-row">
+            <button class="button button--primary" type="button" @onclick="SaveDraftAsync" disabled="@(!BrowserReady || JavaScriptModule is null)">Save browser draft</button>
+            <button class="button button--secondary" type="button" @onclick="ResetDraftAsync" disabled="@(!BrowserReady)">Reset editor</button>
+        </div>
+
+        <p id="editor-status" class="editor-status" role="status" aria-live="polite">@StatusMessage</p>
     </section>
 
-    <section class="placeholder-panel" aria-labelledby="visual-preview-title">
-        <p class="status-badge">Preview only</p>
-        <h2 id="visual-preview-title">Deterministic explanation</h2>
+    <aside class="playground-guide" aria-labelledby="playground-guide-title">
+        <p class="status-badge">Editing only</p>
+        <h2 id="playground-guide-title">What happens to this code?</h2>
         <ol class="step-list">
-            <li><span>1</span> Validate supported syntax</li>
-            <li><span>2</span> Build a bounded flow graph</li>
-            <li><span>3</span> Show a diagram and text trace</li>
+            <li><span>1</span> You edit plain text.</li>
+            <li><span>2</span> Save stores one draft in this browser.</li>
+            <li><span>3</span> Nothing executes.</li>
         </ol>
-        <p>The same supported input will produce the same explanation without relying on generative AI.</p>
-    </section>
+        <p>Static analysis and deterministic visualization belong to later numbered tasks.</p>
+    </aside>
 </div>
 
-<aside class="notice notice--warning" aria-labelledby="safety-title">
-    <h2 id="safety-title">Safety boundary</h2>
-    <p>CodeLogic will analyze a limited subset of C#. It will not execute arbitrary learner code inside the web application.</p>
-</aside>
+@code {
+    private const string DraftStorageKey = "CodeLogic.Playground.Draft.v1";
+    private PlaygroundEditorState EditorState { get; set; } = null!;
+    private string SelectedSnippetId { get; set; } = string.Empty;
+    private string StatusMessage { get; set; } = "Preparing browser draft storage.";
+    private bool BrowserReady { get; set; }
+    private ElementReference EditorElement { get; set; }
+    private IJSObjectReference? JavaScriptModule { get; set; }
+
+    protected override void OnInitialized()
+    {
+        var manifest = CurriculumCatalog.GetManifest();
+        var snippets = manifest.Lessons
+            .Where(lesson => lesson.Status == CurriculumLessonStatus.Complete)
+            .Select(lesson => new PlaygroundSnippet(
+                lesson.Lesson.Id.ToString(),
+                lesson.Lesson.Title,
+                lesson.Lesson.Objective,
+                lesson.SampleCode));
+
+        EditorState = new PlaygroundEditorState(
+            snippets,
+            manifest.SafeSnippetPolicy.MaximumCharacters);
+        SelectedSnippetId = EditorState.ActiveSnippet.Id;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            JavaScriptModule = await JavaScript.InvokeAsync<IJSObjectReference>(
+                "import",
+                "./js/playground.js");
+            await JavaScriptModule.InvokeVoidAsync(
+                "initializeEditorShortcuts",
+                EditorElement);
+            var savedDraft = await JavaScriptModule.InvokeAsync<string?>(
+                "loadDraft",
+                DraftStorageKey);
+
+            if (savedDraft is not null)
+            {
+                if (EditorState.TryUpdateCode(savedDraft))
+                {
+                    EditorState.MarkSaved();
+                    StatusMessage = "Saved browser draft restored.";
+                }
+                else
+                {
+                    await JavaScriptModule.InvokeVoidAsync("clearDraft", DraftStorageKey);
+                    StatusMessage = "An oversized saved draft was discarded. The curated snippet remains loaded.";
+                }
+
+            }
+            else
+            {
+                StatusMessage = "The current snippet has not been saved in this browser.";
+            }
+        }
+        catch (JSException)
+        {
+            StatusMessage = "Browser storage is unavailable. Editing and reset still work, but save is disabled.";
+        }
+        finally
+        {
+            BrowserReady = true;
+            StateHasChanged();
+        }
+    }
+
+    private void UpdateCode(ChangeEventArgs eventArgs)
+    {
+        var code = eventArgs.Value?.ToString() ?? string.Empty;
+        StatusMessage = EditorState.TryUpdateCode(code)
+            ? "Unsaved changes."
+            : $"The editor limit is {EditorState.MaximumCharacters:N0} characters.";
+    }
+
+    private void LoadSelectedSnippet()
+    {
+        EditorState.LoadSnippet(SelectedSnippetId);
+        StatusMessage = $"Loaded {EditorState.ActiveSnippet.Title}. Save to keep it as your browser draft.";
+    }
+
+    private async Task SaveDraftAsync()
+    {
+        if (JavaScriptModule is null)
+        {
+            StatusMessage = "Browser storage is unavailable, so this draft was not saved.";
+            return;
+        }
+
+        try
+        {
+            await JavaScriptModule.InvokeVoidAsync(
+                "saveDraft",
+                DraftStorageKey,
+                EditorState.CurrentCode);
+            EditorState.MarkSaved();
+            StatusMessage = "Draft saved in this browser.";
+        }
+        catch (JSException)
+        {
+            StatusMessage = "The browser refused local storage, so this draft was not saved.";
+        }
+    }
+
+    private async Task ResetDraftAsync()
+    {
+        EditorState.Reset();
+        if (JavaScriptModule is not null)
+        {
+            try
+            {
+                await JavaScriptModule.InvokeVoidAsync("clearDraft", DraftStorageKey);
+            }
+            catch (JSException)
+            {
+                StatusMessage = "The editor reset, but the browser's saved draft could not be cleared.";
+                return;
+            }
+        }
+
+        StatusMessage = $"Editor reset to {EditorState.ActiveSnippet.Title}; the browser draft was cleared.";
+    }
+
+    private Task HandleEditorKeyDown(KeyboardEventArgs eventArgs)
+    {
+        if (eventArgs.CtrlKey && !eventArgs.AltKey && !eventArgs.ShiftKey
+            && string.Equals(eventArgs.Key, "s", StringComparison.OrdinalIgnoreCase))
+        {
+            return SaveDraftAsync();
+        }
+
+        if (eventArgs.CtrlKey && eventArgs.AltKey && !eventArgs.ShiftKey
+            && string.Equals(eventArgs.Key, "r", StringComparison.OrdinalIgnoreCase))
+        {
+            return ResetDraftAsync();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (JavaScriptModule is not null)
+        {
+            try
+            {
+                await JavaScriptModule.InvokeVoidAsync("disposeEditorShortcuts", EditorElement);
+                await JavaScriptModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The browser has already disconnected; no client resource remains to release.
+            }
+        }
+    }
+}

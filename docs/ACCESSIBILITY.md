@@ -77,13 +77,17 @@ Perform these checks in Microsoft Edge or Chrome before accepting Prompt 10:
 15. Disable JavaScript and repeat one answer on each pilot. Confirm the native forms still return deterministic feedback.
 16. Follow `docs/END_TO_END_TEST.md`. Confirm an incorrect answer adds an attempt without completion and a correct answer updates the lesson and dashboard.
 17. Review the dashboard at 200% zoom and 320 CSS pixels. Confirm summary cards, lesson cards, attempt history, and the recommended-next action remain readable.
-18. Open a separate InPrivate window. Confirm its progress starts at zero and the temporary-session explanation is visible.
+18. Open a separate InPrivate window. Confirm progress requires sign-in and a second account cannot see the first learner's data.
+19. Open Playground and reach the snippet selector, load button, textarea, save button, and reset button using only `Tab` and `Shift+Tab`.
+20. Confirm Tab leaves the textarea instead of inserting indentation or trapping focus.
+21. With focus in the editor, confirm `Ctrl+S` saves and `Ctrl+Alt+R` resets; verify the live status text announces each result.
+22. Enter text up to the displayed 1,200-character limit and confirm the character count remains understandable without color.
+23. At 200% zoom and 320 CSS pixels, confirm the editor, controls, shortcuts, limitations, and status remain readable without page-level horizontal scrolling.
 
 ## Deferred Accessibility Checks
 
 The following checks belong to later feature tasks because their controls do not exist yet:
 
-- editor labels, keyboard commands, error association, and code-reading experience;
 - retry focus management beyond native page navigation and enhanced screen-reader announcement testing;
 - Mermaid diagram alternatives and equivalent text traces;
 - authenticated session timeout and identity-form errors;
