@@ -1,30 +1,30 @@
-﻿@page "/Error"
+@page "/Error"
 @using System.Diagnostics
 
-<PageTitle>Error</PageTitle>
+<PageTitle>Something went wrong | CodeLogic</PageTitle>
 
-<h1 class="text-danger">Error.</h1>
-<h2 class="text-danger">An error occurred while processing your request.</h2>
+<section class="page-header" role="alert" aria-labelledby="error-title">
+    <p class="eyebrow">Application error</p>
+    <h1 id="error-title">Something went wrong.</h1>
+    <p>CodeLogic could not complete this request. Return home and try the action again.</p>
+    <a class="button button--primary" href="/">Return home</a>
+</section>
 
 @if (ShowRequestId)
 {
-    <p>
+    <p class="request-id">
         <strong>Request ID:</strong> <code>@RequestId</code>
     </p>
 }
 
-<h3>Development Mode</h3>
-<p>
-    Swapping to <strong>Development</strong> environment will display more detailed information about the error that occurred.
-</p>
-<p>
-    <strong>The Development environment shouldn't be enabled for deployed applications.</strong>
-    It can result in displaying sensitive information from exceptions to end users.
-    For local debugging, enable the <strong>Development</strong> environment by setting the <strong>ASPNETCORE_ENVIRONMENT</strong> environment variable to <strong>Development</strong>
-    and restarting the app.
-</p>
+<details class="developer-details">
+    <summary>Information for local development</summary>
+    <p>
+        The Development environment can display more detailed error information. It must not be enabled in a deployed application because details may contain sensitive information.
+    </p>
+</details>
 
-@code{
+@code {
     [CascadingParameter]
     private HttpContext? HttpContext { get; set; }
 

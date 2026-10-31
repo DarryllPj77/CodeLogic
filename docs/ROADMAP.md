@@ -3,8 +3,8 @@
 ## Roadmap Status
 
 - Last updated: 2026-10-31
-- Current completed milestone: Prompt 04 — Solution skeleton
-- Exact next numbered task: Prompt 05 — Design system and application shell
+- Current completed milestone: Prompt 05 — Design system and application shell
+- Exact next numbered task: Prompt 06 — Core domain model
 - Source coverage: Prompts 00–10 have been supplied; Prompts 11–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
@@ -35,8 +35,8 @@
 | 02 | Architecture decisions and six-level mapping | Complete | `docs/ARCHITECTURE.md` and ADRs define boundaries, tradeoffs, diagrams, and extraction seams. |
 | 03 | Windows and Visual Studio setup | Complete | `docs/SETUP_WINDOWS.md` records validated prerequisites and exact optional gaps without installing software. |
 | 04 | Solution skeleton | Complete | Solution restores, builds, tests, runs locally, and loads through Visual Studio. |
-| 05 | Design system and application shell | **Next** | Pages render, navigation works, and accessibility smoke checks are documented. |
-| 06 | Core domain model | Planned | Domain tests prove invariants and the Domain project has no framework dependencies. |
+| 05 | Design system and application shell | Complete | Pages render, navigation works, and accessibility smoke checks are documented. |
+| 06 | Core domain model | **Next** | Domain tests prove invariants and the Domain project has no framework dependencies. |
 | 07 | Curriculum specification | Planned | Curriculum schema validates and two complete pilot lessons display. |
 | 08 | Lesson reading UI | Planned | Two seeded lessons are navigable, responsive, and tested as feasible. |
 | 09 | Deterministic quiz evaluator | Planned | Correct, incorrect, and boundary tests pass with no arbitrary user-code execution. |
@@ -116,11 +116,31 @@ Acceptance gate:
 
 Prompt 04 must not implement design-system navigation, domain features, curriculum, lesson UI, quizzes, persistence, code analysis, or deployment.
 
-## Next Task and Planned Tasks 05–10
+## Completed Application Shell
 
 ### Prompt 05 — Design system and application shell
 
-Create responsive navigation and placeholder pages for home, lessons, playground, and progress. Establish accessible design tokens, focus treatment, and mobile layouts without backend persistence.
+Completed outcomes:
+
+- created responsive primary navigation and a shared header, main, and footer shell;
+- expanded the home page with clear entry points and honest feature previews;
+- added Lessons, Playground, and Progress placeholder routes without backend state;
+- established accessible color, spacing, typography, focus, reduced-motion, and mobile design tokens;
+- added recoverable not-found and application-error experiences;
+- documented automated, markup, and manual accessibility smoke checks in `docs/ACCESSIBILITY.md`;
+- verified all primary routes, navigation destinations, page titles, headings, landmarks, and unknown-route recovery.
+
+Acceptance gate:
+
+- all four primary pages return HTTP 200;
+- navigation destinations render the expected page content;
+- the responsive shell passes desktop visual review and includes narrow-screen breakpoints;
+- solution builds with zero warnings and both existing smoke tests pass;
+- accessibility foundations and owner-review steps are documented.
+
+Prompt 05 does not implement lessons, exercises, an editor, visualization, progress storage, or authentication.
+
+## Next Task and Planned Tasks 06–10
 
 ### Prompt 06 — Core domain model
 

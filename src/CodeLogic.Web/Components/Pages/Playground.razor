@@ -1,0 +1,43 @@
+@page "/playground"
+
+<PageTitle>Playground | CodeLogic</PageTitle>
+
+<HeadContent>
+    <meta name="description" content="Preview CodeLogic's planned safe and deterministic C# visualization playground." />
+</HeadContent>
+
+<section class="page-header" aria-labelledby="playground-title">
+    <p class="eyebrow">Playground</p>
+    <h1 id="playground-title">Understand supported code visually</h1>
+    <p>The editor and analyzer are not implemented yet. This placeholder explains the intended safety boundary.</p>
+</section>
+
+<div class="two-column">
+    <section class="placeholder-panel" aria-labelledby="editor-preview-title">
+        <p class="status-badge">Preview only</p>
+        <h2 id="editor-preview-title">Simple code editor</h2>
+        <pre aria-label="Example C# code"><code>int score = 8;
+
+if (score &gt;= 5)
+{
+    Console.WriteLine("Keep going!");
+}</code></pre>
+        <p>A later task will introduce an editor for short examples from a documented C# subset.</p>
+    </section>
+
+    <section class="placeholder-panel" aria-labelledby="visual-preview-title">
+        <p class="status-badge">Preview only</p>
+        <h2 id="visual-preview-title">Deterministic explanation</h2>
+        <ol class="step-list">
+            <li><span>1</span> Validate supported syntax</li>
+            <li><span>2</span> Build a bounded flow graph</li>
+            <li><span>3</span> Show a diagram and text trace</li>
+        </ol>
+        <p>The same supported input will produce the same explanation without relying on generative AI.</p>
+    </section>
+</div>
+
+<aside class="notice notice--warning" aria-labelledby="safety-title">
+    <h2 id="safety-title">Safety boundary</h2>
+    <p>CodeLogic will analyze a limited subset of C#. It will not execute arbitrary learner code inside the web application.</p>
+</aside>

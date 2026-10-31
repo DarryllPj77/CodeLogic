@@ -1,3 +1,30 @@
 ﻿@inherits LayoutComponentBase
 
-@Body
+<div class="site-shell">
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+
+    <header class="site-header">
+        <div class="site-header__inner">
+            <a class="brand" href="/" aria-label="CodeLogic home">
+                <span class="brand__mark" aria-hidden="true">CL</span>
+                <span>CodeLogic</span>
+            </a>
+
+            <NavMenu />
+        </div>
+    </header>
+
+    <main id="main-content" class="main-content" tabindex="-1">
+        @Body
+    </main>
+
+    <footer class="site-footer">
+        <p>CodeLogic · Learn C# one clear step at a time.</p>
+    </footer>
+</div>
+
+<div id="blazor-error-ui" role="alert" aria-live="assertive">
+    An unexpected error occurred.
+    <a href="." class="reload">Reload</a>
+    <button type="button" class="dismiss" aria-label="Dismiss error message">×</button>
+</div>
