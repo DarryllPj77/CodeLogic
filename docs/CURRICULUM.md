@@ -147,11 +147,10 @@ The `/lessons` route displays:
 - all seven draft titles, difficulty labels, and objectives;
 - a visible static-analysis-only safety notice.
 
-The page does not link to lesson detail routes because Prompt 08 owns the lesson reading UI and missing-ID behavior.
+Each complete pilot links to its lesson reading route. A lesson detail page displays the objective, ordered explanations, sample code, practice preview, safe-concept list, honest completion-state stub, and previous/next links across complete lessons. Draft and unknown slugs render a recoverable unavailable state with a link back to the lesson catalog.
 
 ## Explicitly Deferred
 
-- lesson detail routes and previous/next navigation;
 - executable exercise controls and answer feedback;
 - deterministic quiz evaluation;
 - curriculum persistence or authoring UI;

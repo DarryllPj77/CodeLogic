@@ -1,0 +1,142 @@
+@page "/lessons/{LessonSlug}"
+@inject ICurriculumCatalog CurriculumCatalog
+
+@if (ReadingContext is null)
+{
+    <PageTitle>Lesson unavailable | CodeLogic</PageTitle>
+
+    <section class="empty-state" aria-labelledby="lesson-unavailable-title">
+        <div class="empty-state__mark" aria-hidden="true">?</div>
+        <div>
+            <p class="eyebrow">Lesson unavailable</p>
+            <h1 id="lesson-unavailable-title">We could not find that complete lesson.</h1>
+            <p>The address may be incorrect, or the lesson may still be a draft.</p>
+            <a class="button button--primary" href="/lessons">Return to lessons</a>
+        </div>
+    </section>
+}
+else
+{
+    <PageTitle>@ReadingContext.Current.Lesson.Title | CodeLogic</PageTitle>
+
+    <HeadContent>
+        <meta name="description" content="@ReadingContext.Current.Lesson.Objective" />
+    </HeadContent>
+
+    <nav class="lesson-breadcrumb" aria-label="Breadcrumb">
+        <ol>
+            <li><a href="/">Home</a></li>
+            <li><a href="/lessons">Lessons</a></li>
+            <li aria-current="page">@ReadingContext.Topic.Title</li>
+        </ol>
+    </nav>
+
+    <article class="lesson-reading">
+        <header class="lesson-reading__header">
+            <div class="lesson-reading__meta">
+                <span class="status-badge">@ReadingContext.Current.StatusLabel</span>
+                <span>Lesson @ReadingContext.Current.Order · @ReadingContext.Current.DifficultyLabel</span>
+            </div>
+            <h1>@ReadingContext.Current.Lesson.Title</h1>
+            <p class="lesson-reading__objective">
+                <strong>Learning objective:</strong> @ReadingContext.Current.Lesson.Objective
+            </p>
+            <div class="button-row">
+                <a class="button button--primary" href="#practice-preview">Preview practice</a>
+                <a class="button button--secondary" href="/lessons">All lessons</a>
+            </div>
+        </header>
+
+        <div class="lesson-reading__layout">
+            <div class="lesson-reading__content">
+                @foreach (var section in ReadingContext.Current.Lesson.Sections)
+                {
+                    <section class="lesson-content-section" aria-labelledby="section-@section.Order">
+                        <p class="lesson-content-section__number">Section @section.Order</p>
+                        <h2 id="section-@section.Order">@section.Heading</h2>
+                        <p>@section.Content</p>
+                    </section>
+                }
+
+                <section class="lesson-code" aria-labelledby="sample-code-title">
+                    <p class="eyebrow">Code example</p>
+                    <h2 id="sample-code-title">Trace this sample</h2>
+                    <pre aria-label="Sample C# code for @ReadingContext.Current.Lesson.Title"><code>@ReadingContext.Current.SampleCode</code></pre>
+                    <p>
+                        This sample belongs to the declared safe subset. CodeLogic displays it as learning content and does not execute it.
+                    </p>
+                </section>
+
+                <section id="practice-preview" class="practice-preview" aria-labelledby="practice-preview-title">
+                    <p class="eyebrow">Practice preview</p>
+                    <h2 id="practice-preview-title">@ReadingContext.Current.Exercise.Title</h2>
+                    <p>@ReadingContext.Current.Exercise.Prompt</p>
+                    <p><strong>This checks:</strong> @ReadingContext.Current.QuizCriteria.AssessmentGoal</p>
+                    <div class="notice">
+                        <h3>Practice is not interactive yet</h3>
+                        <p>The deterministic evaluator and answer feedback belong to Prompt 09. No answer is collected or stored on this page.</p>
+                    </div>
+                </section>
+            </div>
+
+            <aside class="lesson-reading__sidebar" aria-labelledby="lesson-status-title">
+                <section class="completion-stub">
+                    <p class="status-badge">Not started</p>
+                    <h2 id="lesson-status-title">Completion is not connected</h2>
+                    <p>This is an honest display-only stub. No completion state is saved yet.</p>
+                </section>
+
+                <section class="safe-concepts" aria-labelledby="safe-concepts-title">
+                    <h2 id="safe-concepts-title">Safe concepts in this lesson</h2>
+                    <ul>
+                        @foreach (var concept in ReadingContext.Current.AllowedConcepts)
+                        {
+                            <li>@FormatConcept(concept)</li>
+                        }
+                    </ul>
+                </section>
+            </aside>
+        </div>
+    </article>
+
+    <nav class="lesson-pagination" aria-label="Lesson navigation">
+        @if (ReadingContext.Previous is not null)
+        {
+            <a class="lesson-pagination__link" href="/lessons/@ReadingContext.Previous.Slug">
+                <span>← Previous lesson</span>
+                <strong>@ReadingContext.Previous.Title</strong>
+            </a>
+        }
+        else
+        {
+            <span class="lesson-pagination__edge">This is the first complete lesson.</span>
+        }
+
+        @if (ReadingContext.Next is not null)
+        {
+            <a class="lesson-pagination__link lesson-pagination__link--next" href="/lessons/@ReadingContext.Next.Slug">
+                <span>Next lesson →</span>
+                <strong>@ReadingContext.Next.Title</strong>
+            </a>
+        }
+        else
+        {
+            <span class="lesson-pagination__edge lesson-pagination__edge--next">You reached the last complete lesson.</span>
+        }
+    </nav>
+}
+
+@code {
+    [Parameter]
+    public string LessonSlug { get; set; } = string.Empty;
+
+    private CurriculumLessonReadingContext? ReadingContext { get; set; }
+
+    protected override void OnParametersSet() =>
+        ReadingContext = CurriculumLessonNavigator.Resolve(
+            CurriculumCatalog.GetManifest(),
+            LessonSlug);
+
+    private static string FormatConcept(string concept) =>
+        concept.Replace('-', ' ');
+}

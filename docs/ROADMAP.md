@@ -3,8 +3,8 @@
 ## Roadmap Status
 
 - Last updated: 2026-10-31
-- Current completed milestone: Prompt 07 — Curriculum specification
-- Exact next numbered task: Prompt 08 — Lesson reading UI
+- Current completed milestone: Prompt 08 — Lesson reading UI
+- Exact next numbered task: Prompt 09 — Deterministic quiz evaluator
 - Source coverage: Prompts 00–10 have been supplied; Prompts 11–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
@@ -38,8 +38,8 @@
 | 05 | Design system and application shell | Complete | Pages render, navigation works, and accessibility smoke checks are documented. |
 | 06 | Core domain model | Complete | Domain tests prove invariants and the Domain project has no framework dependencies. |
 | 07 | Curriculum specification | Complete | Curriculum schema validates and two complete pilot lessons display. |
-| 08 | Lesson reading UI | **Next** | Two seeded lessons are navigable, responsive, and tested as feasible. |
-| 09 | Deterministic quiz evaluator | Planned | Correct, incorrect, and boundary tests pass with no arbitrary user-code execution. |
+| 08 | Lesson reading UI | Complete | Two seeded lessons are navigable, responsive, and tested; missing IDs recover gracefully. |
+| 09 | Deterministic quiz evaluator | **Next** | Correct, incorrect, and boundary tests pass with no arbitrary user-code execution. |
 | 10 | First end-to-end learning vertical slice | Planned | A student completes a lesson and sees updated in-session progress. |
 | 11–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
 
@@ -186,11 +186,30 @@ Acceptance gate:
 
 Prompt 07 does not implement lesson detail navigation, answer evaluation, persistence, or code execution.
 
-## Next Task and Planned Tasks 08–10
+## Completed Lesson Reading UI
 
 ### Prompt 08 — Lesson reading UI
 
-Build the lesson detail experience with objectives, explanations, code examples, practice navigation, previous/next links, and graceful missing-ID handling.
+Completed outcomes:
+
+- linked both complete pilot cards to stable slug-based lesson routes;
+- rendered objectives, ordered explanations, sample code, safe concepts, and quiz-goal practice previews;
+- added previous/next navigation across complete lessons with clear first/last edge states;
+- displayed honest practice and completion stubs without evaluation or saved state;
+- handled draft, blank, and unknown lesson slugs with a recoverable unavailable state;
+- added responsive reading layouts and visible keyboard focus behavior;
+- added focused navigation tests plus desktop and narrow-screen visual checks.
+
+Acceptance gate:
+
+- both seeded lessons render and navigate in curriculum order;
+- draft and unknown IDs recover without an unhandled error;
+- solution builds with zero warnings and all 35 tests pass;
+- detail routes pass HTTP, heading, content, link, and responsive visual smoke checks.
+
+Prompt 08 does not implement answer evaluation, interactive exercise controls, saved completion, persistence, or code execution.
+
+## Next Task and Planned Task 09–10
 
 ### Prompt 09 — Deterministic quiz evaluator
 

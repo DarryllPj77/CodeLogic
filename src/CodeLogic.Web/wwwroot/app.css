@@ -564,8 +564,181 @@ pre code {
     content: "An error has occurred.";
 }
 
+.lesson-card__action {
+    margin-top: var(--space-5);
+    width: 100%;
+}
+
+.lesson-breadcrumb {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    margin-bottom: var(--space-8);
+}
+
+.lesson-breadcrumb ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.lesson-breadcrumb li:not(:last-child)::after {
+    color: var(--color-border);
+    content: "/";
+    margin-left: var(--space-2);
+}
+
+.lesson-reading__header {
+    max-width: var(--content-reading);
+    padding-bottom: var(--space-10);
+}
+
+.lesson-reading__header h1 {
+    font-size: clamp(2.25rem, 6vw, 4.25rem);
+}
+
+.lesson-reading__meta {
+    align-items: baseline;
+    color: var(--color-text-muted);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: var(--font-size-sm);
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+
+.lesson-reading__objective {
+    background: var(--color-brand-soft);
+    border-left: 0.35rem solid var(--color-brand);
+    border-radius: var(--radius-sm);
+    color: var(--color-brand-strong);
+    font-size: var(--font-size-lg);
+    padding: var(--space-5);
+}
+
+.lesson-reading__layout {
+    align-items: start;
+    display: grid;
+    gap: var(--space-8);
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 19rem);
+}
+
+.lesson-reading__content {
+    min-width: 0;
+}
+
+.lesson-content-section,
+.lesson-code,
+.practice-preview {
+    border-top: 1px solid var(--color-border);
+    padding: var(--space-8) 0;
+}
+
+.lesson-content-section__number {
+    color: var(--color-accent);
+    font-size: var(--font-size-sm);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    margin-bottom: var(--space-2);
+    text-transform: uppercase;
+}
+
+.lesson-reading__sidebar {
+    display: grid;
+    gap: var(--space-4);
+    position: sticky;
+    top: 6rem;
+}
+
+.completion-stub,
+.safe-concepts {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    padding: var(--space-5);
+}
+
+.completion-stub h2,
+.safe-concepts h2 {
+    font-size: var(--font-size-lg);
+}
+
+.completion-stub p:last-child {
+    color: var(--color-text-muted);
+    margin-bottom: 0;
+}
+
+.safe-concepts ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    list-style: none;
+    margin: var(--space-4) 0 0;
+    padding: 0;
+}
+
+.safe-concepts li {
+    background: var(--color-accent-soft);
+    border-radius: 999px;
+    color: #075d50;
+    font-size: var(--font-size-sm);
+    padding: var(--space-1) var(--space-3);
+}
+
+.practice-preview {
+    scroll-margin-top: 6rem;
+}
+
+.practice-preview .notice {
+    box-shadow: none;
+}
+
+.lesson-pagination {
+    border-top: 1px solid var(--color-border);
+    display: grid;
+    gap: var(--space-4);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: var(--space-10);
+    padding-top: var(--space-8);
+}
+
+.lesson-pagination__link,
+.lesson-pagination__edge {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    min-height: 6rem;
+    padding: var(--space-4);
+}
+
+.lesson-pagination__link {
+    background: var(--color-surface);
+    text-decoration: none;
+}
+
+.lesson-pagination__link:hover {
+    background: var(--color-brand-soft);
+    border-color: var(--color-brand);
+}
+
+.lesson-pagination__link span,
+.lesson-pagination__edge {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+.lesson-pagination__link--next,
+.lesson-pagination__edge--next {
+    text-align: right;
+}
+
 @media (max-width: 52rem) {
     .hero,
+    .lesson-reading__layout,
     .principles {
         grid-template-columns: 1fr;
     }
@@ -577,12 +750,19 @@ pre code {
     .card-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    .lesson-reading__sidebar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        position: static;
+    }
 }
 
 @media (max-width: 38rem) {
     .card-grid,
     .curriculum-summary,
     .draft-list,
+    .lesson-pagination,
+    .lesson-reading__sidebar,
     .lesson-grid,
     .two-column {
         grid-template-columns: 1fr;
