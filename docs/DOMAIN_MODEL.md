@@ -2,11 +2,11 @@
 
 ## Document Status
 
-- Status: Implemented for Prompt 06
+- Status: Implemented through Prompt 10
 - Last updated: 2026-10-31
 - Scope: Initial curriculum, practice, attempt, and progress concepts only
 
-This model gives later tasks a small, framework-independent vocabulary. It encodes rules that are true regardless of UI, database, or hosting choices. It does not define persistence, curriculum seed data, quiz evaluation, or application workflows.
+This model gives the application a small, framework-independent vocabulary. It encodes rules that are true regardless of UI, database, or hosting choices. Curriculum specifications and evaluation live in Application, while temporary HTTP-session storage lives in Web.
 
 Prompt 07 now layers a validated typed curriculum manifest over these concepts. See [CURRICULUM.md](CURRICULUM.md) for the seed contract, pilot content, safe subset, and validation rules.
 
@@ -84,7 +84,7 @@ Invariants:
 - order is greater than zero;
 - kind is one of `MultipleChoice` or `ValueInput`.
 
-Correct-answer specifications and evaluator behavior are deliberately deferred to Prompt 09.
+Correct-answer specifications and evaluator behavior live in Application rather than the Domain exercise entity.
 
 ### ExerciseAttempt
 
@@ -97,7 +97,7 @@ Invariants:
 - outcome is `Correct` or `Incorrect`;
 - timestamp uses UTC.
 
-The model does not store a raw answer or perform evaluation. Those decisions require the later deterministic evaluator and privacy review.
+The model does not store a raw answer or perform evaluation. Prompt 10 records only the evaluated outcome, attempt number, exercise identifier, and UTC timestamp.
 
 ### ProgressSnapshot
 
@@ -112,7 +112,19 @@ Invariants:
 - capture timestamp uses UTC;
 - completion percentage is derived and rounded to two decimal places.
 
-The snapshot has no learner or account identifier because identity and persistence are not part of Prompt 06.
+The snapshot has no learner or account identifier. Prompt 10 creates it from temporary session state; identity and durable persistence remain deferred.
+
+### LearningSessionProgress application workflow
+
+`LearningSessionProgress` joins the existing Domain models without moving HTTP or storage concerns into Domain. It:
+
+- numbers attempts independently for each exercise;
+- creates an `ExerciseAttempt` only for correct or incorrect evaluations;
+- completes a lesson after a correct attempt;
+- keeps completed lesson IDs unique when a learner answers correctly more than once;
+- produces a `ProgressSnapshot` for the dashboard.
+
+The Web adapter serializes only attempt metadata and completed lesson IDs. Raw submitted answers are not stored in session progress.
 
 ## Dependency Boundary
 
@@ -138,16 +150,15 @@ The initial tests cover:
 - exercise relationship and kind validation;
 - attempt number, outcome, and UTC timestamp rules;
 - progress percentage and inconsistent count rejection;
+- incorrect-to-correct completion flow, per-exercise attempt numbering, duplicate-completion prevention, and answer-required rejection;
 - empty typed identifier rejection;
 - forbidden framework and outer-layer references.
 
 ## Explicitly Deferred
 
-- lesson reading workflows and curriculum persistence;
+- curriculum persistence;
 - draft/published lesson lifecycle;
-- answer choices and correct-answer specifications;
-- deterministic answer evaluation and feedback;
-- learner/session ownership of attempts;
+- learner accounts and cross-session ownership of attempts;
 - commands, handlers, repositories, database mappings, and migrations;
 - domain events and aggregate-root abstractions.
 

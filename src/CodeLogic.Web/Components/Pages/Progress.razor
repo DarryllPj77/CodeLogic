@@ -1,28 +1,166 @@
 @page "/progress"
+@inject ICurriculumCatalog CurriculumCatalog
+@inject SessionLearningProgressStore ProgressStore
+@inject TimeProvider TimeProvider
 
 <PageTitle>Progress | CodeLogic</PageTitle>
 
 <HeadContent>
-    <meta name="description" content="Preview how CodeLogic will present honest, understandable learning progress." />
+    <meta name="description" content="Review temporary CodeLogic lesson completion and practice attempts for this browser session." />
 </HeadContent>
 
 <section class="page-header" aria-labelledby="progress-title">
     <p class="eyebrow">Progress</p>
     <h1 id="progress-title">Your learning journey</h1>
-    <p>Progress tracking is not connected yet. It will be introduced as temporary in-session state before persistent accounts are added.</p>
+    <p>Review lesson completion and practice attempts from this browser session.</p>
 </section>
 
-<section class="empty-state" aria-labelledby="progress-empty-title">
-    <div class="empty-state__mark" aria-hidden="true">0</div>
-    <div>
-        <p class="status-badge">No progress data</p>
-        <h2 id="progress-empty-title">Complete a lesson when learning features arrive</h2>
-        <p>This page will summarize completed lessons and practice attempts without claiming mastery from a single answer.</p>
-        <a class="button button--secondary" href="/lessons">Preview planned lessons</a>
+<aside class="notice notice--warning" aria-labelledby="temporary-progress-title">
+    <h2 id="temporary-progress-title">Temporary session progress</h2>
+    <p>This information is held only in server memory for your current browser session. It can disappear when the session expires or the app restarts, and it is not connected to an account or database.</p>
+</aside>
+
+<section class="progress-summary" aria-labelledby="progress-summary-title">
+    <div class="section-heading">
+        <p class="eyebrow">Session summary</p>
+        <h2 id="progress-summary-title">@Snapshot.CompletedLessonCount of @Snapshot.TotalLessonCount pilot lessons complete</h2>
+    </div>
+
+    <progress value="@Snapshot.CompletedLessonCount" max="@Snapshot.TotalLessonCount">
+        @Snapshot.CompletionPercentage%
+    </progress>
+    <p>@Snapshot.CompletionPercentage% complete this session</p>
+
+    <dl class="progress-stats">
+        <div>
+            <dt>Attempts</dt>
+            <dd>@Snapshot.AttemptCount</dd>
+        </div>
+        <div>
+            <dt>Correct attempts</dt>
+            <dd>@Snapshot.CorrectAttemptCount</dd>
+        </div>
+        <div>
+            <dt>Lessons complete</dt>
+            <dd>@Snapshot.CompletedLessonCount</dd>
+        </div>
+    </dl>
+</section>
+
+<section class="section" aria-labelledby="lesson-progress-title">
+    <div class="section-heading">
+        <p class="eyebrow">Pilot lessons</p>
+        <h2 id="lesson-progress-title">Continue one lesson at a time</h2>
+    </div>
+
+    <div class="lesson-progress-list">
+        @foreach (var lesson in CompleteLessons)
+        {
+            var isComplete = SessionProgress.IsLessonComplete(lesson.Lesson.Id);
+            <article class="lesson-progress-card">
+                <div>
+                    <p class="status-badge">@(isComplete ? "Complete this session" : "Not complete")</p>
+                    <h3>@lesson.Lesson.Title</h3>
+                    <p>@lesson.Lesson.Objective</p>
+                </div>
+                <a class="button button--secondary" href="/lessons/@GetSlug(lesson)">
+                    @(isComplete ? "Review lesson" : "Continue lesson")
+                </a>
+            </article>
+        }
     </div>
 </section>
 
-<aside class="notice" aria-labelledby="privacy-title">
-    <h2 id="privacy-title">Honest state</h2>
-    <p>No learner information is collected or stored by this placeholder page.</p>
-</aside>
+<section class="section" aria-labelledby="attempt-history-title">
+    <div class="section-heading">
+        <p class="eyebrow">Practice history</p>
+        <h2 id="attempt-history-title">Attempts in this session</h2>
+    </div>
+
+    @if (SessionProgress.Attempts.Count == 0)
+    {
+        <div class="empty-state">
+            <div class="empty-state__mark" aria-hidden="true">0</div>
+            <div>
+                <p class="status-badge">No attempts yet</p>
+                <h3>Start with the first pilot lesson</h3>
+                <p>A submitted answer will appear here as correct or incorrect. One answer does not claim overall mastery.</p>
+                <a class="button button--primary" href="/lessons/@GetSlug(CompleteLessons[0])">Start learning</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <ol class="attempt-list">
+            @foreach (var attempt in SessionProgress.Attempts.Reverse())
+            {
+                var lesson = FindLesson(attempt.ExerciseId);
+                <li>
+                    <div>
+                        <strong>@lesson.Exercise.Title</strong>
+                        <span>@lesson.Lesson.Title · Attempt @attempt.AttemptNumber</span>
+                    </div>
+                    <div>
+                        <span class="attempt-outcome attempt-outcome--@attempt.Outcome.ToString().ToLowerInvariant()">@attempt.Outcome</span>
+                        <time datetime="@attempt.AttemptedAtUtc.ToString("O")">@FormatUtc(attempt.AttemptedAtUtc)</time>
+                    </div>
+                </li>
+            }
+        </ol>
+    }
+</section>
+
+<section class="progress-next" aria-labelledby="progress-next-title">
+    @if (RecommendedLesson is not null)
+    {
+        <div>
+            <p class="eyebrow">Recommended next</p>
+            <h2 id="progress-next-title">@RecommendedLesson.Lesson.Title</h2>
+            <p>Continue with the first pilot lesson that is not complete in this session.</p>
+        </div>
+        <a class="button button--primary" href="/lessons/@GetSlug(RecommendedLesson)">Continue learning</a>
+    }
+    else
+    {
+        <div>
+            <p class="eyebrow">Pilot complete</p>
+            <h2 id="progress-next-title">You completed both pilot lessons this session</h2>
+            <p>Review either lesson whenever you want. Persistent progress is still intentionally deferred.</p>
+        </div>
+        <a class="button button--secondary" href="/lessons">Review lessons</a>
+    }
+</section>
+
+@code {
+    private CurriculumManifest Manifest { get; set; } = null!;
+
+    private LearningSessionProgress SessionProgress { get; set; } = null!;
+
+    private ProgressSnapshot Snapshot { get; set; } = null!;
+
+    private IReadOnlyList<CurriculumLesson> CompleteLessons { get; set; } = [];
+
+    private CurriculumLesson? RecommendedLesson => CompleteLessons.FirstOrDefault(
+        lesson => !SessionProgress.IsLessonComplete(lesson.Lesson.Id));
+
+    protected override void OnInitialized()
+    {
+        Manifest = CurriculumCatalog.GetManifest();
+        CompleteLessons = Manifest.Lessons
+            .Where(lesson => lesson.Status == CurriculumLessonStatus.Complete)
+            .ToArray();
+        SessionProgress = ProgressStore.Load();
+        Snapshot = SessionProgress.CreateSnapshot(
+            CompleteLessons.Count,
+            TimeProvider.GetUtcNow());
+    }
+
+    private CurriculumLesson FindLesson(CodeLogic.Domain.ExerciseId exerciseId) =>
+        CompleteLessons.Single(lesson => lesson.Exercise.Id == exerciseId);
+
+    private string GetSlug(CurriculumLesson lesson) =>
+        Manifest.Topics.Single(topic => topic.Id == lesson.Lesson.TopicId).Slug;
+
+    private static string FormatUtc(DateTimeOffset timestamp) =>
+        timestamp.ToString("yyyy-MM-dd HH:mm 'UTC'", System.Globalization.CultureInfo.InvariantCulture);
+}

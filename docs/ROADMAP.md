@@ -3,8 +3,8 @@
 ## Roadmap Status
 
 - Last updated: 2026-10-31
-- Current completed milestone: Prompt 09 — Deterministic quiz evaluator
-- Exact next numbered task: Prompt 10 — First end-to-end learning vertical slice
+- Current completed milestone: Prompt 10 — First end-to-end learning vertical slice
+- Exact next numbered task: Not supplied; Prompt 11 remains awaiting definition
 - Source coverage: Prompts 00–10 have been supplied; Prompts 11–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
@@ -40,7 +40,7 @@
 | 07 | Curriculum specification | Complete | Curriculum schema validates and two complete pilot lessons display. |
 | 08 | Lesson reading UI | Complete | Two seeded lessons are navigable, responsive, and tested; missing IDs recover gracefully. |
 | 09 | Deterministic quiz evaluator | Complete | Correct, incorrect, and boundary tests pass with no arbitrary user-code execution. |
-| 10 | First end-to-end learning vertical slice | **Next** | A student completes a lesson and sees updated in-session progress. |
+| 10 | First end-to-end learning vertical slice | Complete | A student completes a lesson and sees updated, explicitly temporary in-session progress. |
 | 11–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
 
 ## Completed Foundation
@@ -233,11 +233,34 @@ Acceptance gate:
 
 Prompt 09 does not record attempts, persist answers, update completion, or implement the Prompt 10 learning journey.
 
-## Next Task
+## Completed First End-to-End Learning Vertical Slice
 
 ### Prompt 10 — First end-to-end learning vertical slice
 
-Connect lessons, quiz attempts, and explicitly temporary in-memory progress. Demonstrate a complete learner journey and provide an end-to-end manual test script.
+Completed outcomes:
+
+- connected deterministic quiz results to Domain `ExerciseAttempt` records;
+- added an Application workflow for per-exercise attempt numbering, correct-answer completion, and snapshots;
+- stored attempt metadata and completed lesson IDs in ASP.NET Core server-memory session state;
+- changed quiz submission to antiforgery-protected POST-redirect-GET behavior;
+- showed current-session completion on lesson pages and linked correct feedback to Progress;
+- replaced the Progress placeholder with counts, percentage, lesson states, attempt history, and the next incomplete pilot;
+- labeled the state as temporary, account-free, and vulnerable to session expiry or app restart;
+- added workflow tests, cookie-session HTTP verification, and `docs/END_TO_END_TEST.md`.
+
+Acceptance gate:
+
+- an incorrect answer records an attempt without completing the lesson;
+- a later correct answer completes the lesson and updates the dashboard to 1/2 and 50%;
+- repeated completion remains unique while attempts continue to increment;
+- a separate browser session starts at zero;
+- solution builds with zero warnings and the full test suite passes.
+
+Prompt 10 does not add a database, identity, cross-session persistence, raw-answer storage, or any Prompt 11 feature.
+
+## Awaiting the Next Supplied Prompt
+
+Prompts 11–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
 
 ## Six-Level Growth Map
 

@@ -1,12 +1,24 @@
 using CodeLogic.Application.Curriculum;
 using CodeLogic.Infrastructure.Curriculum;
 using CodeLogic.Web.Components;
+using CodeLogic.Web.Progress;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents();
 builder.Services.AddSingleton<ICurriculumCatalog, SeededCurriculumCatalog>();
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+});
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<SessionLearningProgressStore>();
+builder.Services.AddSingleton(TimeProvider.System);
 
 var app = builder.Build();
 
@@ -20,9 +32,11 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
+app.UseSession();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>();
+app.MapQuizSubmission();
 
 app.Run();

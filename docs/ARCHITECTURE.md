@@ -115,6 +115,10 @@ The levels are a growth path, not six layers that must all be implemented immedi
 
 ## Persistence
 
+Prompt 10 uses ASP.NET Core session with the built-in distributed-memory cache for an explicitly temporary learning slice. The session cookie contains an opaque identifier; attempt metadata and completed lesson IDs remain in server memory. This Web-owned HTTP adapter is not durable persistence: state can disappear on session expiry or process restart, and it does not replace the planned Infrastructure database adapter.
+
+The Application `LearningSessionProgress` workflow remains independent of ASP.NET Core, which provides the replacement seam for later durable storage.
+
 - Entity Framework Core is the planned relational persistence adapter.
 - SQLite is the local development database because it is file-based and requires little setup.
 - Domain and application code will not depend on SQLite-specific APIs.

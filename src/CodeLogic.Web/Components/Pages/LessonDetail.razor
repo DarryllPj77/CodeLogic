@@ -1,5 +1,6 @@
 @page "/lessons/{LessonSlug}"
 @inject ICurriculumCatalog CurriculumCatalog
+@inject SessionLearningProgressStore ProgressStore
 
 @if (ReadingContext is null)
 {
@@ -73,7 +74,8 @@ else
                     <p>@ReadingContext.Current.Exercise.Prompt</p>
                     <p><strong>This checks:</strong> @ReadingContext.Current.QuizCriteria.AssessmentGoal</p>
 
-                    <form class="quiz-form" method="get" action="/lessons/@ReadingContext.Slug#practice-preview">
+                    <form class="quiz-form" method="post" action="/lessons/@ReadingContext.Slug/quiz">
+                        <AntiforgeryToken />
                         @if (ReadingContext.Current.QuizCriteria.ResponseKind == QuizResponseKind.MultipleChoice)
                         {
                             <fieldset>
@@ -88,7 +90,6 @@ else
                                                    type="radio"
                                                    name="answer"
                                                    value="@option"
-                                                   checked="@(SubmittedAnswer == option)"
                                                    required />
                                             <span>@option</span>
                                         </label>
@@ -103,7 +104,6 @@ else
                                    class="quiz-input"
                                    type="text"
                                    name="answer"
-                                   value="@SubmittedAnswer"
                                    maxlength="100"
                                    autocomplete="off"
                                    required />
@@ -122,17 +122,27 @@ else
                                 <p><strong>Why:</strong> @EvaluationResult.Explanation</p>
                             }
                         </div>
+
+                        @if (EvaluationResult.IsCorrect)
+                        {
+                            <p><a class="text-link" href="/progress">View your updated session progress →</a></p>
+                        }
                     }
 
-                    <p class="quiz-privacy-note">Answers are compared as text and are not executed or stored as progress.</p>
+                    <p class="quiz-privacy-note">Answers are compared as text. Attempt outcomes and lesson completion remain only in this temporary browser session.</p>
                 </section>
             </div>
 
             <aside class="lesson-reading__sidebar" aria-labelledby="lesson-status-title">
                 <section class="completion-stub">
-                    <p class="status-badge">Not started</p>
-                    <h2 id="lesson-status-title">Completion is not connected</h2>
-                    <p>This is an honest display-only stub. No completion state is saved yet.</p>
+                    <p class="status-badge">@(IsLessonComplete ? "Complete this session" : "Not complete")</p>
+                    <h2 id="lesson-status-title">@(IsLessonComplete ? "Lesson completed" : "Finish the practice")</h2>
+                    <p>
+                        @(IsLessonComplete
+                            ? "A correct attempt completed this lesson for the current session."
+                            : "Submit a correct practice answer to complete this lesson for the current session.")
+                    </p>
+                    <a class="text-link" href="/progress">View session progress</a>
                 </section>
 
                 <section class="safe-concepts" aria-labelledby="safe-concepts-title">
@@ -179,12 +189,20 @@ else
     [Parameter]
     public string LessonSlug { get; set; } = string.Empty;
 
-    [SupplyParameterFromQuery(Name = "answer")]
-    public string? SubmittedAnswer { get; set; }
+    [SupplyParameterFromQuery(Name = "attempt")]
+    public Guid? AttemptId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "answerRequired")]
+    public bool AnswerRequired { get; set; }
 
     private CurriculumLessonReadingContext? ReadingContext { get; set; }
 
+    private LearningSessionProgress SessionProgress { get; set; } = new();
+
     private QuizEvaluationResult? EvaluationResult { get; set; }
+
+    private bool IsLessonComplete => ReadingContext is not null
+        && SessionProgress.IsLessonComplete(ReadingContext.Current.Lesson.Id);
 
     private string FeedbackClass => EvaluationResult?.Status == QuizEvaluationStatus.Correct
         ? "quiz-feedback--correct"
@@ -204,12 +222,44 @@ else
         ReadingContext = CurriculumLessonNavigator.Resolve(
             CurriculumCatalog.GetManifest(),
             LessonSlug);
+        SessionProgress = ProgressStore.Load();
 
-        EvaluationResult = ReadingContext is not null && SubmittedAnswer is not null
-            ? DeterministicQuizEvaluator.Evaluate(
-                ReadingContext.Current.QuizCriteria,
-                SubmittedAnswer)
-            : null;
+        EvaluationResult = ResolveEvaluationResult();
+    }
+
+    private QuizEvaluationResult? ResolveEvaluationResult()
+    {
+        if (ReadingContext is null)
+        {
+            return null;
+        }
+
+        if (AnswerRequired)
+        {
+            return new QuizEvaluationResult(
+                QuizEvaluationStatus.AnswerRequired,
+                "Enter or choose an answer before checking it.",
+                Explanation: null);
+        }
+
+        var attempt = AttemptId is null
+            ? null
+            : SessionProgress.Attempts.SingleOrDefault(item =>
+                item.Id.Value == AttemptId
+                && item.ExerciseId == ReadingContext.Current.Exercise.Id);
+
+        return attempt?.Outcome switch
+        {
+            AttemptOutcome.Correct => new QuizEvaluationResult(
+                QuizEvaluationStatus.Correct,
+                "Correct. Your answer matches the lesson specification.",
+                ReadingContext.Current.QuizCriteria.Explanation),
+            AttemptOutcome.Incorrect => new QuizEvaluationResult(
+                QuizEvaluationStatus.Incorrect,
+                "Not quite. Review the explanation and try again.",
+                ReadingContext.Current.QuizCriteria.Explanation),
+            _ => null,
+        };
     }
 
     private static string FormatConcept(string concept) =>

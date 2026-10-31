@@ -2,7 +2,7 @@
 
 ## Document Status
 
-- Status: Implemented through Prompt 09
+- Status: Implemented through Prompt 10
 - Last updated: 2026-10-31
 - Manifest type: Typed seed
 - Schema version: 1
@@ -96,7 +96,7 @@ The Application-layer evaluator compares submitted text with the expected answer
 
 Blank answers receive an answer-required result without revealing the explanation. Valid correct and incorrect submissions receive concise feedback and the human-authored explanation. Multiple-choice specifications must define at least two unique non-blank choices containing the expected answer. Value-input specifications cannot define choices.
 
-Lesson practice uses ordinary HTML GET forms so it works with the current static server-rendered Blazor application. Responses are evaluated for the current request only. They are not compiled, executed, persisted, or converted into progress.
+Lesson practice uses antiforgery-protected HTML POST forms so refreshes do not create duplicate attempts. Responses are evaluated as text and are never compiled or executed. Correct and incorrect outcomes are converted into temporary session attempts; raw answers are not stored in progress.
 
 ## Safe Snippet Subset
 
@@ -160,12 +160,12 @@ The `/lessons` route displays:
 - all seven draft titles, difficulty labels, and objectives;
 - a visible static-analysis-only safety notice.
 
-Each complete pilot links to its lesson reading route. A lesson detail page displays the objective, ordered explanations, sample code, deterministic practice form and feedback, safe-concept list, honest completion-state stub, and previous/next links across complete lessons. Draft and unknown slugs render a recoverable unavailable state with a link back to the lesson catalog.
+Each complete pilot links to its lesson reading route. A lesson detail page displays the objective, ordered explanations, sample code, deterministic practice form and feedback, safe-concept list, current-session completion status, and previous/next links across complete lessons. Draft and unknown slugs render a recoverable unavailable state with a link back to the lesson catalog.
 
 ## Explicitly Deferred
 
 - curriculum persistence or authoring UI;
-- attempt history, retry counts, and saved answers;
-- learner completion and progress state;
+- saved raw answers and progress that survives the session;
+- learner accounts and cross-device progress;
 - Roslyn parsing and supported-subset enforcement;
 - arbitrary code compilation or execution.
