@@ -3,8 +3,8 @@
 ## Roadmap Status
 
 - Last updated: 2026-10-31
-- Current completed milestone: Prompt 05 — Design system and application shell
-- Exact next numbered task: Prompt 06 — Core domain model
+- Current completed milestone: Prompt 06 — Core domain model
+- Exact next numbered task: Prompt 07 — Curriculum specification
 - Source coverage: Prompts 00–10 have been supplied; Prompts 11–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
@@ -36,8 +36,8 @@
 | 03 | Windows and Visual Studio setup | Complete | `docs/SETUP_WINDOWS.md` records validated prerequisites and exact optional gaps without installing software. |
 | 04 | Solution skeleton | Complete | Solution restores, builds, tests, runs locally, and loads through Visual Studio. |
 | 05 | Design system and application shell | Complete | Pages render, navigation works, and accessibility smoke checks are documented. |
-| 06 | Core domain model | **Next** | Domain tests prove invariants and the Domain project has no framework dependencies. |
-| 07 | Curriculum specification | Planned | Curriculum schema validates and two complete pilot lessons display. |
+| 06 | Core domain model | Complete | Domain tests prove invariants and the Domain project has no framework dependencies. |
+| 07 | Curriculum specification | **Next** | Curriculum schema validates and two complete pilot lessons display. |
 | 08 | Lesson reading UI | Planned | Two seeded lessons are navigable, responsive, and tested as feasible. |
 | 09 | Deterministic quiz evaluator | Planned | Correct, incorrect, and boundary tests pass with no arbitrary user-code execution. |
 | 10 | First end-to-end learning vertical slice | Planned | A student completes a lesson and sees updated in-session progress. |
@@ -140,11 +140,28 @@ Acceptance gate:
 
 Prompt 05 does not implement lessons, exercises, an editor, visualization, progress storage, or authentication.
 
-## Next Task and Planned Tasks 06–10
+## Completed Core Domain Model
 
 ### Prompt 06 — Core domain model
 
-Introduce only the domain concepts needed for lessons, exercises, attempts, and progress. Encode meaningful invariants and tests without premature aggregates or generic repositories.
+Completed outcomes:
+
+- introduced typed identifiers for topics, lessons, lesson sections, exercises, and attempts;
+- implemented `Topic`, `Lesson`, `LessonSection`, `Exercise`, `ExerciseAttempt`, and `ProgressSnapshot`;
+- encoded required text, identifier, ordering, uniqueness, count consistency, enum, and UTC timestamp invariants;
+- kept Lesson ownership limited to its sections while exercises reference `LessonId` independently;
+- added focused positive, negative, boundary, immutability, and dependency tests;
+- documented the model and explicitly deferred evaluator, persistence, repository, identity, and domain-event concerns.
+
+Acceptance gate:
+
+- all 23 domain unit tests pass;
+- full solution has 24 passing tests and zero failures;
+- Domain builds with zero warnings and zero errors;
+- Domain has no package or project references;
+- an architecture test rejects ASP.NET Core, EF Core, Roslyn, Web, Infrastructure, and Application references.
+
+## Next Task and Planned Tasks 07–10
 
 ### Prompt 07 — Curriculum specification
 

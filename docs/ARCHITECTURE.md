@@ -90,7 +90,7 @@ Feature folders may group related code within a boundary, but they do not revers
 
 ## Initial Logical Modules
 
-The exact domain model is deferred to later prompts. Likely business capabilities are:
+Prompt 06 establishes the initial framework-independent concepts described in [DOMAIN_MODEL.md](DOMAIN_MODEL.md). The business capabilities remain:
 
 - Curriculum: lessons, sections, topics, and curated examples.
 - Practice: exercise specifications, answer evaluation, and feedback.
