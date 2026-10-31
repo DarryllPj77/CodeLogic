@@ -1,0 +1,159 @@
+# CodeLogic Build Roadmap
+
+## Roadmap Status
+
+- Last updated: 2026-10-31
+- Current completed milestone: Prompt 03 — Windows and Visual Studio setup
+- Exact next numbered task: Prompt 04 — Solution skeleton
+- Source coverage: Prompts 00–10 have been supplied; Prompts 11–29 have not yet been added to the repository
+
+## How to Use This Roadmap
+
+1. Work on one numbered prompt at a time.
+2. Read `AGENTS.md` and this roadmap before starting.
+3. Review the plan and expected file list before edits.
+4. Review the final diff, verification evidence, limitations, and manual test steps.
+5. Commit and push only with explicit owner approval.
+6. Mark a task complete only after its acceptance gate is satisfied.
+7. Do not start the next prompt until the owner approves proceeding.
+
+## Status Definitions
+
+| Status | Meaning |
+| --- | --- |
+| Complete | Acceptance evidence exists in the repository and the change has been committed. |
+| Next | The next task eligible for execution after owner approval. |
+| Planned | The prompt is known but must not be started yet. |
+| Awaiting definition | The playbook refers to the number, but its exact prompt has not been supplied. |
+
+## Numbered Build Sequence
+
+| Prompt | Task | Status | Primary evidence or acceptance gate |
+| --- | --- | --- | --- |
+| 00 | Codex operating contract and repository inventory | Complete | `docs/CODEX_WORKFLOW.md` records workflow, inventory, unknowns, and owner decision rights. |
+| 01 | Product charter and scope | Complete | `docs/PRODUCT.md` defines users, outcomes, accessible MVP, deterministic learning, deferred features, and non-goals. |
+| 02 | Architecture decisions and six-level mapping | Complete | `docs/ARCHITECTURE.md` and ADRs define boundaries, tradeoffs, diagrams, and extraction seams. |
+| 03 | Windows and Visual Studio setup | Complete | `docs/SETUP_WINDOWS.md` records validated prerequisites and exact optional gaps without installing software. |
+| 04 | Solution skeleton | **Next** | Solution restores, builds, tests, and opens in Visual Studio. |
+| 05 | Design system and application shell | Planned | Pages render, navigation works, and accessibility smoke checks are documented. |
+| 06 | Core domain model | Planned | Domain tests prove invariants and the Domain project has no framework dependencies. |
+| 07 | Curriculum specification | Planned | Curriculum schema validates and two complete pilot lessons display. |
+| 08 | Lesson reading UI | Planned | Two seeded lessons are navigable, responsive, and tested as feasible. |
+| 09 | Deterministic quiz evaluator | Planned | Correct, incorrect, and boundary tests pass with no arbitrary user-code execution. |
+| 10 | First end-to-end learning vertical slice | Planned | A student completes a lesson and sees updated in-session progress. |
+| 11–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
+
+## Completed Foundation
+
+### Prompt 00 — Codex operating contract and repository inventory
+
+Completed outcomes:
+
+- established the one-prompt-one-task workflow;
+- recorded approval boundaries and task evidence requirements;
+- inventoried the initially empty repository and local .NET environment;
+- connected the local repository to the owner's GitHub remote.
+
+### Prompt 01 — Product charter and scope
+
+Completed outcomes:
+
+- defined primary and secondary users and the problems CodeLogic solves;
+- defined beginner learning outcomes and the end-to-end learning journey;
+- prioritized lessons, exercises, a simple editor, deterministic visualization, accessibility, and honest progress;
+- explicitly deferred arbitrary execution, AI dependency, advanced IDE features, and distributed infrastructure;
+- established measurable MVP acceptance criteria.
+
+### Prompt 02 — Architecture decisions and six-level mapping
+
+Completed outcomes:
+
+- selected a modular monolith with Domain, Application, Infrastructure, and Web boundaries;
+- selected Blazor Web App and ASP.NET Core;
+- chose EF Core with SQLite for local development and provider independence for hosted environments;
+- planned Roslyn analysis, a custom graph IR, and Mermaid as the first renderer;
+- documented why broad CQRS, microservices, and Kubernetes are premature;
+- recorded future extraction seams and five proposed ADRs.
+
+The ADRs remain proposed until the owner explicitly accepts or revises their decisions.
+
+### Prompt 03 — Windows and Visual Studio setup
+
+Completed outcomes:
+
+- verified Visual Studio Community 2026 and the ASP.NET/web workload;
+- verified .NET 10 SDK and ASP.NET Core runtime availability;
+- verified Git, supported browsers, SQLite CLI, and EF Core CLI;
+- recorded Docker Desktop as optional and currently absent;
+- confirmed no required prerequisite is missing for Prompt 04.
+
+## Next Task Detail
+
+### Prompt 04 — Solution skeleton
+
+Planned scope from the supplied playbook:
+
+- create `CodeLogic.slnx`, or `.sln` only if the IDE requires it;
+- create `src/CodeLogic.Web` as the minimal executable Blazor Web App;
+- create `src/CodeLogic.Domain`;
+- create `src/CodeLogic.Application`;
+- create `src/CodeLogic.Infrastructure`;
+- create `tests/CodeLogic.UnitTests`;
+- create `tests/CodeLogic.IntegrationTests`;
+- target .NET 10 with nullable reference types and analyzers;
+- add central project settings only when they provide a clear benefit;
+- provide a minimal executable home page, without beginning the design-system task.
+
+Acceptance gate:
+
+- solution restores;
+- solution builds;
+- tests run successfully;
+- solution opens in Visual Studio.
+
+Prompt 04 must not implement design-system navigation, domain features, curriculum, lesson UI, quizzes, persistence, code analysis, or deployment.
+
+## Planned Tasks 05–10
+
+### Prompt 05 — Design system and application shell
+
+Create responsive navigation and placeholder pages for home, lessons, playground, and progress. Establish accessible design tokens, focus treatment, and mobile layouts without backend persistence.
+
+### Prompt 06 — Core domain model
+
+Introduce only the domain concepts needed for lessons, exercises, attempts, and progress. Encode meaningful invariants and tests without premature aggregates or generic repositories.
+
+### Prompt 07 — Curriculum specification
+
+Define a data-driven curriculum schema for the planned foundational topics. Complete two pilot lessons and mark remaining content honestly as draft.
+
+### Prompt 08 — Lesson reading UI
+
+Build the lesson detail experience with objectives, explanations, code examples, practice navigation, previous/next links, and graceful missing-ID handling.
+
+### Prompt 09 — Deterministic quiz evaluator
+
+Implement specification-driven multiple-choice and value-based evaluation with normalized rules and human-authored feedback. Do not execute learner code.
+
+### Prompt 10 — First end-to-end learning vertical slice
+
+Connect lessons, quiz attempts, and explicitly temporary in-memory progress. Demonstrate a complete learner journey and provide an end-to-end manual test script.
+
+## Six-Level Growth Map
+
+| Level | Roadmap application |
+| --- | --- |
+| L1 — Idiomatic C# | Begins with Prompt 04 and applies to every implementation task. |
+| L2 — SOLID and tests | Begins with the solution test structure and grows with behavior introduced in Prompts 06–10. |
+| L3 — Domain design | Starts pragmatically in Prompt 06 after product language is established. |
+| L4 — Clean/Hexagonal boundaries | Project boundaries begin in Prompt 04; selective CQRS remains deferred until justified. |
+| L5 — Deployment evolution | One deployable monolith first; workers, events, and extraction require later evidence. |
+| L6 — Delivery infrastructure | Docker, GitHub Actions, and Azure belong to later supplied prompts; Kubernetes and AWS remain optional studies. |
+
+## Roadmap Change Rules
+
+- Do not mark future implementation complete based only on documentation.
+- When a task is completed, update its status and evidence in this file within that task's allowed documentation scope.
+- Do not fill Prompts 11–29 with guessed requirements. Add them only from the owner's playbook.
+- If a new prompt conflicts with the accepted product charter or architecture, surface the conflict and obtain an owner decision before implementation.
+- Preserve historical ADRs; supersede decisions with a new ADR rather than rewriting accepted history.
