@@ -3,9 +3,9 @@
 ## Roadmap Status
 
 - Last updated: 2026-10-31
-- Current completed milestone: Prompt 10 — First end-to-end learning vertical slice
-- Exact next numbered task: Not supplied; Prompt 11 remains awaiting definition
-- Source coverage: Prompts 00–10 have been supplied; Prompts 11–29 have not yet been added to the repository
+- Current completed milestone: Prompt 11 — Persistence foundation
+- Exact next numbered task: Not supplied; Prompt 12 remains awaiting definition
+- Source coverage: Prompts 00–11 have been supplied; Prompts 12–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
 
@@ -41,7 +41,8 @@
 | 08 | Lesson reading UI | Complete | Two seeded lessons are navigable, responsive, and tested; missing IDs recover gracefully. |
 | 09 | Deterministic quiz evaluator | Complete | Correct, incorrect, and boundary tests pass with no arbitrary user-code execution. |
 | 10 | First end-to-end learning vertical slice | Complete | A student completes a lesson and sees updated, explicitly temporary in-session progress. |
-| 11–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
+| 11 | Persistence foundation | Complete | Migration applies cleanly, tests use isolated SQLite databases, and seeded curriculum survives restart. |
+| 12–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
 
 ## Completed Foundation
 
@@ -258,9 +259,36 @@ Acceptance gate:
 
 Prompt 10 does not add a database, identity, cross-session persistence, raw-answer storage, or any Prompt 11 feature.
 
+## Completed Persistence Foundation
+
+### Prompt 11 — Persistence foundation
+
+Completed outcomes:
+
+- added EF Core 10.0.5 and SQLite behind the existing `ICurriculumCatalog` seam;
+- mapped curriculum topics and lesson specifications with keys, relationship, limits, and unique indexes;
+- stored small nested lesson collections as JSON instead of prematurely adding more tables;
+- generated and applied the `InitialPersistence` migration with all nine deterministic curriculum seeds;
+- configured the ignored development database under `CodeLogic.Web/App_Data`;
+- kept learner attempts and completion in temporary session state because no accounts exist;
+- added isolated SQLite migration tests and file-database reopen coverage;
+- verified the web app reads the same seeded database after process restart;
+- documented migration, reset, test, and future-migration workflows.
+
+Acceptance gate:
+
+- the initial migration applies cleanly to an empty SQLite database;
+- the EF-backed catalog reconstructs a valid nine-topic, nine-lesson manifest;
+- integration tests use separate databases and cannot leak changes between tests;
+- a new `DbContext` and a restarted web process retain the seeded curriculum;
+- dependency audit reports no vulnerable packages;
+- solution builds with zero warnings and the full test suite passes.
+
+Prompt 11 does not add Identity, user accounts, durable learner progress, curriculum authoring, automatic production migrations, or a hosted database provider.
+
 ## Awaiting the Next Supplied Prompt
 
-Prompts 11–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
+Prompts 12–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
 
 ## Six-Level Growth Map
 

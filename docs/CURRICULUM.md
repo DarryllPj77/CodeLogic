@@ -2,20 +2,31 @@
 
 ## Document Status
 
-- Status: Implemented through Prompt 10
+- Status: Implemented through Prompt 11
 - Last updated: 2026-10-31
-- Manifest type: Typed seed
+- Manifest type: EF-backed runtime catalog with typed migration seed
 - Schema version: 1
 - Complete pilots: 2
 - Draft lessons: 7
 
 ## Purpose
 
-The curriculum manifest is the single data source for the initial learning sequence. It describes what each lesson intends to teach without placing seed content inside Blazor components.
+The curriculum manifest is the single application contract for the initial learning sequence. It describes what each lesson intends to teach without placing curriculum content inside Blazor components.
 
-The manifest contract lives in `CodeLogic.Application/Curriculum`. The seed lives in `CodeLogic.Infrastructure/Curriculum/SeededCurriculumCatalog.cs`. The Web project requests it through `ICurriculumCatalog` and renders the lesson listing.
+The manifest contract lives in `CodeLogic.Application/Curriculum`. The reviewed typed seed lives in `CodeLogic.Infrastructure/Curriculum/SeededCurriculumCatalog.cs` and supplies deterministic rows to the initial migration. At runtime, `EfCurriculumCatalog` reads SQLite through `CodeLogicDbContext`, reconstructs the manifest, and validates it before returning it through `ICurriculumCatalog`.
 
-This separation allows a later JSON, database, or authoring adapter to implement the same catalog contract without moving curriculum rules into the UI.
+This separation keeps EF Core and SQLite out of Domain, Application, and Blazor components. A future hosted database or authoring adapter can preserve the same catalog contract.
+
+## Persistence Behavior
+
+- Topics and lesson specifications are stored in SQLite and survive application restarts.
+- Sections, allowed concepts, and answer options are small JSON values inside lesson rows.
+- The initial migration inserts two complete pilots and seven drafts with deterministic IDs.
+- The application never calls `EnsureCreated`; tests and development use the real migration.
+- Curriculum migrations are explicit and are not applied automatically at web startup.
+- Learner attempts and completion remain separate temporary session state.
+
+See [PERSISTENCE.md](PERSISTENCE.md) for apply, migration, reset, and test instructions.
 
 ## Manifest Shape
 

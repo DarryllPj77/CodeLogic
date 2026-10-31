@@ -9,9 +9,10 @@ Progress is intentionally temporary. It is stored in server memory and identifie
 ## Prerequisites
 
 1. Open `CodeLogic.slnx` in Visual Studio.
-2. Set `CodeLogic.Web` as the startup project.
-3. Run with **Ctrl+F5** or the HTTP launch profile.
-4. Use a fresh InPrivate window for a predictable empty session.
+2. Apply the local development migration using the command in `docs/PERSISTENCE.md`.
+3. Set `CodeLogic.Web` as the startup project.
+4. Run with **Ctrl+F5** or the HTTP launch profile.
+5. Use a fresh InPrivate window for a predictable empty session.
 
 ## Variables and Types Journey
 

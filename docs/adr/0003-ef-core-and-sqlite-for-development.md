@@ -1,6 +1,6 @@
 # ADR 0003: EF Core with SQLite for Local Development
 
-- Status: Proposed
+- Status: Accepted and implemented by Prompt 11
 - Date: 2026-10-31
 
 ## Context
@@ -14,6 +14,8 @@ Use Entity Framework Core as the relational persistence adapter and SQLite for l
 Use application-focused persistence ports or narrow query abstractions only where a boundary or test requires them. Do not introduce a generic repository solely to wrap EF Core.
 
 Production database selection is deferred. Azure SQL and PostgreSQL are candidates and must be validated with provider-specific integration tests before adoption.
+
+Prompt 11 implements this decision for curriculum reads. Anonymous learner progress remains session-only until Identity provides a meaningful ownership key.
 
 ## Alternatives Considered
 
@@ -50,3 +52,12 @@ Offers explicit query control, but adds mapping work that is not currently justi
 ## Future Extraction Seams
 
 Infrastructure owns the database provider and mappings. Moving to Azure SQL or PostgreSQL should change Infrastructure and deployment configuration, not core learning rules. A module may receive separate storage only when ownership, scale, or isolation evidence justifies it.
+
+## Implementation Notes
+
+- EF Core and SQLite packages are version `10.0.5`.
+- A patched `SQLitePCLRaw.bundle_e_sqlite3` `2.1.14` overrides the vulnerable transitive native bundle from the EF provider.
+- `ICurriculumCatalog` is the narrow Application seam; no generic repository was added.
+- The initial migration creates topic and lesson tables and inserts the nine-item development curriculum.
+- Local migrations are applied explicitly with `dotnet ef database update`; the web app does not migrate at startup.
+- Integration tests apply the real migration to isolated SQLite databases.

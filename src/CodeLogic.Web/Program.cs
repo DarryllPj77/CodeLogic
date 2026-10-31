@@ -1,5 +1,4 @@
-using CodeLogic.Application.Curriculum;
-using CodeLogic.Infrastructure.Curriculum;
+using CodeLogic.Infrastructure.Persistence;
 using CodeLogic.Web.Components;
 using CodeLogic.Web.Progress;
 
@@ -7,7 +6,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents();
-builder.Services.AddSingleton<ICurriculumCatalog, SeededCurriculumCatalog>();
+builder.Services.AddCodeLogicPersistence(
+    builder.Configuration.GetConnectionString("CodeLogic")
+        ?? throw new InvalidOperationException("Connection string 'CodeLogic' is required."),
+    builder.Environment.ContentRootPath);
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {

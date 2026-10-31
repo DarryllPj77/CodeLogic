@@ -2,10 +2,10 @@
 
 ## Document Status
 
-- Status: Proposed for owner review
-- Playbook task: 02 — Architecture decisions and six-level mapping
+- Status: Implemented through Prompt 11
+- Playbook task: 11 — Persistence foundation
 - Last updated: 2026-10-31
-- Implementation status: No application projects exist yet. This document describes the intended direction, not completed software.
+- Implementation status: The modular-monolith projects, curriculum flow, session learning slice, and SQLite curriculum persistence adapter are implemented. Roslyn, Mermaid, Identity, and hosted infrastructure remain planned.
 
 ## Architectural Goal
 
@@ -115,14 +115,17 @@ The levels are a growth path, not six layers that must all be implemented immedi
 
 ## Persistence
 
-Prompt 10 uses ASP.NET Core session with the built-in distributed-memory cache for an explicitly temporary learning slice. The session cookie contains an opaque identifier; attempt metadata and completed lesson IDs remain in server memory. This Web-owned HTTP adapter is not durable persistence: state can disappear on session expiry or process restart, and it does not replace the planned Infrastructure database adapter.
+Prompt 10 uses ASP.NET Core session with the built-in distributed-memory cache for explicitly temporary learner attempts and completion. The session cookie contains an opaque identifier; attempt metadata and completed lesson IDs remain in server memory and can disappear on session expiry or process restart.
 
 The Application `LearningSessionProgress` workflow remains independent of ASP.NET Core, which provides the replacement seam for later durable storage.
 
-- Entity Framework Core is the planned relational persistence adapter.
-- SQLite is the local development database because it is file-based and requires little setup.
+- Prompt 11 implements EF Core 10 as the curriculum persistence adapter behind `ICurriculumCatalog`.
+- SQLite stores the development curriculum because it is file-based and requires little setup.
 - Domain and application code will not depend on SQLite-specific APIs.
-- EF Core configurations and migrations belong in Infrastructure.
+- `CodeLogicDbContext`, configurations, seed conversion, catalog adapter, and migrations live in Infrastructure.
+- Web supplies the development connection string and composes the adapter; Blazor components do not access `DbContext`.
+- Integration tests use isolated SQLite databases and apply real migrations.
+- Migrations are explicit development/deployment steps and do not run automatically at application startup.
 - Hosted environments may later use Azure SQL or PostgreSQL after provider compatibility is tested.
 - Development convenience does not justify running migrations automatically against production.
 
@@ -202,7 +205,7 @@ Possible future trigger: multiple independently deployed services, demanding sca
 
 | Seam | Current form | Potential evolution | Evidence required before evolution |
 | --- | --- | --- | --- |
-| Persistence | EF Core adapter behind application use cases | Azure SQL/PostgreSQL provider | Hosted environment, concurrency, backup, or scale requirement |
+| Persistence | EF Core SQLite catalog adapter behind `ICurriculumCatalog` | Azure SQL/PostgreSQL provider and later account-aware progress storage | Hosted environment, identity, concurrency, backup, or scale requirement |
 | Code analysis | In-process adapter producing graph IR | Isolated worker or service | CPU/memory contention, security isolation, or independent scaling need |
 | Visualization | Mermaid renderer consuming graph IR | Alternate renderer/export service | Accessibility, export, or rendering requirement Mermaid cannot meet |
 | Curriculum content | Module-owned storage accessed via application contracts | Content service or external authoring system | Independent publishing workflow or ownership need |
@@ -231,6 +234,6 @@ An extraction seam is permission to evolve, not a commitment to distribute the s
 
 ## Known Documentation Gaps
 
-- `AGENTS.md` and `docs/ROADMAP.md` were not present when this task began.
-- The Prompt 01 product charter was not present, so module names and priorities remain provisional.
-- Concrete project references and architecture tests must be added only when the solution skeleton is created in its designated later task.
+- The hosted relational provider is not selected.
+- Account-aware progress persistence is not designed because Identity is not in scope yet.
+- Roslyn, graph IR, Mermaid, and delivery infrastructure await their numbered tasks.
