@@ -3,9 +3,9 @@
 ## Roadmap Status
 
 - Last updated: 2026-11-01
-- Current completed milestone: Prompt 23 — Security hardening and safe execution design
-- Exact next numbered task: Not supplied; Prompt 24 remains awaiting definition
-- Source coverage: Prompts 00–23 have been supplied; Prompts 24–29 have not yet been added to the repository
+- Current completed milestone: Prompt 24 — Isolated code runner experimental spike
+- Exact next numbered task: Not supplied; Prompt 25 remains awaiting definition
+- Source coverage: Prompts 00–24 have been supplied; Prompts 25–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
 
@@ -54,7 +54,8 @@
 | 21 | Application quality and test strategy | Complete | Warning-free quality gate, meaningful coverage floors, xUnit strategy, structured logging, cancellation tests, and refactoring evidence are documented and passing. |
 | 22 | Architectural boundaries and DDD review | Complete | Context map, dependency graph tests, pragmatic model review, and ADRs support current ports/adapters and selective-CQRS choices. |
 | 23 | Security hardening and safe execution design | Complete | Threat model, negative gates, bounded inputs, response headers, and an isolated-worker prerequisite contract preserve fail-closed behavior with execution disabled. |
-| 24–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
+| 24 | Isolated code runner experimental spike | Complete | Local containment audit records a no-go decision, separate-worker design, kill switch, and manual security checklist; no runner is implemented or deployed. |
+| 25–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
 
 ## Completed Foundation
 
@@ -582,9 +583,31 @@ Acceptance gate:
 
 Prompt 23 does not add arbitrary .NET execution, an isolated worker implementation, public uploads, CSP, production rate limiting/WAF, MFA, secret management, or later playbook features.
 
+## Completed Isolated Code Runner Experimental Spike
+
+### Prompt 24 — Isolated code runner experimental spike
+
+Completed outcomes:
+
+- verified that Docker and Podman are absent, WSL is not installed, and Windows Sandbox and Hyper-V tooling are unavailable on the local machine;
+- recorded a **NO-GO** decision and kept arbitrary compilation and execution disabled;
+- documented a future separate-worker boundary with unprivileged identity, no network or secrets, disposable storage, hard quotas, bounded results, privacy-safe logs, cleanup, and fail-closed behavior;
+- defined an operational kill switch and a manual adversarial checklist covering network, host access, CPU, memory, PID, time, output, filesystem, cleanup, and cross-account isolation;
+- proposed ADR 0009 to require repeatable evidence, independent security review, and explicit owner acceptance before any implementation proposal;
+- retained the bounded pedagogical interpreter as the supported learning path;
+- installed no software, changed no Windows features, downloaded no runtime image, executed no learner code, and deployed no worker.
+
+Acceptance gate:
+
+- `docs/ISOLATED_RUNNER_SPIKE.md` records the local evidence, candidate boundary, mandatory controls, kill switch, and manual security checklist;
+- missing sandbox support produces an explicit no-go rather than an unsafe implementation;
+- security source gates and the full quality gate continue to prove that no execution primitive or worker exists.
+
+Prompt 24 does not add Docker/Podman/WSL/Hyper-V, a worker project, compiler, package restore, execution endpoint, queue, runtime image, deployment, or future playbook features.
+
 ## Awaiting the Next Supplied Prompt
 
-Prompts 24–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
+Prompts 25–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
 
 ## Six-Level Growth Map
 
@@ -601,6 +624,6 @@ Prompts 24–29 remain undefined in the repository. The owner must provide the e
 
 - Do not mark future implementation complete based only on documentation.
 - When a task is completed, update its status and evidence in this file within that task's allowed documentation scope.
-- Do not fill Prompts 24–29 with guessed requirements. Add them only from the owner's playbook.
+- Do not fill Prompts 25–29 with guessed requirements. Add them only from the owner's playbook.
 - If a new prompt conflicts with the accepted product charter or architecture, surface the conflict and obtain an owner decision before implementation.
 - Preserve historical ADRs; supersede decisions with a new ADR rather than rewriting accepted history.

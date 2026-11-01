@@ -25,6 +25,10 @@ CodeLogic development should work on Windows through Visual Studio with the .NET
 | SQLite inspection tool | Recommended | `sqlite3` 3.44.4 available on `PATH` | Pass |
 | EF Core CLI | Not needed until persistence tasks | `dotnet-ef` 10.0.5 available | Pass |
 | Docker Desktop | Optional | Docker command not found | Optional item missing |
+| Podman | Not required for the app | Command not found | Runner prerequisite unavailable |
+| WSL | Not required for the app | `wsl.exe` reports WSL is not installed | Runner prerequisite unavailable |
+| Windows Sandbox | Not required for the app | Executable not found | Runner prerequisite unavailable |
+| Hyper-V tooling | Not required for the app | PowerShell module not found | Runner prerequisite unavailable |
 
 ## Exact Missing Prerequisites
 
@@ -34,12 +38,7 @@ The only detected missing item is:
 
 - **Docker Desktop / Docker CLI — optional.** Do not install it merely to begin CodeLogic. It becomes useful only when a later task explicitly introduces containers or a container-based dependency.
 
-Two repository governance files are also missing, although they are not Windows software prerequisites:
-
-- `AGENTS.md`
-- `docs/ROADMAP.md`
-
-They should be restored or created through an explicitly scoped documentation task before application implementation proceeds.
+`AGENTS.md` and `docs/ROADMAP.md` are now present. They are repository governance files rather than machine prerequisites.
 
 ## Required Tools
 
@@ -234,6 +233,29 @@ Docker command not found.
 
 This is an optional gap, not a blocker. Do not install Docker Desktop until a numbered task requires it and the owner approves the installation and licensing/resource implications.
 
+## Prompt 24 Isolation Audit
+
+The normal CodeLogic learning application does not need a container or virtual-machine runtime. Prompt 24 separately checked whether this machine could support an experimental hostile-code runner. It cannot currently provide verified containment:
+
+```powershell
+Get-Command docker, podman, wsl -ErrorAction SilentlyContinue
+wsl --status
+wsl --list --verbose
+Test-Path 'C:\Program Files\Docker\Docker\Docker Desktop.exe'
+Test-Path 'C:\Windows\System32\WindowsSandbox.exe'
+Get-Module -ListAvailable Hyper-V
+```
+
+Observed on 2026-11-01:
+
+- Docker CLI/Desktop: not found;
+- Podman: not found;
+- WSL executable exists, but the WSL feature/runtime is not installed and there are no distributions;
+- Windows Sandbox executable: not found;
+- Hyper-V PowerShell module: not found.
+
+These are not missing prerequisites for lessons, quizzes, flowcharts, or the bounded pedagogical interpreter. They are failed prerequisites for the isolated-runner experiment. Do not install or enable them solely from this document. A later owner-approved security task must select a dedicated non-sensitive environment and verify the complete checklist in [ISOLATED_RUNNER_SPIKE.md](ISOLATED_RUNNER_SPIKE.md).
+
 ## One-Pass Validation Script
 
 Run these non-destructive commands from PowerShell:
@@ -308,4 +330,4 @@ This does not block the initial solution. EF Core can create and access SQLite d
 
 ## Verification Outcome
 
-The machine is ready for .NET 10 ASP.NET Core and Blazor solution creation. No required installation is missing. Docker Desktop remains optional and absent. No software was installed, updated, or reconfigured during this verification.
+The machine is ready for .NET 10 ASP.NET Core and Blazor development. No required application-development installation is missing. It is **not** ready for the isolated code-runner experiment because no sandbox runtime or virtualization boundary is installed and verified. No software was installed, updated, or reconfigured during either verification.

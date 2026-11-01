@@ -2,10 +2,10 @@
 
 ## Document Status
 
-- Status: Reviewed through Prompt 23
-- Playbook task: 23 — Security hardening and safe execution design
+- Status: Reviewed through Prompt 24
+- Playbook task: 24 — Isolated code runner experimental spike
 - Last updated: 2026-11-01
-- Implementation status: The modular monolith, four logical bounded contexts, framework-neutral Application ports, curriculum and editorial flows, SQLite persistence, Identity, bounded analysis pipeline, response/input hardening, and repeatable local quality gate are implemented and boundary-tested. Arbitrary .NET execution remains disabled.
+- Implementation status: The modular monolith, four logical bounded contexts, framework-neutral Application ports, curriculum and editorial flows, SQLite persistence, Identity, bounded analysis pipeline, response/input hardening, and repeatable local quality gate are implemented and boundary-tested. The runner spike is a documented no-go; arbitrary .NET execution remains disabled.
 
 ## Architectural Goal
 
@@ -176,6 +176,8 @@ Prompt 23 documents browser, Web, Application, Infrastructure, database, Roslyn,
 
 Arbitrary .NET compilation and execution are disabled. A future worker is only an extraction seam, not an implemented capability. It would require a separate OS-enforced, no-network, unprivileged, resource-limited, per-job identity boundary with ephemeral storage and verified cleanup. A child process, `AssemblyLoadContext`, or ordinary container default is not sufficient. See [SECURITY.md](SECURITY.md) and ADR 0008.
 
+Prompt 24 tested the local prerequisites for that seam and produced a no-go result: Docker and Podman are absent, WSL is not installed, and Windows Sandbox and Hyper-V tooling were not detected. No worker or runtime was added. The candidate separate-worker boundary, mandatory controls, kill switch, evidence checklist, and reconsideration gate are documented in [ISOLATED_RUNNER_SPIKE.md](ISOLATED_RUNNER_SPIKE.md) and ADR 0009. Until all controls are verified on an approved dedicated host, the bounded pedagogical interpreter remains the only execution-like teaching path.
+
 ## Web and API Boundaries
 
 - Blazor components call application use cases; they do not query EF Core directly.
@@ -244,6 +246,7 @@ An extraction seam is permission to evolve, not a commitment to distribute the s
 - Blazor components do not access a database context directly.
 - Student code is parsed and analyzed only within an explicitly supported subset; it is not executed in the web process.
 - Security tests reject compiler/emit/process/assembly-loading primitives and any public file-upload surface.
+- A future runner remains disabled unless every Task 24 containment control has repeatable evidence on the exact approved runtime; missing controls fail closed.
 - State-changing Razor forms retain antiforgery tokens and mapped endpoints remain behind antiforgery middleware.
 - Dangerous snippets fail closed with Unsupported diagnostics and no partial trace.
 - Graph IR tests are independent of Mermaid rendering tests.
@@ -265,6 +268,7 @@ See [QUALITY.md](QUALITY.md) for test-pyramid placement, coverage rationale, ref
 - [ADR 0006: Pragmatic bounded contexts and domain modeling](adr/0006-pragmatic-bounded-contexts-and-domain-modeling.md)
 - [ADR 0007: Application ports and selective CQRS](adr/0007-application-ports-and-selective-cqrs.md)
 - [ADR 0008: Disable arbitrary execution and require an isolated worker](adr/0008-disable-arbitrary-execution-and-require-isolated-worker.md)
+- [ADR 0009: Defer the isolated runner until containment is verified](adr/0009-defer-isolated-runner-until-containment-is-verified.md)
 
 ## Known Documentation Gaps
 

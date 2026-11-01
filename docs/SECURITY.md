@@ -2,16 +2,18 @@
 
 ## Document Status
 
-- Task: Prompt 23 — Security hardening and safe execution design
+- Task: Prompt 24 — Isolated code runner experimental spike
 - Last updated: 2026-11-01
 - Execution posture: Arbitrary .NET compilation and execution are disabled
-- Scope: Current modular monolith plus a design contract for a possible future isolated worker
+- Scope: Current modular monolith plus a no-go feasibility review for a possible future isolated worker
 
 ## Security Decision
 
 CodeLogic parses and explains a deliberately supported C# subset. It does **not** compile, emit, load, or execute learner code as .NET. There is no execution endpoint, worker project, file-upload route, compiler service, child-process launch, or assembly-loading path.
 
 The bounded pedagogical interpreter is an authored teaching model. It evaluates only supported syntax with explicit limits and must not be described as a sandbox for general C#.
+
+Prompt 24 found no verified local sandbox runtime: Docker and Podman are absent, WSL is not installed, and Windows Sandbox and Hyper-V tooling were not detected. The result is **NO-GO**. No worker, image, compiler, execution endpoint, or deployment was added. See [ISOLATED_RUNNER_SPIKE.md](ISOLATED_RUNNER_SPIKE.md) and [ADR 0009](adr/0009-defer-isolated-runner-until-containment-is-verified.md) for the evidence, kill switch, and manual security checklist.
 
 ## Assets
 
@@ -170,7 +172,7 @@ Return only bounded UTF-8 stdout/stderr, exit category, timing/resource counters
 
 On every terminal path, the orchestrator must terminate the job boundary, discard the writable layer, revoke the job capability, remove queue leases, and record a non-sensitive audit event. Cleanup failure quarantines the worker and blocks reuse.
 
-Before any feature flag can enable execution, tests must demonstrate blocked network/DNS/metadata access, denied host files/mounts, enforced CPU/memory/PID/time/output/file quotas, process-tree termination, cancellation, cross-tenant denial, cleanup after crash/timeout, image provenance, dependency scanning, and fail-closed behavior when any sandbox control is unavailable.
+Before any feature flag can enable execution, tests must demonstrate blocked network/DNS/metadata access, denied host files/mounts, enforced CPU/memory/PID/time/output/file quotas, process-tree termination, cancellation, cross-tenant denial, cleanup after crash/timeout, image provenance, dependency scanning, and fail-closed behavior when any sandbox control is unavailable. The Task 24 checklist requires repeatable evidence on the exact proposed runtime plus independent security review and explicit owner acceptance.
 
 ## Explicitly Out of Scope
 
