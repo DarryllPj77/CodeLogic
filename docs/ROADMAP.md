@@ -3,9 +3,9 @@
 ## Roadmap Status
 
 - Last updated: 2026-11-01
-- Current completed milestone: Prompt 15 — Flowchart intermediate representation
-- Exact next numbered task: Not supplied; Prompt 16 remains awaiting definition
-- Source coverage: Prompts 00–15 have been supplied; Prompts 16–29 have not yet been added to the repository
+- Current completed milestone: Prompt 16 — Flowchart browser renderer
+- Exact next numbered task: Not supplied; Prompt 17 remains awaiting definition
+- Source coverage: Prompts 00–16 have been supplied; Prompts 17–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
 
@@ -46,7 +46,8 @@
 | 13 | Editor playground UI | Complete | Curated snippets can be edited, saved locally, restored, and reset within visible safety and size limits. |
 | 14 | Roslyn parse and diagnostics | Complete | Bounded server-side parsing reports positioned syntax errors and fixed-subset violations without compilation or execution. |
 | 15 | Flowchart intermediate representation | Complete | Stable graph schema and golden tests cover sequence, one-level branching, rejection, and non-crashing errors. |
-| 16–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
+| 16 | Flowchart browser renderer | Complete | Safe Mermaid output renders correct branches with responsive visual and equivalent source-mapped text states. |
+| 17–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
 
 ## Completed Foundation
 
@@ -384,9 +385,34 @@ Acceptance gate:
 
 Prompt 15 does not add nested-branch graphs, loop graphs, Mermaid rendering, Playground visualization, semantic evaluation, traces, compilation, or execution.
 
+## Completed Flowchart Browser Renderer
+
+### Prompt 16 — Flowchart browser renderer
+
+Completed outcomes:
+
+- added deterministic Mermaid serialization behind an Application interface;
+- assigned renderer-owned IDs and escaped learner-controlled labels;
+- emitted correct sequence and explicit True/False branch arrows;
+- rendered pinned Mermaid 12.2.0 with strict security and HTML labels disabled;
+- parsed and sanitized returned SVG without assigning untrusted `innerHTML`;
+- added empty, translation-error, renderer-error, visual, and equivalent text states;
+- connected graph nodes back to exact textarea spans with keyboard-operable controls;
+- contained wide diagrams inside a responsive scrolling panel.
+
+Acceptance gate:
+
+- golden tests lock branch shapes, arrows, escaping, source maps, and deterministic output;
+- browser verification confirms readable labels, correct branch merge arrows, and exact source selection;
+- nested and malformed input produce useful non-visual error states;
+- every diagram has an ordered node and connection text equivalent;
+- no learner source is compiled or executed.
+
+Prompt 16 does not add loop/nested-branch rendering, execution traces, semantic evaluation, export, compilation, execution, or frontend build tooling.
+
 ## Awaiting the Next Supplied Prompt
 
-Prompts 16–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
+Prompts 17–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
 
 ## Six-Level Growth Map
 
@@ -403,6 +429,6 @@ Prompts 16–29 remain undefined in the repository. The owner must provide the e
 
 - Do not mark future implementation complete based only on documentation.
 - When a task is completed, update its status and evidence in this file within that task's allowed documentation scope.
-- Do not fill Prompts 16–29 with guessed requirements. Add them only from the owner's playbook.
+- Do not fill Prompts 17–29 with guessed requirements. Add them only from the owner's playbook.
 - If a new prompt conflicts with the accepted product charter or architecture, surface the conflict and obtain an owner decision before implementation.
 - Preserve historical ADRs; supersede decisions with a new ADR rather than rewriting accepted history.

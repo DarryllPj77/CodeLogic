@@ -13,6 +13,7 @@ public static class AnalysisServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         services.AddSingleton<ICodeAnalysisService, RoslynCodeAnalysisService>();
         services.AddSingleton<IFlowchartTranslator, RoslynFlowchartTranslator>();
+        services.AddSingleton<IMermaidFlowchartSerializer, MermaidFlowchartSerializer>();
         return services;
     }
 }

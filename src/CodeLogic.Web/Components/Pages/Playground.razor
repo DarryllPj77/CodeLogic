@@ -3,25 +3,28 @@
 @implements IAsyncDisposable
 @inject ICodeAnalysisService CodeAnalysisService
 @inject ICurriculumCatalog CurriculumCatalog
+@inject IFlowchartTranslator FlowchartTranslator
+@inject IMermaidFlowchartSerializer MermaidSerializer
 @inject IJSRuntime JavaScript
 
 <PageTitle>Playground | CodeLogic</PageTitle>
 
 <HeadContent>
-    <meta name="description" content="Edit short C# snippets and receive bounded syntax and supported-subset feedback without compiling or executing them." />
+    <meta name="description" content="Edit supported C# snippets, review diagnostics, and preview a safe explanatory flowchart without compiling or executing them." />
 </HeadContent>
 
 <section class="page-header" aria-labelledby="playground-title">
     <p class="eyebrow">Editor playground</p>
     <h1 id="playground-title">Experiment with short C# snippets</h1>
-    <p>Edit a curated example, save one browser-local draft, and ask Roslyn to check its syntax and CodeLogic's supported subset. Nothing is compiled or run.</p>
+    <p>Edit a curated example, check its syntax, and preview a deterministic flowchart for supported sequence and one-level branching. Nothing is compiled or run.</p>
 </section>
 
 <aside class="notice notice--warning" aria-labelledby="editor-limitations-title">
     <h2 id="editor-limitations-title">Visible limitations</h2>
     <ul>
         <li>This is an accessible plain-text editor, not Visual Studio or Monaco.</li>
-        <li>Code is parsed only. It is never compiled or executed, and type checking, flowcharts, and traces are not available in this task.</li>
+        <li>Code is parsed only. It is never compiled or executed, and type checking and execution traces are not available.</li>
+        <li>Flowcharts support simple sequence and one-level <code>if/else</code>; nested decisions and loops are rejected with an explanation.</li>
         <li>The editor accepts at most @EditorState.MaximumCharacters.ToString("N0") characters.</li>
         <li>Analysis stops after @CodeAnalysisService.Limits.MaximumDuration.TotalSeconds.ToString("N0") seconds and supports at most @CodeAnalysisService.Limits.MaximumNestingDepth nested control-flow statements.</li>
         <li>Save keeps one draft only in this browser's local storage. It is not synced to your account or another device.</li>
@@ -77,6 +80,9 @@
             <button class="button button--primary" type="button" @onclick="AnalyzeAsync" disabled="@(!BrowserReady || IsAnalyzing)">
                 @(IsAnalyzing ? "Checking…" : "Check syntax")
             </button>
+            <button class="button button--primary" type="button" @onclick="PreviewFlowchartAsync" disabled="@(!BrowserReady || JavaScriptModule is null || IsRendering)">
+                @(IsRendering ? "Rendering…" : "Preview flowchart")
+            </button>
             <button class="button button--secondary" type="button" @onclick="SaveDraftAsync" disabled="@(!BrowserReady || JavaScriptModule is null)">Save browser draft</button>
             <button class="button button--secondary" type="button" @onclick="ResetDraftAsync" disabled="@(!BrowserReady)">Reset editor</button>
         </div>
@@ -116,16 +122,97 @@
     </section>
 
     <aside class="playground-guide" aria-labelledby="playground-guide-title">
-        <p class="status-badge">Parse only</p>
+        <p class="status-badge">Parse and visualize</p>
         <h2 id="playground-guide-title">What happens to this code?</h2>
         <ol class="step-list">
             <li><span>1</span> You edit plain text.</li>
             <li><span>2</span> Save stores one draft in this browser.</li>
-            <li><span>3</span> Check syntax parses a fixed subset; nothing executes.</li>
+            <li><span>3</span> Preview maps supported syntax into a safe browser diagram.</li>
         </ol>
-        <p>Semantic analysis, graph construction, and deterministic visualization belong to later numbered tasks.</p>
+        <p>The diagram explains source structure only. It does not predict values, program output, or runtime behavior.</p>
     </aside>
 </div>
+
+<section class="flowchart-panel" aria-labelledby="flowchart-title" aria-live="polite">
+    <div class="section-heading">
+        <p class="eyebrow">Deterministic visualization</p>
+        <h2 id="flowchart-title">Flowchart preview</h2>
+        <p>The visual and text map are generated from the same graph. Mermaid control characters are escaped before rendering.</p>
+    </div>
+
+    @if (FlowchartResult is null)
+    {
+        <div class="flowchart-empty">
+            <h3>No preview yet</h3>
+            <p>Choose <strong>Preview flowchart</strong> to visualize supported sequence or one-level <code>if/else</code> source.</p>
+        </div>
+    }
+    else if (!FlowchartResult.IsSuccess)
+    {
+        <div class="analysis-feedback" role="status">
+            <h3>@FlowchartHeading(FlowchartResult.Status)</h3>
+            <ol class="analysis-diagnostic-list">
+                @foreach (var diagnostic in FlowchartResult.Diagnostics)
+                {
+                    <li>
+                        <p class="analysis-diagnostic-heading">
+                            <strong>@diagnostic.Code</strong>
+                            @if (diagnostic.Line is not null && diagnostic.Column is not null)
+                            {
+                                <span>Line @diagnostic.Line, column @diagnostic.Column</span>
+                            }
+                        </p>
+                        <p>@diagnostic.Message</p>
+                        <p class="analysis-explanation">@diagnostic.Explanation</p>
+                    </li>
+                }
+            </ol>
+        </div>
+    }
+    else if (FlowchartDocument is not null)
+    {
+        @if (RendererError is not null)
+        {
+            <div class="notice notice--warning" role="alert">
+                <h3>Diagram renderer unavailable</h3>
+                <p>@RendererError</p>
+                <p>The source and deterministic text map remain available below.</p>
+            </div>
+        }
+
+        <div class="flowchart-canvas"
+             @ref="FlowchartContainer"
+             aria-label="Rendered CodeLogic flowchart"
+             aria-busy="@IsRendering"></div>
+
+        <div class="flowchart-text-map">
+            <h3>Equivalent text and source map</h3>
+            <p>Select a source-backed node to return to the exact text that produced it.</p>
+            <ol class="flowchart-node-list">
+                @foreach (var item in FlowchartDocument.SourceMap)
+                {
+                    <li>
+                        <strong>@item.NodeType:</strong> @item.Label
+                        @if (item.SourceSpan is not null)
+                        {
+                            <button class="text-button" type="button" @onclick="() => ShowSourceAsync(item)">
+                                Show line @item.SourceSpan.StartLine
+                            </button>
+                        }
+                    </li>
+                }
+            </ol>
+
+            <h3>Connections</h3>
+            <ul class="flowchart-edge-list">
+                @foreach (var edge in FlowchartResult.Graph!.Edges)
+                {
+                    <li>@DescribeEdge(edge, FlowchartResult.Graph)</li>
+                }
+            </ul>
+        </div>
+    }
+</section>
 
 @code {
     private const string DraftStorageKey = "CodeLogic.Playground.Draft.v1";
@@ -134,8 +221,15 @@
     private string StatusMessage { get; set; } = "Preparing browser draft storage.";
     private bool BrowserReady { get; set; }
     private bool IsAnalyzing { get; set; }
+    private bool IsRendering { get; set; }
+    private bool RenderPending { get; set; }
     private CodeAnalysisResult? AnalysisResult { get; set; }
+    private FlowchartTranslationResult? FlowchartResult { get; set; }
+    private MermaidFlowchartDocument? FlowchartDocument { get; set; }
+    private string? RendererError { get; set; }
+    private int RenderSequence { get; set; }
     private ElementReference EditorElement { get; set; }
+    private ElementReference FlowchartContainer { get; set; }
     private IJSObjectReference? JavaScriptModule { get; set; }
 
     protected override void OnInitialized()
@@ -157,56 +251,78 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender)
+        if (firstRender)
         {
-            return;
-        }
-
-        try
-        {
-            JavaScriptModule = await JavaScript.InvokeAsync<IJSObjectReference>(
-                "import",
-                "./js/playground.js");
-            await JavaScriptModule.InvokeVoidAsync(
-                "initializeEditorShortcuts",
-                EditorElement);
-            var savedDraft = await JavaScriptModule.InvokeAsync<string?>(
-                "loadDraft",
-                DraftStorageKey);
-
-            if (savedDraft is not null)
+            try
             {
-                if (EditorState.TryUpdateCode(savedDraft))
+                JavaScriptModule = await JavaScript.InvokeAsync<IJSObjectReference>(
+                    "import",
+                    "./js/playground.js");
+                await JavaScriptModule.InvokeVoidAsync(
+                    "initializeEditorShortcuts",
+                    EditorElement);
+                var savedDraft = await JavaScriptModule.InvokeAsync<string?>(
+                    "loadDraft",
+                    DraftStorageKey);
+
+                if (savedDraft is not null)
                 {
-                    EditorState.MarkSaved();
-                    StatusMessage = "Saved browser draft restored.";
+                    if (EditorState.TryUpdateCode(savedDraft))
+                    {
+                        EditorState.MarkSaved();
+                        StatusMessage = "Saved browser draft restored.";
+                    }
+                    else
+                    {
+                        await JavaScriptModule.InvokeVoidAsync("clearDraft", DraftStorageKey);
+                        StatusMessage = "An oversized saved draft was discarded. The curated snippet remains loaded.";
+                    }
                 }
                 else
                 {
-                    await JavaScriptModule.InvokeVoidAsync("clearDraft", DraftStorageKey);
-                    StatusMessage = "An oversized saved draft was discarded. The curated snippet remains loaded.";
+                    StatusMessage = "The current snippet has not been saved in this browser.";
                 }
-
             }
-            else
+            catch (JSException)
             {
-                StatusMessage = "The current snippet has not been saved in this browser.";
+                StatusMessage = "Browser features are unavailable. Editing and reset still work, but save and diagram rendering are disabled.";
+            }
+            finally
+            {
+                BrowserReady = true;
+                StateHasChanged();
             }
         }
-        catch (JSException)
+
+        if (RenderPending && JavaScriptModule is not null && FlowchartDocument is not null)
         {
-            StatusMessage = "Browser storage is unavailable. Editing and reset still work, but save is disabled.";
-        }
-        finally
-        {
-            BrowserReady = true;
-            StateHasChanged();
+            RenderPending = false;
+            try
+            {
+                await JavaScriptModule.InvokeVoidAsync(
+                    "renderMermaid",
+                    FlowchartContainer,
+                    FlowchartDocument.Definition,
+                    $"codelogic-flowchart-{++RenderSequence}");
+                StatusMessage = "Flowchart preview rendered. Nothing was compiled or executed.";
+            }
+            catch (JSException)
+            {
+                RendererError = "Mermaid could not render this preview. Check the browser connection and try again.";
+                StatusMessage = "The visual renderer failed; the equivalent text map is still available.";
+            }
+            finally
+            {
+                IsRendering = false;
+                StateHasChanged();
+            }
         }
     }
 
     private void UpdateCode(ChangeEventArgs eventArgs)
     {
         AnalysisResult = null;
+        ClearFlowchart();
         var code = eventArgs.Value?.ToString() ?? string.Empty;
         StatusMessage = EditorState.TryUpdateCode(code)
             ? "Unsaved changes."
@@ -216,6 +332,7 @@
     private void LoadSelectedSnippet()
     {
         AnalysisResult = null;
+        ClearFlowchart();
         EditorState.LoadSnippet(SelectedSnippetId);
         StatusMessage = $"Loaded {EditorState.ActiveSnippet.Title}. Save to keep it as your browser draft.";
     }
@@ -246,6 +363,7 @@
     private async Task ResetDraftAsync()
     {
         AnalysisResult = null;
+        ClearFlowchart();
         EditorState.Reset();
         if (JavaScriptModule is not null)
         {
@@ -280,6 +398,52 @@
         }
     }
 
+    private async Task PreviewFlowchartAsync()
+    {
+        IsRendering = true;
+        RendererError = null;
+        FlowchartDocument = null;
+        StatusMessage = "Building a deterministic flowchart from supported syntax.";
+
+        FlowchartResult = await FlowchartTranslator.TranslateAsync(EditorState.CurrentCode);
+        if (!FlowchartResult.IsSuccess)
+        {
+            IsRendering = false;
+            StatusMessage = $"Flowchart translation found {FlowchartResult.Diagnostics.Count} item(s) to review.";
+            return;
+        }
+
+        FlowchartDocument = MermaidSerializer.Serialize(FlowchartResult.Graph!);
+        RenderPending = true;
+        StatusMessage = "The graph is ready; rendering the browser preview.";
+    }
+
+    private async Task ShowSourceAsync(FlowNodeSourceMap item)
+    {
+        if (JavaScriptModule is null || item.SourceSpan is null)
+        {
+            return;
+        }
+
+        await JavaScriptModule.InvokeVoidAsync(
+            "selectSource",
+            EditorElement,
+            FlowchartContainer,
+            item.MermaidId,
+            item.SourceSpan.StartOffset,
+            item.SourceSpan.Length);
+        StatusMessage = $"Selected source for {item.NodeType} on line {item.SourceSpan.StartLine}.";
+    }
+
+    private void ClearFlowchart()
+    {
+        FlowchartResult = null;
+        FlowchartDocument = null;
+        RendererError = null;
+        RenderPending = false;
+        IsRendering = false;
+    }
+
     private static string AnalysisHeading(CodeAnalysisStatus status) => status switch
     {
         CodeAnalysisStatus.Valid => "Syntax and supported subset check passed",
@@ -289,6 +453,28 @@
         CodeAnalysisStatus.TimedOut => "Analysis stopped at the time limit",
         _ => "Analysis result",
     };
+
+    private static string FlowchartHeading(FlowchartTranslationStatus status) => status switch
+    {
+        FlowchartTranslationStatus.InvalidInput => "Enter a short C# snippet",
+        FlowchartTranslationStatus.SyntaxError => "Fix the C# syntax before previewing",
+        FlowchartTranslationStatus.Unsupported => "This syntax is not in the flowchart subset",
+        FlowchartTranslationStatus.TimedOut => "Flowchart analysis stopped at the time limit",
+        _ => "Flowchart unavailable",
+    };
+
+    private static string DescribeEdge(FlowEdge edge, FlowGraph graph)
+    {
+        var from = graph.Nodes.Single(node => node.Id == edge.FromNodeId);
+        var to = graph.Nodes.Single(node => node.Id == edge.ToNodeId);
+        var path = edge.Type switch
+        {
+            FlowEdgeType.True => "True path",
+            FlowEdgeType.False => "False path",
+            _ => "Next",
+        };
+        return $"{path}: {from.Label} → {to.Label}";
+    }
 
     private Task HandleEditorKeyDown(KeyboardEventArgs eventArgs)
     {

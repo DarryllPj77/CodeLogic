@@ -2,7 +2,7 @@
 
 ## Document Status
 
-- Tasks: Prompt 13 — Editor playground UI; Prompt 14 — Roslyn parse and diagnostics
+- Tasks: Prompts 13–16 — editor, diagnostics, graph IR, and browser renderer
 - Last updated: 2026-11-01
 - Editor: accessible HTML textarea with interactive server UI
 
@@ -10,7 +10,7 @@
 
 The Playground provides a small editing workspace for the two complete curriculum samples. A learner can load either curated snippet, edit it, save one browser-local draft, restore that draft after reload, or reset to the selected curated source.
 
-Prompt 14 adds a server-side **Check syntax** action. It parses the current text with Roslyn and validates a fixed learning subset, but does not compile, execute, type-check, or visualize learner code. See [CODE_ANALYSIS.md](CODE_ANALYSIS.md) for the exact subset and limits.
+Prompt 14 adds a server-side **Check syntax** action. Prompts 15–16 add graph translation and **Preview flowchart** for supported sequence and one-level `if/else`. CodeLogic still does not compile, execute, or type-check learner code. See [CODE_ANALYSIS.md](CODE_ANALYSIS.md), [FLOWCHART_IR.md](FLOWCHART_IR.md), and [FLOWCHART_RENDERER.md](FLOWCHART_RENDERER.md).
 
 ## Why a Textarea First
 
@@ -42,7 +42,9 @@ The draft is not attached to an Identity account, sent to the database, synced a
 6. Navigate through the selector, buttons, textarea, and limitation content using only the keyboard.
 7. Confirm visible focus, labels, live status messages, character count, and usable layout at 200% zoom and 320 CSS pixels.
 8. Select **Check syntax** for a valid sample, malformed syntax, and unsupported `foreach`. Confirm results are specific and the source text remains available for revision.
-9. Confirm there is no Run, Compile, Visualize, terminal, or program-output control.
+9. Preview the default sequence and a one-level `if/else`. Confirm readable nodes, True/False arrows, equivalent text connections, and **Show line** source selection.
+10. Try nested `if/else` and malformed syntax. Confirm useful error states replace the old preview without losing source.
+11. Confirm there is no Run, Compile, terminal, execution-trace, or program-output control.
 
 ## Known Limitations
 
@@ -51,4 +53,6 @@ The draft is not attached to an Identity account, sent to the database, synced a
 - Browser storage can be unavailable in restricted privacy modes.
 - Drafts are device/browser-specific and are not account data.
 - No arbitrary or curated code execution exists.
-- Graphs and traces are not available yet.
+- Graphs cover only sequence and one-level `if/else`; loops and nested branches are not rendered.
+- Mermaid loads from a pinned CDN URL, so the SVG preview needs network access on first load; the text map survives renderer failure.
+- Execution traces are not available.

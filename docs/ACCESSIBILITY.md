@@ -2,7 +2,7 @@
 
 ## Document Status
 
-- Task: Prompt 10 — First end-to-end learning vertical slice
+- Implemented through: Prompt 16 — Flowchart browser renderer
 - Last checked: 2026-11-01
 - Scope: Home, Lessons, lesson detail and deterministic quiz feedback, account forms, saved progress dashboard, recovery states, Playground, not-found page, and shared navigation shell
 - Standard target: WCAG 2.2 AA for the core learning experience
@@ -32,6 +32,9 @@ These checks cover the application shell, lesson reading, deterministic practice
 - Status words such as “Planned,” “Preview only,” and “No progress data” accompany color styling.
 - The playground safety message is available as text rather than only as a visual treatment.
 - Playground analysis results use a heading, diagnostic codes, line/column text, explanations, and a polite live status; meaning does not depend on color.
+- Every flowchart has an ordered node list and explicit connection list; True/False meaning is available in text, not only arrow position or color.
+- Native **Show line** buttons connect source-backed nodes to the exact editor selection without requiring Mermaid click directives.
+- The SVG is labeled as an image, remains inside a horizontally scrollable panel, and renderer failures retain the text equivalent.
 - Motion is non-essential and reduced when `prefers-reduced-motion` is enabled.
 - Forced-colors mode receives an explicit focus outline color.
 - The error banner uses an alert role and assertive live region.
@@ -86,13 +89,17 @@ Perform these checks in Microsoft Edge or Chrome before accepting Prompt 10:
 23. At 200% zoom and 320 CSS pixels, confirm the editor, controls, shortcuts, limitations, and status remain readable without page-level horizontal scrolling.
 24. Activate **Check syntax** using only the keyboard for valid, malformed, and unsupported source. Confirm the result heading, code, line/column, message, and explanation are readable and announced without relying on color.
 25. Edit the source after analysis and confirm stale feedback disappears without losing the current text.
+26. Preview sequence and one-level branching using only the keyboard. Confirm the visual, ordered nodes, and explicit True/False connection text agree.
+27. Activate **Show line** and confirm focus returns to the textarea with the corresponding source selected.
+28. At 200% zoom and 320 CSS pixels, confirm the SVG scrolls inside its panel and the text map remains readable without page-level horizontal scrolling.
+29. Test nested branching, malformed input, and a blocked renderer. Confirm each state has text feedback and does not depend on the SVG.
 
 ## Deferred Accessibility Checks
 
 The following checks belong to later feature tasks because their controls do not exist yet:
 
 - retry focus management beyond native page navigation and enhanced screen-reader announcement testing;
-- Mermaid diagram alternatives and equivalent text traces;
+- enhanced screen-reader testing of Mermaid SVG output; the equivalent structural text map is implemented;
 - authenticated session timeout and identity-form errors;
 - automated browser accessibility tooling such as Playwright plus axe.
 

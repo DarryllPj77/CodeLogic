@@ -9,7 +9,7 @@
 
 ## Purpose and Boundary
 
-The flowchart intermediate representation (IR) is the stable boundary between C# analysis and a future renderer. Application owns the Roslyn-free graph contracts. Infrastructure walks Roslyn syntax nodes and emits those contracts. A future Mermaid adapter will consume the graph without needing to understand C# syntax trees.
+The flowchart intermediate representation (IR) is the stable boundary between C# analysis and rendering. Application owns the Roslyn-free graph contracts. Infrastructure walks Roslyn syntax nodes and emits those contracts. Prompt 16's Mermaid adapter consumes the graph without needing to understand C# syntax trees.
 
 Prompt 15 does not render a diagram, run source, compile source, or infer runtime behavior.
 
@@ -85,7 +85,9 @@ Nested `if/else` returns `FL1001`. Other constructs that passed general syntax a
 - Local functions and `return` are not translated.
 - Node labels describe syntax, not evaluated values or program output.
 - Input/output classification is deliberately limited to supported `Console` calls.
-- There is no Mermaid renderer, browser visualization, or textual execution trace yet.
+- Prompt 16 provides Mermaid browser visualization and an equivalent structural text map; there is no execution trace.
+
+Renderer behavior and escaping are documented in [FLOWCHART_RENDERER.md](FLOWCHART_RENDERER.md).
 
 ## Manual Visual Studio Check
 

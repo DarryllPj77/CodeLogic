@@ -2,10 +2,10 @@
 
 ## Document Status
 
-- Status: Implemented through Prompt 15
-- Playbook task: 15 — Flowchart intermediate representation
+- Status: Implemented through Prompt 16
+- Playbook task: 16 — Flowchart browser renderer
 - Last updated: 2026-11-01
-- Implementation status: The modular-monolith projects, curriculum flow, SQLite persistence, ASP.NET Core Identity, account-owned progress, editor, bounded Roslyn parsing, and graph IR translation for sequence plus one-level `if/else` are implemented. Broader control flow, Mermaid, and hosted infrastructure remain planned.
+- Implementation status: The modular-monolith projects, curriculum flow, SQLite persistence, ASP.NET Core Identity, account-owned progress, editor, bounded Roslyn parsing, graph IR, and safe Mermaid browser preview for sequence plus one-level `if/else` are implemented. Broader control flow, traces, and hosted infrastructure remain planned.
 
 ## Architectural Goal
 
@@ -41,7 +41,7 @@ flowchart LR
     Web -->|Escaped Mermaid definition| Diagram
 ```
 
-Roslyn parsing is an in-process Infrastructure adapter behind an Application interface. Mermaid remains planned. Neither is an external microservice.
+Roslyn parsing and Mermaid serialization are in-process Infrastructure adapters behind Application interfaces. Mermaid SVG rendering occurs in the browser. None is an external microservice.
 
 ## Modular Monolith Structure
 
@@ -143,8 +143,8 @@ flowchart LR
     Subset[Syntax-tree subset and nesting check<br/>implemented]
     Analyze[Bounded sequence and if/else translation<br/>implemented slice]
     IR[Custom graph intermediate representation<br/>schema 1.0 implemented]
-    Render[Mermaid adapter]
-    Browser[Escaped diagram in browser]
+    Render[Safe Mermaid serializer<br/>implemented]
+    Browser[Strict Mermaid SVG plus text map<br/>implemented]
 
     Input --> Gate --> Parse --> Subset --> Analyze --> IR --> Render --> Browser
     Gate -->|Rejected with teaching feedback| Input
@@ -159,6 +159,8 @@ Roslyn parsing is not code execution. Arbitrary compilation and execution remain
 Prompt 14 keeps Roslyn types inside Infrastructure. `ICodeAnalysisService` and neutral result records live in Application, and Web registers the adapter. The parser accepts at most 1,200 characters, applies a two-second cooperative cancellation limit and a three-level control-flow nesting limit, and reports input, syntax, unsupported-feature, or timeout outcomes. It uses syntax APIs only; semantic/type checking begins only in a future supplied task.
 
 Prompt 15 adds Roslyn-free `FlowGraph`, `FlowNode`, `FlowEdge`, and `SourceSpan` contracts to Application. Infrastructure implements `IFlowchartTranslator` by visiting Roslyn syntax nodes. Schema 1.0 uses stable source-order IDs and explicit `Next`, `True`, and `False` edges. It translates simple sequence and one-level `if/else`; nested branches and other unimplemented control flow return positioned diagnostics without a partial graph. See [FLOWCHART_IR.md](FLOWCHART_IR.md).
+
+Prompt 16 adds a Mermaid-specific serializer behind `IMermaidFlowchartSerializer`. The serializer owns diagram IDs and escapes learner labels. Web loads pinned Mermaid 12.2.0 on demand with strict security and HTML labels disabled, parses the returned SVG without `innerHTML`, removes active/link-capable content, and provides an equivalent node/connection list with source-selection controls. See [FLOWCHART_RENDERER.md](FLOWCHART_RENDERER.md).
 
 ## Web and API Boundaries
 
@@ -241,4 +243,4 @@ An extraction seam is permission to evolve, not a commitment to distribute the s
 
 - The hosted relational provider is not selected.
 - Identity email confirmation, recovery, two-factor authentication, and account lifecycle remain deferred.
-- Broader semantic/control-flow analysis, Mermaid, and delivery infrastructure await their numbered tasks.
+- Broader control-flow analysis, execution traces, and delivery infrastructure await their numbered tasks.
