@@ -3,9 +3,9 @@
 ## Roadmap Status
 
 - Last updated: 2026-11-01
-- Current completed milestone: Prompt 21 — Application quality and test strategy
-- Exact next numbered task: Not supplied; Prompt 22 remains awaiting definition
-- Source coverage: Prompts 00–21 have been supplied; Prompts 22–29 have not yet been added to the repository
+- Current completed milestone: Prompt 22 — Architectural boundaries and DDD review
+- Exact next numbered task: Not supplied; Prompt 23 remains awaiting definition
+- Source coverage: Prompts 00–22 have been supplied; Prompts 23–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
 
@@ -52,7 +52,8 @@
 | 19 | Logical mistake feedback | Complete | Authored age-boundary cases compare expected/actual output, separate syntax issues, provide hints, and disclose false-positive limits. |
 | 20 | Lesson authoring and content management | Complete | Administrator-owned drafts stay private; validated published lessons are public with version and audit basics. |
 | 21 | Application quality and test strategy | Complete | Warning-free quality gate, meaningful coverage floors, xUnit strategy, structured logging, cancellation tests, and refactoring evidence are documented and passing. |
-| 22–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
+| 22 | Architectural boundaries and DDD review | Complete | Context map, dependency graph tests, pragmatic model review, and ADRs support current ports/adapters and selective-CQRS choices. |
+| 23–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
 
 ## Completed Foundation
 
@@ -534,9 +535,32 @@ Acceptance gate:
 
 Prompt 21 does not add CI, deployment, a browser installation, production monitoring, or future playbook features.
 
+## Completed Architectural Boundaries and DDD Review
+
+### Prompt 22 — Architectural boundaries and DDD review
+
+Completed outcomes:
+
+- mapped Learning, Practice, Analysis, and Identity as logical contexts inside the modular monolith;
+- documented the existing Learning/Practice shared kernel and framework translation seams;
+- evaluated invariant-bearing rich models, stateless domain services, boundary DTOs, EF entities, and Identity models;
+- retained purpose-specific Application ports and rejected a generic repository, blanket mediator handlers, and full CQRS without evidence;
+- added proposed ADRs for pragmatic context/model decisions and selective CQRS;
+- added tests for the exact project-reference graph, Application assembly independence, and framework-neutral port signatures;
+- made no runtime rewrite, namespace migration, new package, or service split.
+
+Acceptance gate:
+
+- the dependency and context maps describe current code and future seams;
+- architecture tests enforce inward project dependencies and prevent outer framework types from leaking through Application ports;
+- ADRs record alternatives, consequences, and evidence required before physical context or CQRS evolution;
+- the complete quality gate passes.
+
+Prompt 22 does not add microservices, a project per context, generic repositories, domain-event infrastructure, mediator packages, separate read storage, or later playbook features.
+
 ## Awaiting the Next Supplied Prompt
 
-Prompts 22–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
+Prompts 23–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
 
 ## Six-Level Growth Map
 
@@ -553,6 +577,6 @@ Prompts 22–29 remain undefined in the repository. The owner must provide the e
 
 - Do not mark future implementation complete based only on documentation.
 - When a task is completed, update its status and evidence in this file within that task's allowed documentation scope.
-- Do not fill Prompts 22–29 with guessed requirements. Add them only from the owner's playbook.
+- Do not fill Prompts 23–29 with guessed requirements. Add them only from the owner's playbook.
 - If a new prompt conflicts with the accepted product charter or architecture, surface the conflict and obtain an owner decision before implementation.
 - Preserve historical ADRs; supersede decisions with a new ADR rather than rewriting accepted history.

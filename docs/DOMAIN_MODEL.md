@@ -2,11 +2,11 @@
 
 ## Document Status
 
-- Status: Implemented through Prompt 10
-- Last updated: 2026-10-31
-- Scope: Initial curriculum, practice, attempt, and progress concepts only
+- Status: Reviewed through Prompt 22
+- Last updated: 2026-11-01
+- Scope: Framework-independent Learning and Practice concepts plus pragmatic modeling guidance
 
-This model gives the application a small, framework-independent vocabulary. It encodes rules that are true regardless of UI, database, or hosting choices. Curriculum specifications and evaluation live in Application, while temporary HTTP-session storage lives in Web.
+This model gives the application a small, framework-independent vocabulary. It encodes rules that are true regardless of UI, database, or hosting choices. Curriculum specifications and evaluation live in Application, while durable persistence and Identity adapters live in Infrastructure.
 
 Prompt 07 now layers a validated typed curriculum manifest over these concepts. See [CURRICULUM.md](CURRICULUM.md) for the seed contract, pilot content, safe subset, and validation rules.
 
@@ -28,7 +28,7 @@ flowchart LR
     Snapshot -->|completed LessonIds| Lesson
 ```
 
-The arrows show identifier relationships, not database foreign keys. Persistence mapping belongs to Infrastructure in a later task.
+The arrows show domain identifier relationships, not database foreign keys. Current EF Core mappings remain an Infrastructure concern and do not redefine these domain relationships.
 
 ## Concepts and Invariants
 
@@ -139,6 +139,20 @@ The Infrastructure adapter stores only attempt metadata and completed lesson IDs
 
 Unit tests enforce forbidden assembly references so later changes cannot silently pull framework concerns into Domain.
 
+## Prompt 22 DDD Review
+
+The Domain project contains the invariant-bearing shared vocabulary for the Learning and Practice contexts; it is not intended to contain every application record. See [BOUNDED_CONTEXTS.md](BOUNDED_CONTEXTS.md) for the full context map.
+
+The current split is deliberate:
+
+- `Topic`, `Lesson`, `LessonSection`, `Exercise`, `ExerciseAttempt`, and `ProgressSnapshot` remain behavior-protecting Domain models because their constructors prevent invalid state and snapshots derive meaningful values.
+- `LearningSessionProgress` remains a behavior-rich Application model because it coordinates Learning curriculum data with Practice evaluation results.
+- `DeterministicQuizEvaluator` remains a stateless Application domain service because answer correctness depends on a quiz specification and submission rather than one entity's internal state.
+- diagnostics, flow graph records, trace snapshots, authored lesson views, and other boundary results remain simple immutable data models because they carry results and do not own a lifecycle.
+- EF Core entities and `CodeLogicUser` remain simple Infrastructure persistence/framework models; adding domain behavior to database rows would couple rules to adapters.
+
+No aggregate-root base class, domain-event bus, generic repository, or project-per-context split is justified by current rules. Add one only when a concrete invariant, transaction boundary, or integration workflow requires it.
+
 ## Test Coverage
 
 The initial tests cover:
@@ -156,10 +170,10 @@ The initial tests cover:
 
 ## Explicitly Deferred
 
-- curriculum persistence;
-- draft/published lesson lifecycle;
-- learner accounts and cross-session ownership of attempts;
-- commands, handlers, repositories, database mappings, and migrations;
-- domain events and aggregate-root abstractions.
+- domain events and asynchronous cross-context coordination;
+- aggregate-root abstractions beyond the existing invariant boundaries;
+- generic repositories or command/handler frameworks;
+- physical project or service separation per bounded context;
+- a separate progress/reporting read model.
 
-These items should be introduced only by their numbered tasks and only when a concrete rule requires them.
+These items require observed complexity or operational evidence and a new ADR; the DDD label alone is not sufficient.

@@ -2,10 +2,10 @@
 
 ## Document Status
 
-- Status: Implemented through Prompt 21
-- Playbook task: 21 — Application quality and test strategy
+- Status: Reviewed through Prompt 22
+- Playbook task: 22 — Architectural boundaries and DDD review
 - Last updated: 2026-11-01
-- Implementation status: The modular-monolith projects, curriculum and editorial flows, SQLite persistence, ASP.NET Core Identity, account-owned progress, editor, bounded Roslyn parsing, graph IR, Mermaid preview, bounded traces, instructor-defined logical feedback, and repeatable local quality gate are implemented. Hosted infrastructure remains planned.
+- Implementation status: The modular monolith, four logical bounded contexts, framework-neutral Application ports, curriculum and editorial flows, SQLite persistence, Identity, analysis pipeline, and repeatable local quality gate are implemented and boundary-tested. Hosted infrastructure remains planned.
 
 ## Architectural Goal
 
@@ -88,18 +88,16 @@ The dashed arrows show forbidden dependencies. `CodeLogic.Web` is the compositio
 
 Feature folders may group related code within a boundary, but they do not reverse the dependency direction.
 
-## Initial Logical Modules
+## Bounded Contexts
 
-Prompt 06 establishes the initial framework-independent concepts described in [DOMAIN_MODEL.md](DOMAIN_MODEL.md). The business capabilities remain:
+Prompt 22 recognizes four logical bounded contexts inside the existing physical projects:
 
-- Curriculum: lessons, sections, topics, and curated examples.
-- Practice: exercise specifications, answer evaluation, and feedback.
-- Progress: attempts, completion state, and progress summaries.
-- Code explanation: supported-code validation, graph construction, flowchart generation, and bounded trace descriptions.
-- Identity: ASP.NET Core Identity registration, sign-in, sign-out, authorization, and user association.
-- Authoring: administrator-owned lesson drafts, validation, private preview, publication, versioning, and basic audit fields.
+- **Learning:** curriculum, lessons, authoring/publication, navigation, completion, and progress views.
+- **Practice:** exercises, deterministic evaluation, attempts, known cases, and feedback.
+- **Analysis:** supported syntax, diagnostics, graph IR, visualization contracts, and bounded traces.
+- **Identity:** accounts, credentials, cookies, roles, and trusted subject identity.
 
-Modules should communicate through application use cases and explicit contracts. They may share one process and one database initially, but one module must not directly mutate another module's tables or internal entities.
+They communicate through Application contracts and a deliberately small Learning/Practice shared kernel. They are not separate services or repeated project stacks. See [BOUNDED_CONTEXTS.md](BOUNDED_CONTEXTS.md) for ownership, context relationships, rich-versus-simple model decisions, ports/adapters, DTO review, and future review triggers.
 
 ## Six Engineering Levels
 
@@ -235,6 +233,8 @@ An extraction seam is permission to evolve, not a commitment to distribute the s
 
 - Domain project has no framework, EF Core, Web, or Roslyn dependency.
 - Application project does not reference Infrastructure or Web.
+- Production project references match the declared inward graph exactly.
+- Application port signatures do not expose ASP.NET Core, EF Core, Roslyn, Infrastructure, or Web types.
 - Blazor components do not access a database context directly.
 - Student code is parsed and analyzed only within an explicitly supported subset; it is not executed in the web process.
 - Graph IR tests are independent of Mermaid rendering tests.
@@ -253,6 +253,8 @@ See [QUALITY.md](QUALITY.md) for test-pyramid placement, coverage rationale, ref
 - [ADR 0003: EF Core with SQLite for local development](adr/0003-ef-core-and-sqlite-for-development.md)
 - [ADR 0004: Roslyn analysis with graph IR and Mermaid first](adr/0004-roslyn-analysis-and-mermaid-visualization.md)
 - [ADR 0005: Explicit API boundaries and evidence-led deployment growth](adr/0005-api-boundaries-and-deployment-growth.md)
+- [ADR 0006: Pragmatic bounded contexts and domain modeling](adr/0006-pragmatic-bounded-contexts-and-domain-modeling.md)
+- [ADR 0007: Application ports and selective CQRS](adr/0007-application-ports-and-selective-cqrs.md)
 
 ## Known Documentation Gaps
 
