@@ -1,4 +1,5 @@
 @page "/account/login"
+@using CodeLogic.Web.Identity
 
 <PageTitle>Sign in | CodeLogic</PageTitle>
 
@@ -20,9 +21,9 @@
         <AntiforgeryToken />
         <input type="hidden" name="returnUrl" value="@ReturnUrl" />
         <label for="login-email">Email</label>
-        <input id="login-email" name="email" type="email" autocomplete="username" required />
+        <input id="login-email" name="email" type="email" autocomplete="username" maxlength="@IdentityInputLimits.MaximumEmailLength" required />
         <label for="login-password">Password</label>
-        <input id="login-password" name="password" type="password" autocomplete="current-password" required />
+        <input id="login-password" name="password" type="password" autocomplete="current-password" maxlength="@IdentityInputLimits.MaximumPasswordLength" required />
         <button class="button button--primary" type="submit">Sign in</button>
     </form>
 

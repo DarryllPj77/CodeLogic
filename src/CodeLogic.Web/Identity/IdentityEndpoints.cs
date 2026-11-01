@@ -23,6 +23,8 @@ public static class IdentityEndpoints
     {
         var email = submission.Email?.Trim();
         if (string.IsNullOrWhiteSpace(email)
+            || !IdentityInputLimits.AreWithinLimits(email, submission.Password, submission.ReturnUrl)
+            || submission.ConfirmPassword?.Length > IdentityInputLimits.MaximumPasswordLength
             || submission.Password != submission.ConfirmPassword)
         {
             return Results.LocalRedirect("/account/register?error=invalid");
@@ -47,7 +49,9 @@ public static class IdentityEndpoints
         SignInManager<CodeLogicUser> signInManager)
     {
         var email = submission.Email?.Trim();
-        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrEmpty(submission.Password))
+        if (string.IsNullOrWhiteSpace(email)
+            || string.IsNullOrEmpty(submission.Password)
+            || !IdentityInputLimits.AreWithinLimits(email, submission.Password, submission.ReturnUrl))
         {
             return Results.LocalRedirect(LoginErrorUrl("invalid", submission.ReturnUrl));
         }
@@ -77,11 +81,24 @@ public static class IdentityEndpoints
 
     internal static string GetLocalReturnUrl(string? returnUrl) =>
         !string.IsNullOrWhiteSpace(returnUrl)
+        && returnUrl.Length <= IdentityInputLimits.MaximumReturnUrlLength
         && returnUrl[0] == '/'
         && !returnUrl.StartsWith("//", StringComparison.Ordinal)
         && !returnUrl.StartsWith("/\\", StringComparison.Ordinal)
             ? returnUrl
             : "/";
+}
+
+public static class IdentityInputLimits
+{
+    public const int MaximumEmailLength = 254;
+    public const int MaximumPasswordLength = 128;
+    public const int MaximumReturnUrlLength = 2_048;
+
+    public static bool AreWithinLimits(string? email, string? password, string? returnUrl) =>
+        (email?.Length ?? 0) <= MaximumEmailLength
+        && (password?.Length ?? 0) <= MaximumPasswordLength
+        && (returnUrl?.Length ?? 0) <= MaximumReturnUrlLength;
 }
 
 public sealed class RegisterSubmission

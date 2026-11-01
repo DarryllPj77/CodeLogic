@@ -4,7 +4,9 @@ using CodeLogic.Infrastructure.Persistence;
 using CodeLogic.Web.Components;
 using CodeLogic.Web.Identity;
 using CodeLogic.Web.Progress;
+using CodeLogic.Web.Security;
 
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,6 +16,14 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthorization();
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = SecurityRequestLimits.MaximumRequestBodyBytes;
+    options.ValueLengthLimit = SecurityRequestLimits.MaximumFormValueBytes;
+    options.ValueCountLimit = SecurityRequestLimits.MaximumFormValueCount;
+});
+builder.WebHost.ConfigureKestrel(options =>
+    options.Limits.MaxRequestBodySize = SecurityRequestLimits.MaximumRequestBodyBytes);
 builder.Services.AddCodeLogicAnalysis();
 builder.Services.AddCodeLogicPersistence(
     builder.Configuration.GetConnectionString("CodeLogic")
@@ -52,6 +62,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+app.UseCodeLogicSecurityHeaders();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);

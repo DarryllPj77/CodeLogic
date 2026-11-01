@@ -3,9 +3,9 @@
 ## Roadmap Status
 
 - Last updated: 2026-11-01
-- Current completed milestone: Prompt 22 — Architectural boundaries and DDD review
-- Exact next numbered task: Not supplied; Prompt 23 remains awaiting definition
-- Source coverage: Prompts 00–22 have been supplied; Prompts 23–29 have not yet been added to the repository
+- Current completed milestone: Prompt 23 — Security hardening and safe execution design
+- Exact next numbered task: Not supplied; Prompt 24 remains awaiting definition
+- Source coverage: Prompts 00–23 have been supplied; Prompts 24–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
 
@@ -53,7 +53,8 @@
 | 20 | Lesson authoring and content management | Complete | Administrator-owned drafts stay private; validated published lessons are public with version and audit basics. |
 | 21 | Application quality and test strategy | Complete | Warning-free quality gate, meaningful coverage floors, xUnit strategy, structured logging, cancellation tests, and refactoring evidence are documented and passing. |
 | 22 | Architectural boundaries and DDD review | Complete | Context map, dependency graph tests, pragmatic model review, and ADRs support current ports/adapters and selective-CQRS choices. |
-| 23–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
+| 23 | Security hardening and safe execution design | Complete | Threat model, negative gates, bounded inputs, response headers, and an isolated-worker prerequisite contract preserve fail-closed behavior with execution disabled. |
+| 24–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
 
 ## Completed Foundation
 
@@ -558,9 +559,32 @@ Acceptance gate:
 
 Prompt 22 does not add microservices, a project per context, generic repositories, domain-event infrastructure, mediator packages, separate read storage, or later playbook features.
 
+## Completed Security Hardening and Safe Execution Design
+
+### Prompt 23 — Security hardening and safe execution design
+
+Completed outcomes:
+
+- documented assets, trust boundaries, attacker paths, mitigations, residual risk, and fail-closed UX for snippets/uploads, auth, XSS, CSRF, injection, exhaustion, malicious code, and account leakage;
+- added restrictive browser capability, framing, referrer, opener, MIME-sniffing, and cross-domain-policy headers;
+- bounded request bodies, multipart forms, form values/counts, email, password, and return URL inputs server-side;
+- expanded negative tests for process, filesystem-write, reflection, and network-client snippets;
+- added gates for absent execution primitives/uploads, antiforgery placement, Mermaid DOM sanitization, request limits, and empty traces on malicious input;
+- proposed ADR 0008, keeping arbitrary execution disabled;
+- designed a future worker contract requiring no network, OS isolation, CPU/memory/PID/time/output/file quotas, tenant capability isolation, bounded output, process-tree termination, and verified cleanup before implementation.
+
+Acceptance gate:
+
+- threat model and residual risks are recorded in `docs/SECURITY.md`;
+- dangerous inputs fail with Invalid, Unsupported, or Limit states and never produce a partial trace;
+- negative security gates and the full quality gate pass;
+- no execution endpoint, compiler, emitted assembly, child process, upload feature, or worker implementation exists.
+
+Prompt 23 does not add arbitrary .NET execution, an isolated worker implementation, public uploads, CSP, production rate limiting/WAF, MFA, secret management, or later playbook features.
+
 ## Awaiting the Next Supplied Prompt
 
-Prompts 23–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
+Prompts 24–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
 
 ## Six-Level Growth Map
 
@@ -577,6 +601,6 @@ Prompts 23–29 remain undefined in the repository. The owner must provide the e
 
 - Do not mark future implementation complete based only on documentation.
 - When a task is completed, update its status and evidence in this file within that task's allowed documentation scope.
-- Do not fill Prompts 23–29 with guessed requirements. Add them only from the owner's playbook.
+- Do not fill Prompts 24–29 with guessed requirements. Add them only from the owner's playbook.
 - If a new prompt conflicts with the accepted product charter or architecture, surface the conflict and obtain an owner decision before implementation.
 - Preserve historical ADRs; supersede decisions with a new ADR rather than rewriting accepted history.

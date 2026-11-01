@@ -2,7 +2,7 @@
 
 ## Document Status
 
-- Task: Updated through Prompt 20 — lesson-authoring authorization
+- Task: Updated through Prompt 23 — security hardening
 - Last updated: 2026-11-01
 - Account system: ASP.NET Core Identity with EF Core stores
 
@@ -27,6 +27,8 @@ Current settings:
 - account forms and quiz submission use antiforgery validation;
 - sign-out is a protected POST, not a state-changing GET;
 - login errors do not reveal whether an email exists.
+- server-side input caps reject email over 254 characters, password input over 128 characters, and local return URLs over 2,048 characters before password hashing or redirect handling;
+- request/form limits reject oversized submissions independently of browser `maxlength` attributes.
 
 Email confirmation, password reset email, two-factor authentication, and external providers are not implemented because Prompt 12 does not introduce an email service or recovery channel. `RequireConfirmedAccount` therefore remains false and must be revisited before public deployment.
 
@@ -68,3 +70,4 @@ The `IdentityAndOwnedProgress` migration adds standard ASP.NET Core Identity tab
 - Concurrent submissions for the same exercise are protected by a unique database index but are not retried automatically; a later concurrency task can add a friendly retry if real usage demonstrates the need.
 - SQLite is the development provider; hosted-provider behavior still requires provider-specific tests.
 - Administrator provisioning is manual for local development and needs a secure audited process before public hosting.
+- Per-IP/account rate limiting, email confirmation, MFA, and breached-password screening remain deployment prerequisites rather than implemented controls.

@@ -1,4 +1,5 @@
 @page "/account/register"
+@using CodeLogic.Web.Identity
 
 <PageTitle>Create account | CodeLogic</PageTitle>
 
@@ -20,12 +21,12 @@
         <AntiforgeryToken />
         <input type="hidden" name="returnUrl" value="@ReturnUrl" />
         <label for="register-email">Email</label>
-        <input id="register-email" name="email" type="email" autocomplete="username" required />
+        <input id="register-email" name="email" type="email" autocomplete="username" maxlength="@IdentityInputLimits.MaximumEmailLength" required />
         <label for="register-password">Password</label>
-        <input id="register-password" name="password" type="password" autocomplete="new-password" minlength="12" required aria-describedby="password-help" />
+        <input id="register-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="@IdentityInputLimits.MaximumPasswordLength" required aria-describedby="password-help" />
         <p id="password-help" class="form-help">At least 12 characters with uppercase, lowercase, a number, and a symbol.</p>
         <label for="register-confirm-password">Confirm password</label>
-        <input id="register-confirm-password" name="confirmPassword" type="password" autocomplete="new-password" minlength="12" required />
+        <input id="register-confirm-password" name="confirmPassword" type="password" autocomplete="new-password" minlength="12" maxlength="@IdentityInputLimits.MaximumPasswordLength" required />
         <button class="button button--primary" type="submit">Create account</button>
     </form>
 

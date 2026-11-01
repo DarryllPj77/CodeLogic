@@ -32,6 +32,12 @@ The HTML `maxlength` attribute prevents ordinary input beyond the limit. `Playgr
 
 The draft is not attached to an Identity account, sent to the database, synced across browsers, or submitted to a server for processing. Clearing browser storage removes it.
 
+## Security and Fail-Closed Behavior
+
+The Playground does not provide Run, Compile, terminal, package restore, file upload, or general .NET execution. Potentially dangerous APIs such as process launch, filesystem access, reflection, networking, and unsupported object creation return an Unsupported diagnostic. They produce no partial trace.
+
+Analysis is limited to 1,200 characters, three control-flow nesting levels, and two seconds. The teaching trace stops after 100 operations. Empty/oversized input, unsupported input, limit exhaustion, and internal failure remain visibly distinct. See [SECURITY.md](SECURITY.md) for the threat model and the disabled-execution decision.
+
 ## Manual Visual Studio Check
 
 1. Open `CodeLogic.slnx`, set `CodeLogic.Web` as the startup project, and press **Ctrl+F5**.
@@ -52,6 +58,7 @@ The draft is not attached to an Identity account, sent to the database, synced a
 16. Change `>=` to `>`. Confirm age 18 alone fails with an actionable hint.
 17. Enter malformed source. Confirm analysis diagnostics appear separately with no logical verdict.
 18. Use `age == 18 || age == 19`. Confirm all known cases pass while the visible limitation warns that untested age 20 can still fail.
+19. Enter process, file-write, reflection, and network-client examples. Confirm each fails closed with an Unsupported explanation and no trace steps.
 
 ## Known Limitations
 

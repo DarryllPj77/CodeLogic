@@ -2,10 +2,10 @@
 
 ## Document Status
 
-- Status: Reviewed through Prompt 22
-- Playbook task: 22 — Architectural boundaries and DDD review
+- Status: Reviewed through Prompt 23
+- Playbook task: 23 — Security hardening and safe execution design
 - Last updated: 2026-11-01
-- Implementation status: The modular monolith, four logical bounded contexts, framework-neutral Application ports, curriculum and editorial flows, SQLite persistence, Identity, analysis pipeline, and repeatable local quality gate are implemented and boundary-tested. Hosted infrastructure remains planned.
+- Implementation status: The modular monolith, four logical bounded contexts, framework-neutral Application ports, curriculum and editorial flows, SQLite persistence, Identity, bounded analysis pipeline, response/input hardening, and repeatable local quality gate are implemented and boundary-tested. Arbitrary .NET execution remains disabled.
 
 ## Architectural Goal
 
@@ -170,6 +170,12 @@ Prompt 19 adds `ILogicalFeedbackService` and an instructor-authored age-boundary
 
 Prompt 20 adds an Application-owned `ILessonAuthoringService` and an EF Core adapter for administrator-owned lessons. Web supplies the authenticated claim owner and role-protects the interactive editor; Infrastructure enforces ownership, validation, expected-version updates, and public Published-only queries. The original reviewed manifest remains separate. See [LESSON_AUTHORING.md](LESSON_AUTHORING.md).
 
+## Security Boundaries
+
+Prompt 23 documents browser, Web, Application, Infrastructure, database, Roslyn, Mermaid, and possible future-worker trust boundaries. Web adds conservative browser response headers and request/form limits; Identity rejects oversized expensive inputs. Tests keep antiforgery, XSS sanitization, owner isolation, resource limits, absent uploads, and absent execution primitives visible.
+
+Arbitrary .NET compilation and execution are disabled. A future worker is only an extraction seam, not an implemented capability. It would require a separate OS-enforced, no-network, unprivileged, resource-limited, per-job identity boundary with ephemeral storage and verified cleanup. A child process, `AssemblyLoadContext`, or ordinary container default is not sufficient. See [SECURITY.md](SECURITY.md) and ADR 0008.
+
 ## Web and API Boundaries
 
 - Blazor components call application use cases; they do not query EF Core directly.
@@ -237,6 +243,9 @@ An extraction seam is permission to evolve, not a commitment to distribute the s
 - Application port signatures do not expose ASP.NET Core, EF Core, Roslyn, Infrastructure, or Web types.
 - Blazor components do not access a database context directly.
 - Student code is parsed and analyzed only within an explicitly supported subset; it is not executed in the web process.
+- Security tests reject compiler/emit/process/assembly-loading primitives and any public file-upload surface.
+- State-changing Razor forms retain antiforgery tokens and mapped endpoints remain behind antiforgery middleware.
+- Dangerous snippets fail closed with Unsupported diagnostics and no partial trace.
 - Graph IR tests are independent of Mermaid rendering tests.
 - Provider-specific persistence behavior has integration tests.
 - Compiler and analyzer warnings fail the build; generated migration operations have only a reviewed, rule-specific exclusion.
@@ -255,9 +264,10 @@ See [QUALITY.md](QUALITY.md) for test-pyramid placement, coverage rationale, ref
 - [ADR 0005: Explicit API boundaries and evidence-led deployment growth](adr/0005-api-boundaries-and-deployment-growth.md)
 - [ADR 0006: Pragmatic bounded contexts and domain modeling](adr/0006-pragmatic-bounded-contexts-and-domain-modeling.md)
 - [ADR 0007: Application ports and selective CQRS](adr/0007-application-ports-and-selective-cqrs.md)
+- [ADR 0008: Disable arbitrary execution and require an isolated worker](adr/0008-disable-arbitrary-execution-and-require-isolated-worker.md)
 
 ## Known Documentation Gaps
 
 - The hosted relational provider is not selected.
 - Identity email confirmation, recovery, two-factor authentication, secure hosted administrator provisioning, and account lifecycle remain deferred.
-- Broader language semantics and delivery infrastructure await their numbered tasks.
+- CSP/nonced assets, public rate limiting, stronger account lifecycle controls, and delivery infrastructure await dedicated tasks.
