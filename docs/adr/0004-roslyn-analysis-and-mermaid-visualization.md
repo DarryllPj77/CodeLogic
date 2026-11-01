@@ -1,6 +1,6 @@
 # ADR 0004: Roslyn Analysis with Graph IR and Mermaid First
 
-- Status: Accepted; parsing slice implemented
+- Status: Accepted; parsing and graph IR slices implemented
 - Date: 2026-10-31
 
 ## Context
@@ -24,6 +24,10 @@ Do not compile or execute arbitrary student code inside the web application proc
 ## Prompt 14 Implementation Note
 
 Prompt 14 implements steps 1 and 2 plus syntax-tree-only subset validation. Application owns the analysis contract; Infrastructure owns the pinned Roslyn adapter; Web is the composition root and result presenter. Input is limited to 1,200 characters, control-flow nesting to three levels, and analysis to two seconds. Semantic/control-flow analysis, graph IR, and Mermaid remain future work.
+
+## Prompt 15 Implementation Note
+
+Prompt 15 introduces graph schema 1.0 in Application and an Infrastructure translator that walks Roslyn syntax nodes. Stable nodes, edges, source spans, and true/false branches are implemented for simple sequence and one-level `if/else`. Nested branches return an explicit diagnostic. Broader control flow and Mermaid rendering remain future work.
 
 ## Alternatives Considered
 

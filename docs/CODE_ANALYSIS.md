@@ -58,7 +58,7 @@ The time limit is a cooperative in-process cancellation bound, not a process-iso
 - Prompt 14 performs syntax and subset checks, not semantic or type analysis. For example, a type mismatch may parse successfully.
 - The accepted subset is intentionally smaller than the complete C# language.
 - Diagnostics point to source positions but do not yet highlight editor ranges.
-- Graph construction, Mermaid rendering, and execution traces are not implemented.
+- Prompt 15 graph construction supports sequence and one-level `if/else`; Mermaid rendering and execution traces are not implemented.
 - A passing result means only “parseable and currently supported,” not “compiles” or “is correct.”
 
 ## Manual Visual Studio Check
@@ -70,3 +70,5 @@ The time limit is a cooperative in-process cancellation bound, not a process-iso
 5. Enter `File.ReadAllText("secret.txt");`. Confirm general framework access is rejected and nothing executes.
 6. Edit the source after a result appears. Confirm the old result disappears and the editor text remains intact.
 7. Use only the keyboard to reach the editor and **Check syntax**, then verify the live status and diagnostic content are understandable at 200% zoom and a 320 CSS-pixel viewport.
+
+The flowchart IR and its narrower translation slice are documented in [FLOWCHART_IR.md](FLOWCHART_IR.md). Prompt 15 intentionally does not expose that graph in the Playground yet.

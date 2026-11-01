@@ -3,9 +3,9 @@
 ## Roadmap Status
 
 - Last updated: 2026-11-01
-- Current completed milestone: Prompt 14 — Roslyn parse and diagnostics
-- Exact next numbered task: Not supplied; Prompt 15 remains awaiting definition
-- Source coverage: Prompts 00–14 have been supplied; Prompts 15–29 have not yet been added to the repository
+- Current completed milestone: Prompt 15 — Flowchart intermediate representation
+- Exact next numbered task: Not supplied; Prompt 16 remains awaiting definition
+- Source coverage: Prompts 00–15 have been supplied; Prompts 16–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
 
@@ -45,7 +45,8 @@
 | 12 | Identity and owned progress | Complete | Identity account flows work; authenticated progress persists and cross-user access is denied. |
 | 13 | Editor playground UI | Complete | Curated snippets can be edited, saved locally, restored, and reset within visible safety and size limits. |
 | 14 | Roslyn parse and diagnostics | Complete | Bounded server-side parsing reports positioned syntax errors and fixed-subset violations without compilation or execution. |
-| 15–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
+| 15 | Flowchart intermediate representation | Complete | Stable graph schema and golden tests cover sequence, one-level branching, rejection, and non-crashing errors. |
+| 16–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
 
 ## Completed Foundation
 
@@ -359,9 +360,33 @@ Acceptance gate:
 
 Prompt 14 does not add semantic/type checking, graph IR, Mermaid, traces, compilation, code execution, or a broader C# subset.
 
+## Completed Flowchart Intermediate Representation
+
+### Prompt 15 — Flowchart intermediate representation
+
+Completed outcomes:
+
+- defined graph schema 1.0 with start, end, action, decision, input, and output nodes;
+- defined deterministic next, true, and false edges plus one-based source positions;
+- kept Roslyn types in Infrastructure behind an Application translation interface;
+- translated simple top-level sequence and one-level `if/else` from Roslyn syntax nodes;
+- assigned stable source-order node and edge IDs and deterministic branch merge edges;
+- rejected nested decisions and unimplemented statements with positioned diagnostics and no partial graph;
+- added golden sequence and branching tests plus repeatability and non-crashing error cases.
+
+Acceptance gate:
+
+- golden sequence and `if/else` graph expectations pass;
+- the same source produces the same ordered schema and IDs;
+- nested branches return `FL1001` without a graph;
+- malformed and unsupported source returns diagnostics rather than crashing;
+- translation contains no regex parsing, compilation, rendering, or code execution.
+
+Prompt 15 does not add nested-branch graphs, loop graphs, Mermaid rendering, Playground visualization, semantic evaluation, traces, compilation, or execution.
+
 ## Awaiting the Next Supplied Prompt
 
-Prompts 15–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
+Prompts 16–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
 
 ## Six-Level Growth Map
 
@@ -378,6 +403,6 @@ Prompts 15–29 remain undefined in the repository. The owner must provide the e
 
 - Do not mark future implementation complete based only on documentation.
 - When a task is completed, update its status and evidence in this file within that task's allowed documentation scope.
-- Do not fill Prompts 15–29 with guessed requirements. Add them only from the owner's playbook.
+- Do not fill Prompts 16–29 with guessed requirements. Add them only from the owner's playbook.
 - If a new prompt conflicts with the accepted product charter or architecture, surface the conflict and obtain an owner decision before implementation.
 - Preserve historical ADRs; supersede decisions with a new ADR rather than rewriting accepted history.

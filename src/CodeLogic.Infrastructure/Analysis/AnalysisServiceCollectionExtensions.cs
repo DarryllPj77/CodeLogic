@@ -1,4 +1,6 @@
 using CodeLogic.Application.Analysis;
+using CodeLogic.Application.Flowcharts;
+using CodeLogic.Infrastructure.Flowcharts;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,6 +12,7 @@ public static class AnalysisServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         services.AddSingleton<ICodeAnalysisService, RoslynCodeAnalysisService>();
+        services.AddSingleton<IFlowchartTranslator, RoslynFlowchartTranslator>();
         return services;
     }
 }
