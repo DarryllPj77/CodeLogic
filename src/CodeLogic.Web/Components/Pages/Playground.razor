@@ -15,14 +15,15 @@
     <meta name="description" content="Edit supported C# snippets, review diagnostics, and preview a safe explanatory flowchart without compiling or executing them." />
 </HeadContent>
 
-<section class="page-header" aria-labelledby="playground-title">
-    <p class="eyebrow">Editor playground</p>
-    <h1 id="playground-title">Experiment with short C# snippets</h1>
-    <p>Edit a curated example, preview its flowchart, and step through CodeLogic's bounded simulation. Nothing is compiled or run by .NET.</p>
+<section class="page-header workspace-intro" aria-labelledby="playground-title">
+    <p class="eyebrow">Analysis workspace</p>
+    <h1 id="playground-title">C# control-flow studio</h1>
+    <p>Edit supported source, inspect Roslyn diagnostics, generate a deterministic graph, and step through a bounded simulation. Nothing is compiled or run by .NET.</p>
 </section>
 
-<aside class="notice notice--warning" aria-labelledby="editor-limitations-title">
-    <h2 id="editor-limitations-title">Visible limitations</h2>
+<details class="notice notice--warning workspace-limitations">
+    <summary id="editor-limitations-title">Safety model and current limitations</summary>
+    <h2>Visible limitations</h2>
     <ul>
         <li>This is an accessible plain-text editor, not Visual Studio or Monaco.</li>
         <li>Code is parsed and may be interpreted by CodeLogic's small teaching model. It is never compiled or executed as a .NET program.</li>
@@ -34,7 +35,37 @@
         <li>Analysis stops after @CodeAnalysisService.Limits.MaximumDuration.TotalSeconds.ToString("N0") seconds and supports at most @CodeAnalysisService.Limits.MaximumNestingDepth nested control-flow statements.</li>
         <li>Save keeps one draft only in this browser's local storage. It is not synced to your account or another device.</li>
     </ul>
-</aside>
+</details>
+
+<div class="workspace-toolbar" id="workspace-settings">
+    <div class="workspace-file-tab"><span aria-hidden="true">#</span> Program.cs <span class="unsaved-indicator" title="Browser-local draft">●</span></div>
+    <p role="status" aria-live="polite">@StatusMessage</p>
+    <div class="workspace-view-actions" aria-label="Workspace view">
+        <button type="button" class="icon-button" title="Split editor and flowchart" @onclick='() => WorkspaceMode = "split"'>Split</button>
+        <button type="button" class="icon-button" title="Focus flowchart" @onclick='() => WorkspaceMode = "focus"'>Flowchart focus</button>
+    </div>
+</div>
+
+<div class="ide-workspace ide-workspace--@WorkspaceMode">
+    <nav class="workspace-rail" aria-label="Workspace panels">
+        <button type="button" class="rail-button rail-button--active" title="File Explorer" aria-label="File Explorer">▱</button>
+        <button type="button" class="rail-button" title="Code Structure" aria-label="Code Structure">{ }</button>
+        <a class="rail-button" href="#flowchart-title" title="Flowchart Navigator" aria-label="Flowchart Navigator">◇</a>
+        <a class="rail-button" href="#code-editor" title="Search source" aria-label="Search source">⌕</a>
+        <a class="rail-button" href="#analysis-output" title="Diagnostics" aria-label="Diagnostics">△</a>
+    </nav>
+
+    <aside class="workspace-explorer" aria-labelledby="explorer-title">
+        <div class="panel-title"><h2 id="explorer-title">Explorer</h2><span aria-hidden="true">•••</span></div>
+        <p class="tree-heading">CODELOGIC WORKSPACE</p>
+        <ul class="file-tree">
+            <li class="file-tree__folder">⌄ Source</li>
+            <li class="file-tree__file file-tree__file--active"># Program.cs</li>
+            <li class="file-tree__folder">› Flow graph</li>
+            <li class="file-tree__folder">› Diagnostics</li>
+        </ul>
+        <p class="explorer-note">Source text is the single source of truth. Diagram nodes are generated, not manually edited.</p>
+    </aside>
 
 <div class="playground-layout">
     <section class="editor-panel" aria-labelledby="editor-title">
@@ -81,7 +112,7 @@
             <p id="editor-character-count">@EditorState.CurrentCode.Length / @EditorState.MaximumCharacters characters</p>
         </div>
 
-        <div class="button-row">
+        <div class="button-row" id="editor-actions">
             <button class="button button--primary" type="button" @onclick="AnalyzeAsync" disabled="@(!BrowserReady || IsAnalyzing)">
                 @(IsAnalyzing ? "Checking…" : "Check syntax")
             </button>
@@ -95,7 +126,7 @@
             <button class="button button--secondary" type="button" @onclick="ResetDraftAsync" disabled="@(!BrowserReady)">Reset editor</button>
         </div>
 
-        <p id="editor-status" class="editor-status" role="status" aria-live="polite">@StatusMessage</p>
+        <p id="editor-status" class="editor-status">@EditorState.CurrentCode.Length / @EditorState.MaximumCharacters characters · local browser draft</p>
 
         @if (AnalysisResult is not null)
         {
@@ -129,16 +160,32 @@
         }
     </section>
 
-    <aside class="playground-guide" aria-labelledby="playground-guide-title">
-        <p class="status-badge">Parse and visualize</p>
-        <h2 id="playground-guide-title">What happens to this code?</h2>
-        <ol class="step-list">
-            <li><span>1</span> You edit plain text.</li>
-            <li><span>2</span> Save stores one draft in this browser.</li>
-            <li><span>3</span> Preview maps supported syntax into a safe browser diagram.</li>
-            <li><span>4</span> Trace simulates the documented subset with a strict operation limit.</li>
-        </ol>
-        <p>The diagram explains source structure only. It does not predict values, program output, or runtime behavior.</p>
+    <aside class="playground-guide properties-panel" aria-labelledby="playground-guide-title">
+        <div class="panel-title"><h2 id="playground-guide-title">Node properties</h2><span aria-hidden="true">×</span></div>
+        @if (SelectedNode is null)
+        {
+            <div class="properties-empty">
+                <span aria-hidden="true">◇</span>
+                <p>Select a generated node to inspect its source-backed properties.</p>
+            </div>
+        }
+        else
+        {
+            <dl class="property-list">
+                <div><dt>Name</dt><dd>@SelectedNode.Label</dd></div>
+                <div><dt>Node type</dt><dd><span class="node-kind node-kind--@SelectedNode.NodeType.ToString().ToLowerInvariant()">@SelectedNode.NodeType</span></dd></div>
+                <div><dt>Source file</dt><dd><code>Program.cs</code></dd></div>
+                @if (SelectedNode.SourceSpan is not null)
+                {
+                    <div><dt>Source line</dt><dd>@SelectedNode.SourceSpan.StartLine:@SelectedNode.SourceSpan.StartColumn</dd></div>
+                    <div><dt>Source range</dt><dd>@SelectedNode.SourceSpan.Length characters</dd></div>
+                }
+            </dl>
+            @if (SelectedNode.SourceSpan is not null)
+            {
+                <button class="button button--secondary" type="button" @onclick="() => ShowSourceAsync(SelectedNode!)">Reveal in source</button>
+            }
+        }
     </aside>
 </div>
 
@@ -248,10 +295,17 @@
 </section>
 
 <section class="flowchart-panel" aria-labelledby="flowchart-title" aria-live="polite">
-    <div class="section-heading">
-        <p class="eyebrow">Deterministic visualization</p>
-        <h2 id="flowchart-title">Flowchart preview</h2>
-        <p>The visual and text map are generated from the same graph. Mermaid control characters are escaped before rendering.</p>
+    <div class="panel-heading-row">
+        <div>
+            <p class="eyebrow">Deterministic visualization</p>
+            <h2 id="flowchart-title">Flowchart canvas</h2>
+        </div>
+        <div class="canvas-controls" aria-label="Flowchart zoom controls">
+            <button type="button" class="icon-button" @onclick="() => AdjustFlowchartZoomAsync(-0.1)" aria-label="Zoom out">−</button>
+            <output aria-label="Current zoom">@($"{FlowchartZoom:P0}")</output>
+            <button type="button" class="icon-button" @onclick="() => AdjustFlowchartZoomAsync(0.1)" aria-label="Zoom in">+</button>
+            <button type="button" class="icon-button" @onclick="FitFlowchartAsync">Fit</button>
+        </div>
     </div>
 
     @if (FlowchartResult is null)
@@ -305,14 +359,11 @@
             <ol class="flowchart-node-list">
                 @foreach (var item in FlowchartDocument.SourceMap)
                 {
-                    <li>
+                    <li class="@(SelectedNode?.NodeId == item.NodeId ? "source-map-item--selected" : null)">
                         <strong>@item.NodeType:</strong> @item.Label
-                        @if (item.SourceSpan is not null)
-                        {
-                            <button class="text-button" type="button" @onclick="() => ShowSourceAsync(item)">
-                                Show line @item.SourceSpan.StartLine
-                            </button>
-                        }
+                        <button class="text-button" type="button" @onclick="() => SelectNodeAsync(item)">
+                            @(item.SourceSpan is null ? "Inspect node" : $"Show line {item.SourceSpan.StartLine}")
+                        </button>
                     </li>
                 }
             </ol>
@@ -328,7 +379,38 @@
     }
 </section>
 
-<section class="trace-panel" aria-labelledby="trace-title" aria-live="polite">
+<section class="trace-panel bottom-panel bottom-panel--@ActiveBottomTab @(IsBottomPanelCollapsed ? "bottom-panel--collapsed" : null)" id="analysis-output" aria-labelledby="trace-title" aria-live="polite">
+    <div class="bottom-tabs" role="tablist" aria-label="Output panels">
+        <button type="button" class="bottom-tab @(ActiveBottomTab == "diagnostics" ? "bottom-tab--active" : null)" role="tab" aria-selected="@(ActiveBottomTab == "diagnostics")" @onclick='() => ActiveBottomTab = "diagnostics"'>Diagnostics <span>@(AnalysisResult?.Diagnostics.Count ?? 0)</span></button>
+        <button type="button" class="bottom-tab @(ActiveBottomTab == "analysis" ? "bottom-tab--active" : null)" role="tab" aria-selected="@(ActiveBottomTab == "analysis")" @onclick='() => ActiveBottomTab = "analysis"'>Analysis output</button>
+        <button type="button" class="bottom-tab @(ActiveBottomTab == "trace" ? "bottom-tab--active" : null)" role="tab" aria-selected="@(ActiveBottomTab == "trace")" @onclick='() => ActiveBottomTab = "trace"'>Execution trace</button>
+        <button type="button" class="bottom-tab @(ActiveBottomTab == "terminal" ? "bottom-tab--active" : null)" role="tab" aria-selected="@(ActiveBottomTab == "terminal")" @onclick='() => ActiveBottomTab = "terminal"'>Terminal</button>
+        <button type="button" class="bottom-panel-toggle" aria-expanded="@(!IsBottomPanelCollapsed)" @onclick="() => IsBottomPanelCollapsed = !IsBottomPanelCollapsed">@(IsBottomPanelCollapsed ? "Expand" : "Collapse")</button>
+    </div>
+
+    @if (ActiveBottomTab == "diagnostics")
+    {
+        <div class="bottom-tab-summary" role="tabpanel">
+            <h2>Diagnostics</h2>
+            <p>@(AnalysisResult is null ? "Run Analyze code to populate syntax and supported-subset diagnostics." : $"Analysis reported {AnalysisResult.Diagnostics.Count} diagnostic item(s). Full positioned explanations remain beside the editor.")</p>
+        </div>
+    }
+    else if (ActiveBottomTab == "analysis")
+    {
+        <div class="bottom-tab-summary" role="tabpanel">
+            <h2>Analysis output</h2>
+            <p>@StatusMessage</p>
+        </div>
+    }
+    else if (ActiveBottomTab == "terminal")
+    {
+        <div class="bottom-tab-summary terminal-safe-state" role="tabpanel">
+            <h2>Terminal unavailable</h2>
+            <p>CodeLogic does not expose a shell or run arbitrary .NET code. Use the bounded Execution trace for supported teaching examples.</p>
+        </div>
+    }
+
+    <div class="trace-tab-content">
     <div class="section-heading">
         <p class="eyebrow">Bounded teaching model</p>
         <h2 id="trace-title">Step trace</h2>
@@ -426,7 +508,9 @@
             </section>
         </div>
     }
+    </div>
 </section>
+</div>
 
 @code {
     private const string DraftStorageKey = "CodeLogic.Playground.Draft.v1";
@@ -448,6 +532,11 @@
     private ExecutionTraceNavigator? TraceNavigator { get; set; }
     private LogicalFeedbackResult? LogicalFeedbackResult { get; set; }
     private int RenderSequence { get; set; }
+    private double FlowchartZoom { get; set; } = 1;
+    private string WorkspaceMode { get; set; } = "split";
+    private string ActiveBottomTab { get; set; } = "trace";
+    private bool IsBottomPanelCollapsed { get; set; }
+    private FlowNodeSourceMap? SelectedNode { get; set; }
     private ElementReference EditorElement { get; set; }
     private ElementReference FlowchartContainer { get; set; }
     private IJSObjectReference? JavaScriptModule { get; set; }
@@ -634,6 +723,8 @@
         }
 
         FlowchartDocument = MermaidSerializer.Serialize(FlowchartResult.Graph!);
+        SelectedNode = FlowchartDocument.SourceMap.FirstOrDefault();
+        FlowchartZoom = 1;
         RenderPending = true;
         StatusMessage = "The graph is ready; rendering the browser preview.";
     }
@@ -731,10 +822,39 @@
         StatusMessage = $"Selected source for {item.NodeType} on line {item.SourceSpan.StartLine}.";
     }
 
+    private async Task SelectNodeAsync(FlowNodeSourceMap item)
+    {
+        SelectedNode = item;
+        if (item.SourceSpan is not null)
+        {
+            await ShowSourceAsync(item);
+        }
+    }
+
+    private async Task AdjustFlowchartZoomAsync(double change)
+    {
+        FlowchartZoom = Math.Clamp(FlowchartZoom + change, 0.5, 2);
+        if (JavaScriptModule is not null)
+        {
+            await JavaScriptModule.InvokeVoidAsync("setFlowchartZoom", FlowchartContainer, FlowchartZoom);
+        }
+    }
+
+    private async Task FitFlowchartAsync()
+    {
+        FlowchartZoom = 1;
+        if (JavaScriptModule is not null)
+        {
+            await JavaScriptModule.InvokeVoidAsync("fitFlowchart", FlowchartContainer);
+        }
+    }
+
     private void ClearFlowchart()
     {
         FlowchartResult = null;
         FlowchartDocument = null;
+        SelectedNode = null;
+        FlowchartZoom = 1;
         RendererError = null;
         RenderPending = false;
         IsRendering = false;

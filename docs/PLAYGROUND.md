@@ -2,19 +2,32 @@
 
 ## Document Status
 
-- Tasks: Prompts 13–19 — editor, diagnostics, graph IR, renderer, bounded traces, and known-exercise logical feedback
+- Tasks: Prompts 13–19 plus the owner-directed IDE workspace redesign
 - Last updated: 2026-11-01
 - Editor: accessible HTML textarea with interactive server UI
 
 ## Scope
 
-The Playground provides a small editing workspace for the two complete curriculum samples. A learner can load either curated snippet, edit it, save one browser-local draft, restore that draft after reload, or reset to the selected curated source.
+The Playground provides a desktop-first IDE workspace for the two complete curriculum samples. A user can load either curated snippet, edit it, save one browser-local draft, restore that draft after reload, or reset to the selected curated source.
 
 Prompt 14 adds **Check syntax**. Prompts 15–17 add **Preview flowchart**. Prompt 18 adds **Build step trace** through CodeLogic's bounded teaching interpreter. Prompt 19 adds instructor-defined logical checks for the known adult-age exercise. See [CODE_ANALYSIS.md](CODE_ANALYSIS.md), [FLOWCHART_IR.md](FLOWCHART_IR.md), [FLOWCHART_RENDERER.md](FLOWCHART_RENDERER.md), [EXECUTION_TRACES.md](EXECUTION_TRACES.md), and [LOGICAL_FEEDBACK.md](LOGICAL_FEEDBACK.md).
 
 ## Why a Textarea First
 
 The native textarea provides labels, selection, editing, screen-reader support, browser text navigation, zoom behavior, and familiar keyboard interaction without a large JavaScript editor dependency. Monaco remains a possible later enhancement only if syntax highlighting or language-service features justify its integration and accessibility cost. Any later Monaco dependency must use a reviewed, pinned version and preserve an accessible plain-text experience.
+
+## IDE Workspace Layout
+
+The redesign uses centralized dark design tokens and keeps the source editor as the source of truth. At desktop widths the workspace includes:
+
+- a compact menu/action bar and status bar;
+- an activity rail and read-only explorer representation;
+- a split source editor and grid-backed flowchart canvas;
+- a properties panel populated only from the selected `FlowNodeSourceMap`;
+- zoom-in, zoom-out, and fit controls for the rendered SVG;
+- an output area for diagnostics, analysis, bounded trace, and the explicitly non-executing terminal state.
+
+Selecting a source-mapped node updates the property panel, highlights the generated Mermaid node, focuses the textarea, and selects the exact source span. Smaller widths hide secondary panels and stack editor, canvas, feedback, and trace without removing their keyboard-accessible content. “Flowchart focus” hides the editor visually at desktop width but never changes source or graph data.
 
 ## Snippets and Size Limit
 
@@ -46,9 +59,9 @@ Analysis is limited to 1,200 characters, three control-flow nesting levels, and 
 4. Select Operators, choose **Load snippet**, change it, and press `Ctrl+S`. Refresh and confirm that one saved draft returns.
 5. Press `Ctrl+Alt+R`. Confirm the editor returns to the selected curated snippet and a later refresh no longer restores the old draft.
 6. Navigate through the selector, buttons, textarea, and limitation content using only the keyboard.
-7. Confirm visible focus, labels, live status messages, character count, and usable layout at 200% zoom and 320 CSS pixels.
+7. Confirm visible focus, labels, live status messages, character count, and usable stacked layout at 200% zoom and 320 CSS pixels.
 8. Select **Check syntax** for a valid sample, malformed syntax, and unsupported `foreach`. Confirm results are specific and the source text remains available for revision.
-9. Preview the default sequence, a nested `if/else`, and each supported loop form. Confirm readable nodes, True/False/repeat arrows, equivalent text connections, and **Show line** source selection.
+9. Preview the default sequence, a nested `if/else`, and each supported loop form. Confirm readable nodes, True/False/repeat arrows, zoom/fit controls, equivalent text connections, selected node properties, SVG highlighting, and **Show line** source selection.
 10. Try `break`, `continue`, excessive nesting, and malformed syntax. Confirm useful error states replace the old preview without losing source.
 11. Build a trace for the Variables sample. Confirm Next step exposes the program counter, active node, variable changes, and cumulative output.
 12. Reset the trace and confirm it returns to Start with empty state.
@@ -63,6 +76,9 @@ Analysis is limited to 1,200 characters, three control-flow nesting levels, and 
 ## Known Limitations
 
 - Plain text only; no syntax highlighting, autocomplete, semantic/type diagnostics, or formatting.
+- The split-pane host is ready for a future reviewed Monaco integration, but Monaco is not installed in this redesign.
+- Panels use responsive CSS layouts rather than pointer-driven drag resizing; explicit drag handles are deferred.
+- Node properties expose graph type, label, and exact source span. Rich semantic fields such as inferred variable type require a future semantic-analysis contract and are not fabricated.
 - One local draft only; loading another snippet does not create a separate saved file.
 - Browser storage can be unavailable in restricted privacy modes.
 - Drafts are device/browser-specific and are not account data.

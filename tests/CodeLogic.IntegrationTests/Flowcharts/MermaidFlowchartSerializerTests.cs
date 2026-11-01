@@ -14,7 +14,7 @@ public sealed class MermaidFlowchartSerializerTests
 
         var document = serializer.Serialize(graph);
 
-        Assert.Equal(
+        var expected =
             """
             flowchart TD
               accTitle: CodeLogic flowchart
@@ -33,8 +33,9 @@ public sealed class MermaidFlowchartSerializerTests
               n002 -->|"False"| n004
               n003 --> n005
               n004 --> n005
-            """,
-            document.Definition);
+            """;
+
+        Assert.Equal(expected.ReplaceLineEndings("\n"), document.Definition);
     }
 
     [Fact]

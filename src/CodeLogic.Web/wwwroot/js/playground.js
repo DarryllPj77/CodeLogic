@@ -70,11 +70,33 @@ export function selectSource(editor, container, mermaidId, startOffset, length) 
 
     container.querySelectorAll(".flowchart-node--selected")
         .forEach(node => node.classList.remove("flowchart-node--selected"));
-    const escapedId = CSS.escape(`flowchart-${mermaidId}-`);
-    const node = container.querySelector(`[id^="${escapedId}"]`);
+    const escapedId = CSS.escape(`-flowchart-${mermaidId}-`);
+    const node = container.querySelector(`[id*="${escapedId}"]`);
     if (node !== null) {
         node.classList.add("flowchart-node--selected");
     }
+}
+
+export function setFlowchartZoom(container, scale) {
+    const svg = container.querySelector(".flowchart-svg");
+    if (svg === null) {
+        return;
+    }
+
+    svg.style.transform = `scale(${scale})`;
+    svg.style.transformOrigin = "top center";
+}
+
+export function fitFlowchart(container) {
+    const svg = container.querySelector(".flowchart-svg");
+    if (svg === null) {
+        return;
+    }
+
+    svg.style.minWidth = "0";
+    svg.style.transform = "none";
+    svg.style.width = "100%";
+    container.scrollTo({ top: 0, left: 0, behavior: "smooth" });
 }
 
 async function loadMermaid() {
@@ -89,12 +111,19 @@ async function loadMermaid() {
                 maxEdges: 50,
                 theme: "base",
                 themeVariables: {
-                    primaryColor: "#eef2ff",
-                    primaryTextColor: "#172554",
-                    primaryBorderColor: "#3b5ccc",
-                    lineColor: "#334155",
-                    secondaryColor: "#ecfeff",
-                    tertiaryColor: "#f8fafc"
+                    background: "#0a1020",
+                    primaryColor: "#172b49",
+                    primaryTextColor: "#e6edf7",
+                    primaryBorderColor: "#4f8fea",
+                    lineColor: "#64748b",
+                    secondaryColor: "#332a17",
+                    secondaryTextColor: "#e6edf7",
+                    secondaryBorderColor: "#f5b942",
+                    tertiaryColor: "#2d1635",
+                    tertiaryTextColor: "#f5d0fe",
+                    tertiaryBorderColor: "#d946ef",
+                    edgeLabelBackground: "#111b2b",
+                    fontFamily: "Cascadia Code, Consolas, monospace"
                 },
                 flowchart: {
                     curve: "linear",

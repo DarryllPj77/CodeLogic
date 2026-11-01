@@ -5,12 +5,30 @@
 
     <header class="site-header">
         <div class="site-header__inner">
-            <a class="brand" href="/" aria-label="CodeLogic home">
-                <span class="brand__mark" aria-hidden="true">CL</span>
-                <span>CodeLogic</span>
+            <a class="brand" href="/playground" aria-label="Open CodeLogic workspace">
+                <span class="brand__mark" aria-hidden="true">&lt;/&gt;</span>
+                <span class="brand__name">CodeLogic</span>
             </a>
 
             <NavMenu />
+
+            <div class="toolbar-actions" aria-label="Analysis actions">
+                <a class="toolbar-action toolbar-action--primary" href="/playground#code-editor"><span aria-hidden="true">▶</span> Analyze code</a>
+                <a class="toolbar-action" href="/playground#flowchart-title">Generate flowchart</a>
+                <a class="toolbar-action" href="/playground#trace-title">Run simulation</a>
+            </div>
+
+            <div class="toolbar-utilities" aria-label="Workspace utilities">
+                <a href="/playground#workspace-settings" aria-label="Workspace settings" title="Workspace settings">⚙</a>
+                <AuthorizeView>
+                    <Authorized>
+                        <span class="profile-chip" title="@context.User.Identity?.Name">@ProfileInitial(context.User.Identity?.Name)</span>
+                    </Authorized>
+                    <NotAuthorized>
+                        <a class="profile-chip" href="/account/login" aria-label="Sign in" title="Sign in">?</a>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </div>
         </div>
     </header>
 
@@ -18,10 +36,16 @@
         @Body
     </main>
 
-    <footer class="site-footer">
-        <p>CodeLogic · Learn C# one clear step at a time.</p>
+    <footer class="status-bar">
+        <span><span class="status-dot" aria-hidden="true"></span> Ready</span>
+        <span>Deterministic analysis · No arbitrary .NET execution</span>
     </footer>
 </div>
+
+@code {
+    private static string ProfileInitial(string? name) =>
+        string.IsNullOrWhiteSpace(name) ? "U" : name.Trim()[0].ToString().ToUpperInvariant();
+}
 
 <div id="blazor-error-ui" role="alert" aria-live="assertive">
     An unexpected error occurred.

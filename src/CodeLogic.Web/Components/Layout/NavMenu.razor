@@ -1,37 +1,7 @@
-<nav class="primary-nav" aria-label="Primary navigation">
-    <ul>
-        <li>
-            <NavLink href="/" Match="NavLinkMatch.All">Home</NavLink>
-        </li>
-        <li>
-            <NavLink href="/lessons">Lessons</NavLink>
-        </li>
-        <li>
-            <NavLink href="/playground">Playground</NavLink>
-        </li>
-        <li>
-            <NavLink href="/progress">Progress</NavLink>
-        </li>
-        <AuthorizeView>
-            <Authorized>
-                <AuthorizeView Roles="@CodeLogicRoles.Administrator">
-                    <Authorized Context="administratorContext">
-                        <li><NavLink href="/admin/lessons">Author lessons</NavLink></li>
-                    </Authorized>
-                </AuthorizeView>
-                <li class="account-name" title="Signed in account">@context.User.Identity?.Name</li>
-                <li>
-                    <form method="post" action="/account/logout">
-                        <AntiforgeryToken />
-                        <button type="submit">Sign out</button>
-                    </form>
-                </li>
-            </Authorized>
-            <NotAuthorized>
-                <li>
-                    <NavLink href="/account/login">Sign in</NavLink>
-                </li>
-            </NotAuthorized>
-        </AuthorizeView>
-    </ul>
+<nav class="menu-bar" aria-label="Application menu">
+    <a href="/playground#code-editor">File</a>
+    <a href="/playground#editor-actions">Edit</a>
+    <a href="/playground#flowchart-title">View</a>
+    <a href="/playground#analysis-output">Analysis</a>
+    <a href="/playground#workspace-settings">Settings</a>
 </nav>

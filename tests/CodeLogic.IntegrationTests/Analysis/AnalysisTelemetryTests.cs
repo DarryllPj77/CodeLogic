@@ -22,7 +22,13 @@ public sealed class AnalysisTelemetryTests
                 activitySource.Name == AnalysisTelemetry.ActivitySourceName,
             Sample = static (ref ActivityCreationOptions<ActivityContext> _) =>
                 ActivitySamplingResult.AllData,
-            ActivityStopped = activity => stoppedActivity = activity,
+            ActivityStopped = activity =>
+            {
+                if (Equals(activity.GetTagItem("code_logic.analysis.source_length"), source.Length))
+                {
+                    stoppedActivity = activity;
+                }
+            },
         };
         ActivitySource.AddActivityListener(activityListener);
 

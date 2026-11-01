@@ -172,10 +172,13 @@ public sealed class RoslynCodeAnalysisServiceTests
     [Fact]
     public async Task ServiceTimeLimitReturnsAStableDiagnostic()
     {
+        var source = string.Join(
+            Environment.NewLine,
+            Enumerable.Range(0, 50).Select(index => $"int value{index} = {index};"));
         var immediatelyLimitedService = new RoslynCodeAnalysisService(
-            new CodeAnalysisLimits(1_200, 3, TimeSpan.FromTicks(1)));
+            new CodeAnalysisLimits(1_200, 3, TimeSpan.FromMilliseconds(1)));
 
-        var result = await immediatelyLimitedService.AnalyzeAsync("int value = 1;");
+        var result = await immediatelyLimitedService.AnalyzeAsync(source);
 
         Assert.Equal(CodeAnalysisStatus.TimedOut, result.Status);
         var diagnostic = Assert.Single(result.Diagnostics);

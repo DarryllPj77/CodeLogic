@@ -1,76 +1,37 @@
 @page "/"
 
-<PageTitle>CodeLogic</PageTitle>
+<PageTitle>CodeLogic | C# Control-Flow Studio</PageTitle>
 
 <HeadContent>
-    <meta name="description" content="Start learning C# fundamentals with clear lessons, deterministic practice, and visual explanations." />
+    <meta name="description" content="Analyze a safe C# subset and explore its deterministic flowchart and bounded execution trace." />
 </HeadContent>
 
-<section class="hero" aria-labelledby="hero-title">
-    <div class="hero__content">
-        <p class="eyebrow">Beginner-friendly C# learning</p>
-        <h1 id="hero-title">See how C# code thinks.</h1>
-        <p class="hero__summary">
-            Learn one concept at a time, practise with predictable feedback, and connect code to clear visual explanations.
+<section class="workspace-welcome" aria-labelledby="welcome-title">
+    <div class="workspace-welcome__content">
+        <p class="eyebrow">C# analysis workspace</p>
+        <h1 id="welcome-title">Understand control flow at a glance.</h1>
+        <p>
+            Inspect supported C# source, review positioned Roslyn diagnostics, generate a source-mapped flowchart,
+            and step through CodeLogic's bounded teaching model without compiling or executing arbitrary code.
         </p>
         <div class="button-row">
-            <a class="button button--primary" href="/lessons">Explore lessons</a>
-            <a class="button button--secondary" href="/playground">Preview the playground</a>
+            <a class="button button--primary" href="/playground">Open analysis workspace <span aria-hidden="true">→</span></a>
+            <a class="button button--secondary" href="/playground#flowchart-title">View flowchart tools</a>
         </div>
     </div>
 
-    <aside class="hero__panel" aria-labelledby="learning-path-title">
-        <p class="status-badge">Learning path preview</p>
-        <h2 id="learning-path-title">Start with the fundamentals</h2>
-        <ol class="step-list">
-            <li><span>1</span> Read a focused lesson</li>
-            <li><span>2</span> Check your understanding</li>
-            <li><span>3</span> Visualize supported code</li>
-        </ol>
-    </aside>
-</section>
-
-<section class="section" aria-labelledby="explore-title">
-    <div class="section-heading">
-        <p class="eyebrow">Application shell</p>
-        <h2 id="explore-title">Choose where to begin</h2>
-        <p>These areas are ready for navigation. Their learning features arrive in later reviewed tasks.</p>
-    </div>
-
-    <div class="card-grid">
-        <article class="feature-card">
-            <p class="feature-card__label">Learn</p>
-            <h3>Lessons</h3>
-            <p>Follow an ordered path through C# fundamentals with clear objectives and examples.</p>
-            <a class="text-link" href="/lessons">View lesson preview <span aria-hidden="true">→</span></a>
-        </article>
-
-        <article class="feature-card">
-            <p class="feature-card__label">Explore</p>
-            <h3>Playground</h3>
-            <p>See where supported snippets will become safe, deterministic visual explanations.</p>
-            <a class="text-link" href="/playground">View playground preview <span aria-hidden="true">→</span></a>
-        </article>
-
-        <article class="feature-card">
-            <p class="feature-card__label">Reflect</p>
-            <h3>Progress</h3>
-            <p>Review completed lessons and practice attempts held temporarily in your current session.</p>
-            <a class="text-link" href="/progress">View saved progress <span aria-hidden="true">→</span></a>
-        </article>
+    <div class="workspace-welcome__preview" aria-label="Workspace capability summary">
+        <div class="welcome-window-bar"><span></span><span></span><span></span><strong>Program.cs</strong></div>
+        <div class="welcome-preview-grid">
+            <div><small>Source</small><code>if (score &gt;= 5)</code></div>
+            <div><small>Flow graph</small><span class="welcome-node welcome-node--start">Start</span><span class="welcome-connector">↓</span><span class="welcome-node welcome-node--decision">score ≥ 5?</span></div>
+            <div><small>Properties</small><dl><dt>Type</dt><dd>Decision</dd><dt>Line</dt><dd>1:1</dd></dl></div>
+        </div>
     </div>
 </section>
 
-<section class="section principles" aria-labelledby="principles-title">
-    <div class="section-heading">
-        <p class="eyebrow">Designed for understanding</p>
-        <h2 id="principles-title">Clear, predictable, and accessible</h2>
-    </div>
-
-    <ul class="principle-list">
-        <li><strong>Small steps:</strong> one main concept at a time.</li>
-        <li><strong>Deterministic feedback:</strong> the same answer receives the same explanation.</li>
-        <li><strong>Keyboard friendly:</strong> core navigation works without a mouse.</li>
-        <li><strong>No AI dependency:</strong> essential learning stays available without an AI service.</li>
-    </ul>
+<section class="workspace-capabilities" aria-label="CodeLogic capabilities">
+    <article><span>01</span><h2>Analyze</h2><p>Clear syntax and supported-subset diagnostics with source locations.</p></article>
+    <article><span>02</span><h2>Visualize</h2><p>Deterministic nodes, branch labels, loop paths, and equivalent text.</p></article>
+    <article><span>03</span><h2>Trace safely</h2><p>Bounded simulation with visible variables and output—not general .NET execution.</p></article>
 </section>

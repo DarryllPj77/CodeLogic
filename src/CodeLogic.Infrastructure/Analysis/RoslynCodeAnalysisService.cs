@@ -95,24 +95,21 @@ public sealed partial class RoslynCodeAnalysisService : ICodeAnalysisService
                 var result = await Task.Run(
                     () => AnalyzeCore(source, linkedSource.Token),
                     linkedSource.Token);
+                if (Stopwatch.GetElapsedTime(started) >= Limits.MaximumDuration)
+                {
+                    return Complete(
+                        TimedOut(),
+                        sourceLength,
+                        started,
+                        activity);
+                }
+
                 return Complete(result, sourceLength, started, activity);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
                 return Complete(
-                    new CodeAnalysisResult(
-                        CodeAnalysisStatus.TimedOut,
-                        [
-                            new CodeDiagnostic(
-                                "CL0003",
-                                CodeDiagnosticCategory.Limit,
-                                CodeDiagnosticSeverity.Error,
-                                $"Analysis exceeded the {Limits.MaximumDuration.TotalMilliseconds:N0} ms time limit.",
-                                "Shorten the snippet and try again. CodeLogic stopped instead of continuing unbounded work.",
-                                Line: null,
-                                Column: null,
-                                Length: 0),
-                        ]),
+                    TimedOut(),
                     sourceLength,
                     started,
                     activity);
@@ -130,6 +127,21 @@ public sealed partial class RoslynCodeAnalysisService : ICodeAnalysisService
             throw;
         }
     }
+
+    private CodeAnalysisResult TimedOut() =>
+        new(
+            CodeAnalysisStatus.TimedOut,
+            [
+                new CodeDiagnostic(
+                    "CL0003",
+                    CodeDiagnosticCategory.Limit,
+                    CodeDiagnosticSeverity.Error,
+                    $"Analysis exceeded the {Limits.MaximumDuration.TotalMilliseconds:N0} ms time limit.",
+                    "Shorten the snippet and try again. CodeLogic stopped instead of continuing unbounded work.",
+                    Line: null,
+                    Column: null,
+                    Length: 0),
+            ]);
 
     private CodeAnalysisResult Complete(
         CodeAnalysisResult result,

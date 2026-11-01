@@ -2,7 +2,7 @@
 
 ## Document Status
 
-- Implemented through: Prompt 20 — Lesson authoring and content management
+- Implemented through: Prompt 26 plus the owner-directed IDE workspace redesign
 - Last checked: 2026-11-01
 - Scope: Home, Lessons, lesson detail and deterministic quiz feedback, account forms, saved progress dashboard, lesson authoring and preview, recovery states, Playground, not-found page, and shared navigation shell
 - Standard target: WCAG 2.2 AA for the core learning experience
@@ -16,8 +16,8 @@ These checks cover the application shell, lesson reading, deterministic practice
 - Every routed page has one primary `h1` and a meaningful page title.
 - Blazor's `FocusOnNavigate` moves focus to the new page heading after navigation.
 - Keyboard focus uses a high-visibility outline and is not communicated by color alone.
-- Navigation works through ordinary links without requiring a pointer or client-side JavaScript.
-- Navigation wraps on medium screens and becomes a two-column list on narrow screens.
+- The compact application menu and workspace actions use ordinary links or native buttons and do not require a pointer.
+- Secondary panels collapse at narrower widths; editor, canvas, feedback, and trace remain in document order and stack on small screens.
 - Content grids collapse to one column on narrow screens.
 - Code examples scroll inside their own region rather than forcing page-wide horizontal scrolling.
 - Lesson details use a breadcrumb, one primary heading, ordered section headings, a labeled code example, and descriptive previous/next links.
@@ -34,6 +34,8 @@ These checks cover the application shell, lesson reading, deterministic practice
 - Playground analysis results use a heading, diagnostic codes, line/column text, explanations, and a polite live status; meaning does not depend on color.
 - Every flowchart has an ordered node list and explicit connection list; True/False meaning is available in text, not only arrow position or color.
 - Native **Show line** buttons connect source-backed nodes to the exact editor selection without requiring Mermaid click directives.
+- Node selection is represented in the equivalent text map, property text, source selection, and a high-contrast SVG outline rather than color alone.
+- Flowchart zoom and fit are native buttons with accessible names and a text zoom value.
 - The SVG is labeled as an image, remains inside a horizontally scrollable panel, and renderer failures retain the text equivalent.
 - Motion is non-essential and reduced when `prefers-reduced-motion` is enabled.
 - Forced-colors mode receives an explicit focus outline color.
@@ -67,8 +69,8 @@ These checks cover the application shell, lesson reading, deterministic practice
 Perform these checks in Microsoft Edge or Chrome before accepting Prompt 10:
 
 1. Press `Tab` immediately after loading a page. Confirm the skip link appears and moves focus to the main heading when activated.
-2. Continue pressing `Tab`. Confirm Home, Lessons, Playground, Progress, and page actions receive a visible focus outline in a logical order.
-3. Activate every primary navigation link with `Enter`. Confirm the correct page and browser title appear.
+2. Continue pressing `Tab`. Confirm application-menu links, workspace actions, activity-rail links, editor controls, canvas controls, and output controls receive a visible focus outline in a logical order.
+3. Activate File, View, Analysis, and Settings links with `Enter`. Confirm each moves to its named workspace region.
 4. At 200% browser zoom, confirm content remains readable and actions do not overlap.
 5. Resize the viewport to 320 CSS pixels wide. Confirm there is no page-level horizontal scrolling; the code sample may scroll inside its own block.
 6. Enable a reduced-motion preference. Confirm the interface remains understandable without animation.
@@ -94,16 +96,17 @@ Perform these checks in Microsoft Edge or Chrome before accepting Prompt 10:
 26. Preview sequence, nested branching, and loops using only the keyboard. Confirm the visual, ordered nodes, and explicit True/False/Repeat connection text agree.
 27. Activate **Show line** and confirm focus returns to the textarea with the corresponding source selected.
 28. At 200% zoom and 320 CSS pixels, confirm the SVG scrolls inside its panel and the text map remains readable without page-level horizontal scrolling.
-29. Test unsupported `break`, malformed input, and a blocked renderer. Confirm each state has text feedback and does not depend on the SVG.
-30. Build a step trace using only the keyboard. Confirm program counter, active node, variables, output, and explanation are exposed as text.
-31. Activate **Next step** and **Reset trace**. Confirm the live status changes and reset returns to the empty Start state.
-32. At 200% zoom and 320 CSS pixels, confirm the three trace-state sections stack without page-level horizontal scrolling.
-33. Load and check the age-boundary exercise using only the keyboard. Confirm each case exposes input, expected output, actual output, Pass/Fail text, and the Boundary label.
-34. Trigger a failing boundary and confirm its hint is readable without relying on color.
-35. Trigger malformed source and confirm syntax/support diagnostics are presented separately from logical results.
-36. At 200% zoom and 320 CSS pixels, confirm the logical-results table scrolls inside its container without page-level horizontal scrolling.
-37. As an administrator, reach every authoring field and action using only the keyboard; confirm labels, focus, validation errors, and save/publish status are announced clearly.
-38. At 200% zoom and 320 CSS pixels, confirm the owned-lesson list, form, private preview, and published lesson stack without page-level horizontal scrolling.
+29. Select a source-backed node and confirm its properties, text-map selection, SVG outline, and exact textarea selection agree. Use zoom in/out/fit with keyboard only.
+30. Test unsupported `break`, malformed input, and a blocked renderer. Confirm each state has text feedback and does not depend on the SVG.
+31. Build a step trace using only the keyboard. Confirm program counter, active node, variables, output, and explanation are exposed as text.
+32. Activate **Next step** and **Reset trace**. Confirm the live status changes and reset returns to the empty Start state.
+33. At 200% zoom and 320 CSS pixels, confirm the three trace-state sections stack without page-level horizontal scrolling.
+34. Load and check the age-boundary exercise using only the keyboard. Confirm each case exposes input, expected output, actual output, Pass/Fail text, and the Boundary label.
+35. Trigger a failing boundary and confirm its hint is readable without relying on color.
+36. Trigger malformed source and confirm syntax/support diagnostics are presented separately from logical results.
+37. At 200% zoom and 320 CSS pixels, confirm the logical-results table scrolls inside its container without page-level horizontal scrolling.
+38. As an administrator, reach every authoring field and action using only the keyboard; confirm labels, focus, validation errors, and save/publish status are announced clearly.
+39. At 200% zoom and 320 CSS pixels, confirm the owned-lesson list, form, private preview, and published lesson stack without page-level horizontal scrolling.
 
 ## Deferred Accessibility Checks
 
