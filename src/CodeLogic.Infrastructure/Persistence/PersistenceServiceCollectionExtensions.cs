@@ -5,6 +5,7 @@ using CodeLogic.Infrastructure.Authoring;
 
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CodeLogic.Infrastructure.Persistence;
@@ -36,7 +37,14 @@ public static class PersistenceServiceCollectionExtensions
 
         services.AddDbContext<CodeLogicDbContext>(options =>
             options.UseSqlite(connectionStringBuilder.ConnectionString));
-        services.AddScoped<ICurriculumCatalog, EfCurriculumCatalog>();
+        services.AddSingleton<IMemoryCache>(
+            static _ => new MemoryCache(
+                new MemoryCacheOptions
+                {
+                    SizeLimit = 1,
+                }));
+        services.AddScoped<EfCurriculumCatalog>();
+        services.AddScoped<ICurriculumCatalog, CachedCurriculumCatalog>();
         services.AddScoped<ILessonAuthoringService, EfLessonAuthoringService>();
         services.AddScoped<IUserLearningProgressStore, EfUserLearningProgressStore>();
 

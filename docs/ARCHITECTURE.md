@@ -2,10 +2,10 @@
 
 ## Document Status
 
-- Status: Reviewed through Prompt 24
-- Playbook task: 24 — Isolated code runner experimental spike
+- Status: Reviewed through Prompt 25
+- Playbook task: 25 — Observability and performance
 - Last updated: 2026-11-01
-- Implementation status: The modular monolith, four logical bounded contexts, framework-neutral Application ports, curriculum and editorial flows, SQLite persistence, Identity, bounded analysis pipeline, response/input hardening, and repeatable local quality gate are implemented and boundary-tested. The runner spike is a documented no-go; arbitrary .NET execution remains disabled.
+- Implementation status: The modular monolith, four logical bounded contexts, framework-neutral Application ports, curriculum and editorial flows, SQLite persistence, Identity, bounded analysis pipeline, response/input hardening, health probes, privacy-safe analysis telemetry, bounded curriculum caching, and repeatable local quality/performance gates are implemented and boundary-tested. The runner spike remains a documented no-go; arbitrary .NET execution remains disabled.
 
 ## Architectural Goal
 
@@ -178,6 +178,12 @@ Arbitrary .NET compilation and execution are disabled. A future worker is only a
 
 Prompt 24 tested the local prerequisites for that seam and produced a no-go result: Docker and Podman are absent, WSL is not installed, and Windows Sandbox and Hyper-V tooling were not detected. No worker or runtime was added. The candidate separate-worker boundary, mandatory controls, kill switch, evidence checklist, and reconsideration gate are documented in [ISOLATED_RUNNER_SPIKE.md](ISOLATED_RUNNER_SPIKE.md) and ADR 0009. Until all controls are verified on an approved dedicated host, the bounded pedagogical interpreter remains the only execution-like teaching path.
 
+## Observability and Performance
+
+Prompt 25 adds server-controlled correlation IDs, structured logging scopes, a built-in `ActivitySource` and `Meter` around bounded Roslyn analysis, process liveness, SQLite readiness, and a size-limited cache around the immutable seeded curriculum manifest. Telemetry records fixed outcomes, duration, and source length only—never source text, answers, account data, cookies, authored content, connection strings, or secrets.
+
+The current Playground has no public HTTP analysis API; it calls the Application analysis port through the Blazor Server circuit. The package-free load harness measures that exact service boundary instead of adding an unused external endpoint. Health, caching, signal names, measured baseline, budgets, profiling steps, and limitations are recorded in [PERFORMANCE.md](PERFORMANCE.md).
+
 ## Web and API Boundaries
 
 - Blazor components call application use cases; they do not query EF Core directly.
@@ -254,6 +260,9 @@ An extraction seam is permission to evolve, not a commitment to distribute the s
 - Compiler and analyzer warnings fail the build; generated migration operations have only a reviewed, rule-specific exclusion.
 - The local quality script verifies formatting, Release build, xUnit suites, meaningful module coverage floors, migration/model consistency, and vulnerable packages.
 - Logging excludes secrets, account identifiers, answers, authored prose, and learner source.
+- Health responses expose only overall status; readiness checks SQLite connectivity while liveness performs no dependency work.
+- Curriculum caching uses one fixed server-owned entry and never caches identity, progress, attempts, authored drafts, or learner input.
+- Analysis metrics use fixed status tags; learner-controlled values never become metric dimensions.
 - Architecture changes update this document and the relevant ADR before implementation is treated as complete.
 
 See [QUALITY.md](QUALITY.md) for test-pyramid placement, coverage rationale, refactoring evidence, logging, error handling, cancellation, and the Playwright feasibility decision.

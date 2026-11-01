@@ -93,6 +93,14 @@ Source-generated `LoggerMessage` methods record meaningful state transitions and
 
 The new application event logs may contain lesson IDs, attempt IDs, slugs, versions, and result names. They do not contain passwords, secrets, email addresses, user IDs, raw quiz answers, authored prose, or learner source code. Framework logging remains `Information` by default and `Warning` for ASP.NET Core noise.
 
+Prompt 25 adds a server-controlled `CorrelationId` scope and analysis events containing only fixed outcome, source character count, duration, and—on unexpected failure—exception type. The client cannot supply the correlation value. Analysis traces and metrics use the same privacy rule and fixed-cardinality outcome tags. See `docs/PERFORMANCE.md`.
+
+## Performance Regression Check
+
+`tests/CodeLogic.LoadTests` is a package-free Release console harness rather than an xUnit timing assertion. This keeps workstation timing noise out of the required unit/integration suites while still providing a repeatable command, non-zero failure exit, and explicit p95 budget. It exercises the same `ICodeAnalysisService` boundary used by the Playground with valid, syntax-error, and unsupported samples.
+
+The initial 10,000-operation, concurrency-4 baseline has zero failures and a 0.0556 ms p95 against a deliberately conservative 50 ms local budget. Re-run and profile repeated failures rather than weakening the threshold. This is not an HTTP or production capacity measurement.
+
 ## Error Handling
 
 - Expected validation, missing-resource, forbidden-owner, and version-conflict outcomes use explicit result types and learner-safe messages.
@@ -120,6 +128,7 @@ Do not catch `OperationCanceledException` as an application failure unless the c
 5. Submit a valid quiz and an unknown lesson request; confirm structured event fields appear without the submitted answer.
 6. Trigger an application error only in local development, then verify the production error page description remains generic and includes a request ID.
 7. Complete the relevant manual browser checks in `docs/ACCESSIBILITY.md` and feature documents.
+8. Verify `/health/live` and `/health/ready`, inspect `X-Correlation-ID`, and run the load command from `docs/PERFORMANCE.md`.
 
 ## Known Limitations
 
@@ -127,3 +136,4 @@ Do not catch `OperationCanceledException` as an application failure unless the c
 - Web has no numeric coverage floor for the reasons above.
 - Coverage reports are local artifacts; publishing them in CI belongs to a later delivery task.
 - The existing integration project contains both fast application behavior and external-adapter tests; split it only when measured execution or dependency problems justify the change.
+- External telemetry export, dashboards, alerts, and hosted retention remain deferred until a deployment environment and data-access policy exist.

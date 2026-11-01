@@ -3,10 +3,12 @@ using CodeLogic.Infrastructure.Identity;
 using CodeLogic.Infrastructure.Persistence;
 using CodeLogic.Web.Components;
 using CodeLogic.Web.Identity;
+using CodeLogic.Web.Observability;
 using CodeLogic.Web.Progress;
 using CodeLogic.Web.Security;
 
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -58,10 +60,13 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.SlidingExpiration = true;
 });
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddHealthChecks()
+    .AddCheck<DatabaseReadinessHealthCheck>("database", tags: ["ready"]);
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+app.UseCodeLogicCorrelationId();
 app.UseCodeLogicSecurityHeaders();
 if (!app.Environment.IsDevelopment())
 {
@@ -81,5 +86,17 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 app.MapIdentityEndpoints();
 app.MapQuizSubmission();
+app.MapHealthChecks(
+    "/health/live",
+    new HealthCheckOptions
+    {
+        Predicate = static _ => false,
+    });
+app.MapHealthChecks(
+    "/health/ready",
+    new HealthCheckOptions
+    {
+        Predicate = static registration => registration.Tags.Contains("ready"),
+    });
 
 app.Run();

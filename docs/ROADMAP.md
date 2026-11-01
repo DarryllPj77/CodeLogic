@@ -3,9 +3,9 @@
 ## Roadmap Status
 
 - Last updated: 2026-11-01
-- Current completed milestone: Prompt 24 — Isolated code runner experimental spike
-- Exact next numbered task: Not supplied; Prompt 25 remains awaiting definition
-- Source coverage: Prompts 00–24 have been supplied; Prompts 25–29 have not yet been added to the repository
+- Current completed milestone: Prompt 25 — Observability and performance
+- Exact next numbered task: Not supplied; Prompt 26 remains awaiting definition
+- Source coverage: Prompts 00–25 have been supplied; Prompts 26–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
 
@@ -55,7 +55,8 @@
 | 22 | Architectural boundaries and DDD review | Complete | Context map, dependency graph tests, pragmatic model review, and ADRs support current ports/adapters and selective-CQRS choices. |
 | 23 | Security hardening and safe execution design | Complete | Threat model, negative gates, bounded inputs, response headers, and an isolated-worker prerequisite contract preserve fail-closed behavior with execution disabled. |
 | 24 | Isolated code runner experimental spike | Complete | Local containment audit records a no-go decision, separate-worker design, kill switch, and manual security checklist; no runner is implemented or deployed. |
-| 25–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
+| 25 | Observability and performance | Complete | Privacy-safe correlation/logs/traces/metrics, health probes, bounded immutable-content cache, repeatable load harness, baseline, and actionable budgets are documented and tested. |
+| 26–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
 
 ## Completed Foundation
 
@@ -605,9 +606,33 @@ Acceptance gate:
 
 Prompt 24 does not add Docker/Podman/WSL/Hyper-V, a worker project, compiler, package restore, execution endpoint, queue, runtime image, deployment, or future playbook features.
 
+## Completed Observability and Performance
+
+### Prompt 25 — Observability and performance
+
+Completed outcomes:
+
+- added a server-controlled correlation ID response header and structured logging scope;
+- instrumented bounded analysis with privacy-safe structured events, an activity source, a counter, and a duration histogram;
+- added process liveness and SQLite connectivity readiness endpoints with generic responses;
+- cached the immutable persisted curriculum manifest behind one fixed, size-limited, expiring cache entry;
+- added integration tests for telemetry privacy, cache reuse, correlation control, and healthy/unhealthy readiness behavior;
+- added a package-free Release load harness for the same analysis service boundary used by the Blazor Playground;
+- measured 10,000 mixed analysis operations at concurrency 4 with zero failures, 0.0556 ms p95, and 0.0778 ms p99 on the local workstation;
+- documented budgets, profiling workflow, privacy rules, limitations, and actions for threshold failures.
+
+Acceptance gate:
+
+- `docs/PERFORMANCE.md` contains the repeatable command, environment, measured baseline, thresholds, and honest interpretation;
+- analysis correctness must have zero failures and the documented local warm p95 budget is 50 ms;
+- observability never records learner source or personal data by default;
+- focused tests and the complete quality gate pass.
+
+Prompt 25 does not add an external telemetry backend, public analysis API, dashboards, alerts, hosted load infrastructure, production scaling policy, or later playbook features.
+
 ## Awaiting the Next Supplied Prompt
 
-Prompts 25–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
+Prompts 26–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
 
 ## Six-Level Growth Map
 
@@ -624,6 +649,6 @@ Prompts 25–29 remain undefined in the repository. The owner must provide the e
 
 - Do not mark future implementation complete based only on documentation.
 - When a task is completed, update its status and evidence in this file within that task's allowed documentation scope.
-- Do not fill Prompts 25–29 with guessed requirements. Add them only from the owner's playbook.
+- Do not fill Prompts 26–29 with guessed requirements. Add them only from the owner's playbook.
 - If a new prompt conflicts with the accepted product charter or architecture, surface the conflict and obtain an owner decision before implementation.
 - Preserve historical ADRs; supersede decisions with a new ADR rather than rewriting accepted history.

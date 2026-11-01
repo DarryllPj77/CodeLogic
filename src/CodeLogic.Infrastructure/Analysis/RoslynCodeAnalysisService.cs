@@ -1,28 +1,47 @@
 using System.Globalization;
+using System.Diagnostics;
 
 using CodeLogic.Application.Analysis;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CodeLogic.Infrastructure.Analysis;
 
-public sealed class RoslynCodeAnalysisService : ICodeAnalysisService
+public sealed partial class RoslynCodeAnalysisService : ICodeAnalysisService
 {
     private static readonly CSharpParseOptions ParseOptions = new(
         LanguageVersion.CSharp14,
         DocumentationMode.None,
         SourceCodeKind.Regular);
 
+    private readonly ILogger<RoslynCodeAnalysisService> logger;
+
     public RoslynCodeAnalysisService()
-        : this(CodeAnalysisLimits.Default)
+        : this(CodeAnalysisLimits.Default, NullLogger<RoslynCodeAnalysisService>.Instance)
     {
     }
 
     public RoslynCodeAnalysisService(CodeAnalysisLimits limits)
+        : this(limits, NullLogger<RoslynCodeAnalysisService>.Instance)
+    {
+    }
+
+    public RoslynCodeAnalysisService(ILogger<RoslynCodeAnalysisService> logger)
+        : this(CodeAnalysisLimits.Default, logger)
+    {
+    }
+
+    private RoslynCodeAnalysisService(
+        CodeAnalysisLimits limits,
+        ILogger<RoslynCodeAnalysisService> logger)
     {
         ArgumentNullException.ThrowIfNull(limits);
+        ArgumentNullException.ThrowIfNull(logger);
         Limits = limits;
+        this.logger = logger;
     }
 
     public CodeAnalysisLimits Limits { get; }
@@ -31,51 +50,112 @@ public sealed class RoslynCodeAnalysisService : ICodeAnalysisService
         string? source,
         CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        if (string.IsNullOrWhiteSpace(source))
-        {
-            return InvalidInput(
-                "CL0001",
-                "Enter some C# source text before checking it.",
-                "The parser needs at least one non-whitespace character.");
-        }
-
-        if (source.Length > Limits.MaximumCharacters)
-        {
-            return InvalidInput(
-                "CL0002",
-                $"The source has {source.Length:N0} characters; the limit is {Limits.MaximumCharacters:N0}.",
-                "Short snippets keep analysis bounded and the feedback suitable for a beginner lesson.");
-        }
-
-        using var timeoutSource = new CancellationTokenSource(Limits.MaximumDuration);
-        using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(
-            cancellationToken,
-            timeoutSource.Token);
+        var sourceLength = source?.Length ?? 0;
+        var started = Stopwatch.GetTimestamp();
+        using var activity = AnalysisTelemetry.ActivitySource.StartActivity(
+            "analyze",
+            ActivityKind.Internal);
+        activity?.SetTag("code_logic.analysis.source_length", sourceLength);
 
         try
         {
-            return await Task.Run(
-                () => AnalyzeCore(source, linkedSource.Token),
-                linkedSource.Token);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (string.IsNullOrWhiteSpace(source))
+            {
+                return Complete(
+                    InvalidInput(
+                        "CL0001",
+                        "Enter some C# source text before checking it.",
+                        "The parser needs at least one non-whitespace character."),
+                    sourceLength,
+                    started,
+                    activity);
+            }
+
+            if (source.Length > Limits.MaximumCharacters)
+            {
+                return Complete(
+                    InvalidInput(
+                        "CL0002",
+                        $"The source has {source.Length:N0} characters; the limit is {Limits.MaximumCharacters:N0}.",
+                        "Short snippets keep analysis bounded and the feedback suitable for a beginner lesson."),
+                    sourceLength,
+                    started,
+                    activity);
+            }
+
+            using var timeoutSource = new CancellationTokenSource(Limits.MaximumDuration);
+            using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                timeoutSource.Token);
+
+            try
+            {
+                var result = await Task.Run(
+                    () => AnalyzeCore(source, linkedSource.Token),
+                    linkedSource.Token);
+                return Complete(result, sourceLength, started, activity);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return Complete(
+                    new CodeAnalysisResult(
+                        CodeAnalysisStatus.TimedOut,
+                        [
+                            new CodeDiagnostic(
+                                "CL0003",
+                                CodeDiagnosticCategory.Limit,
+                                CodeDiagnosticSeverity.Error,
+                                $"Analysis exceeded the {Limits.MaximumDuration.TotalMilliseconds:N0} ms time limit.",
+                                "Shorten the snippet and try again. CodeLogic stopped instead of continuing unbounded work.",
+                                Line: null,
+                                Column: null,
+                                Length: 0),
+                        ]),
+                    sourceLength,
+                    started,
+                    activity);
+            }
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
-            return new CodeAnalysisResult(
-                CodeAnalysisStatus.TimedOut,
-                [
-                    new CodeDiagnostic(
-                        "CL0003",
-                        CodeDiagnosticCategory.Limit,
-                        CodeDiagnosticSeverity.Error,
-                        $"Analysis exceeded the {Limits.MaximumDuration.TotalMilliseconds:N0} ms time limit.",
-                        "Shorten the snippet and try again. CodeLogic stopped instead of continuing unbounded work.",
-                        Line: null,
-                        Column: null,
-                        Length: 0),
-                ]);
+            Observe("cancelled", started, activity);
+            throw;
         }
+        catch (Exception exception)
+        {
+            var elapsed = Observe("faulted", started, activity);
+            LogAnalysisFaulted(logger, exception.GetType().Name, sourceLength, elapsed.TotalMilliseconds);
+            throw;
+        }
+    }
+
+    private CodeAnalysisResult Complete(
+        CodeAnalysisResult result,
+        int sourceLength,
+        long started,
+        Activity? activity)
+    {
+        var status = result.Status.ToString();
+        var elapsed = Observe(status, started, activity);
+        LogAnalysisCompleted(logger, status, sourceLength, elapsed.TotalMilliseconds);
+        return result;
+    }
+
+    private static TimeSpan Observe(
+        string status,
+        long started,
+        Activity? activity)
+    {
+        var elapsed = Stopwatch.GetElapsedTime(started);
+        var statusTag = new KeyValuePair<string, object?>("code_logic.analysis.status", status);
+        AnalysisTelemetry.CompletedOperations.Add(1, statusTag);
+        AnalysisTelemetry.Duration.Record(elapsed.TotalMilliseconds, statusTag);
+        activity?.SetTag("code_logic.analysis.status", status);
+        activity?.SetTag("code_logic.analysis.duration_ms", elapsed.TotalMilliseconds);
+        activity?.SetStatus(status == "faulted" ? ActivityStatusCode.Error : ActivityStatusCode.Ok);
+        return elapsed;
     }
 
     private CodeAnalysisResult AnalyzeCore(string source, CancellationToken cancellationToken)
@@ -160,4 +240,24 @@ public sealed class RoslynCodeAnalysisService : ICodeAnalysisService
         "CS1010" => "A quoted string must finish before the line ends.",
         _ => "The C# parser could not understand this part of the snippet. Check nearby punctuation and keywords.",
     };
+
+    [LoggerMessage(
+        3001,
+        LogLevel.Information,
+        "Completed bounded analysis with status {Status} for {SourceLength} characters in {ElapsedMilliseconds:F2} ms.")]
+    private static partial void LogAnalysisCompleted(
+        ILogger logger,
+        string status,
+        int sourceLength,
+        double elapsedMilliseconds);
+
+    [LoggerMessage(
+        3002,
+        LogLevel.Error,
+        "Bounded analysis failed with exception type {ExceptionType} for {SourceLength} characters after {ElapsedMilliseconds:F2} ms.")]
+    private static partial void LogAnalysisFaulted(
+        ILogger logger,
+        string exceptionType,
+        int sourceLength,
+        double elapsedMilliseconds);
 }

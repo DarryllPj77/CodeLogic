@@ -64,6 +64,9 @@ Browser input is untrusted even when it comes from a hidden field, `maxlength` c
 | Open redirect | Crafted return URL after login/register | Only a single local path beginning with `/` is accepted; `//`, `/\`, blank, and oversized values fall back to `/` | External return URLs remain unsupported. |
 | Clickjacking/browser capability abuse | App embedded in hostile frame or requests camera | `X-Frame-Options: DENY`, restrictive Permissions Policy, no-referrer policy, MIME sniffing disabled, cross-origin opener isolation | A full CSP is deferred until Blazor/import-map and Mermaid module requirements are nonce/self-host compatible. |
 | Sensitive logging | Password, raw answer, learner source, email, owner ID in logs | Application logs record IDs/statuses needed for operations but omit those sensitive values; detailed exception output is not served in production | Operators still need retention/access policy and secret scanning in a delivery task. |
+| Telemetry cardinality/privacy | Learner text or account values become log fields, trace tags, or metric dimensions | Correlation IDs are server-controlled; analysis records fixed outcome, character count, duration, and exception type only; tests reject source text in activities | A hosted exporter still requires access, retention, sampling, cost, and redaction review. |
+| Health information disclosure | Probe exposes database path, connection string, exception, or schema | Liveness has no dependency details; readiness returns only overall health and catches database failures behind a generic description | Hosting must restrict probe network exposure as appropriate for the selected platform. |
+| Cache poisoning/exhaustion | User-controlled keys fill memory or cross-user data is cached | Dedicated cache has one fixed server-owned key, size limit one, absolute expiration, and stores only the immutable seeded manifest | Any new cache entry or runtime curriculum editing requires a separate key/cardinality/invalidation/privacy review. |
 
 ## Input and Request Limits
 
@@ -180,6 +183,7 @@ Before any feature flag can enable execution, tests must demonstrate blocked net
 - “safe” in-process execution, `AssemblyLoadContext` isolation, or AppDomain-based sandboxing;
 - public code/file uploads;
 - network-enabled packages or NuGet restore for learner code;
+- student source, answers, identity data, progress, attempts, or authored drafts in application caches or telemetry;
 - production rate-limiting infrastructure, WAF configuration, SIEM, or secret management;
 - enabling a worker based only on this design document.
 
