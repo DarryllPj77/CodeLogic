@@ -70,7 +70,8 @@ Push-Location $repositoryRoot
 try {
     New-Item -ItemType Directory -Path $unitResults, $integrationResults -Force | Out-Null
 
-    Invoke-DotNet 'Restore' @('restore', 'CodeLogic.slnx')
+    Invoke-DotNet 'Tool restore' @('tool', 'restore')
+    Invoke-DotNet 'Restore' @('restore', 'CodeLogic.slnx', '--locked-mode')
     Invoke-DotNet 'Formatting' @('format', 'CodeLogic.slnx', '--no-restore', '--verify-no-changes')
     Invoke-DotNet 'Build' @('build', 'CodeLogic.slnx', '--configuration', $Configuration, '--no-restore')
     Invoke-DotNet 'Unit tests and coverage' @(

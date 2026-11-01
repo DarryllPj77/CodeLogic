@@ -2,10 +2,10 @@
 
 ## Document Status
 
-- Status: Reviewed through Prompt 25
-- Playbook task: 25 — Observability and performance
+- Status: Reviewed through Prompt 26
+- Playbook task: 26 — CI/CD and containers
 - Last updated: 2026-11-01
-- Implementation status: The modular monolith, four logical bounded contexts, framework-neutral Application ports, curriculum and editorial flows, SQLite persistence, Identity, bounded analysis pipeline, response/input hardening, health probes, privacy-safe analysis telemetry, bounded curriculum caching, and repeatable local quality/performance gates are implemented and boundary-tested. The runner spike remains a documented no-go; arbitrary .NET execution remains disabled.
+- Implementation status: The modular monolith, four logical bounded contexts, framework-neutral Application ports, curriculum and editorial flows, SQLite persistence, Identity, bounded analysis pipeline, response/input hardening, health probes, privacy-safe analysis telemetry, bounded curriculum caching, locked dependencies, CI quality/container gates, and a non-root application image are implemented and boundary-tested. The runner spike remains a documented no-go; arbitrary .NET execution remains disabled.
 
 ## Architectural Goal
 
@@ -208,7 +208,9 @@ flowchart LR
     C -->|Independent scale, ownership,<br/>security, or availability need| D
 ```
 
-Docker and GitHub Actions can make the single application repeatable before any distributed architecture is considered. Azure is the default deployment path in the playbook. Kubernetes and AWS may be studied later as comparisons, but neither is required for the initial product.
+Prompt 26 adds GitHub Actions and a digest-pinned, non-root .NET container for the same single deployable application. CI reuses the local quality gate, smoke-tests explicit SQLite migration/readiness, and scans the final image. Compose remains a local development workflow with one app plus a one-shot migration service—not a distributed application architecture. See [DELIVERY.md](DELIVERY.md).
+
+Azure remains the default future deployment path in the playbook. Kubernetes and AWS may be studied later as comparisons, but neither is required for the initial product.
 
 ## Why Not Yet?
 
@@ -259,6 +261,8 @@ An extraction seam is permission to evolve, not a commitment to distribute the s
 - Provider-specific persistence behavior has integration tests.
 - Compiler and analyzer warnings fail the build; generated migration operations have only a reviewed, rule-specific exclusion.
 - The local quality script verifies formatting, Release build, xUnit suites, meaningful module coverage floors, migration/model consistency, and vulnerable packages.
+- CI uses locked SDK/tool/NuGet inputs, read-only repository permission, full-SHA-pinned actions, digest-pinned images, and no deployment secrets.
+- The runtime image declares a non-root user; local/CI containers drop all capabilities, prevent privilege gain, and never mount the Docker socket or source repository.
 - Logging excludes secrets, account identifiers, answers, authored prose, and learner source.
 - Health responses expose only overall status; readiness checks SQLite connectivity while liveness performs no dependency work.
 - Curriculum caching uses one fixed server-owned entry and never caches identity, progress, attempts, authored drafts, or learner input.

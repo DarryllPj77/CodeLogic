@@ -51,6 +51,14 @@ dotnet ef database update --project src/CodeLogic.Infrastructure/CodeLogic.Infra
 
 The application does not apply migrations automatically. This keeps schema changes explicit and avoids granting production application processes migration permissions.
 
+Prompt 26 adds an exact `--migrate` process mode for the local container workflow. It applies reviewed migrations and exits without starting the web server. Compose runs it as a one-shot service before the app starts against the named local SQLite volume. Normal application startup still never migrates automatically, and this command is not approval to run against production.
+
+Container-local equivalent:
+
+```text
+dotnet CodeLogic.Web.dll --migrate
+```
+
 To inspect migration state:
 
 ```powershell

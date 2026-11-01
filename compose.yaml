@@ -1,0 +1,59 @@
+name: ${COMPOSE_PROJECT_NAME:-codelogic}
+
+services:
+  migrate:
+    image: ${CODELOGIC_IMAGE:-codelogic:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["--migrate"]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__CodeLogic: Data Source=/data/CodeLogic.db
+    volumes:
+      - codelogic-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid,nodev
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 256m
+    cpus: 1.0
+    restart: "no"
+
+  app:
+    image: ${CODELOGIC_IMAGE:-codelogic:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__CodeLogic: Data Source=/data/CodeLogic.db
+      DataProtection__KeysPath: /keys
+    ports:
+      - "127.0.0.1:${CODELOGIC_HTTP_PORT:-8080}:8080"
+    volumes:
+      - codelogic-data:/data
+      - codelogic-keys:/keys
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid,nodev
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 512m
+    cpus: 1.0
+    stop_grace_period: 10s
+    restart: unless-stopped
+
+volumes:
+  codelogic-data:
+  codelogic-keys:

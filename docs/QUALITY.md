@@ -65,16 +65,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/quality-gate.ps1 -Co
 
 The script stops at the first failure and runs:
 
-1. NuGet restore;
-2. `dotnet format --verify-no-changes`;
-3. Release build with warnings treated as errors;
-4. unit tests with coverage;
-5. integration tests with coverage;
-6. module line and branch regression floors;
-7. EF migration/model consistency check;
-8. direct and transitive NuGet vulnerability audit.
+1. repository-local .NET tool restore;
+2. locked NuGet restore with direct/transitive audit enabled;
+3. `dotnet format --verify-no-changes`;
+4. Release build with warnings treated as errors;
+5. unit tests with coverage;
+6. integration tests with coverage;
+7. module line and branch regression floors;
+8. EF migration/model consistency check;
+9. direct and transitive NuGet vulnerability listing.
 
 Reports are written beneath ignored `artifacts/quality/<timestamp>/`. The script does not commit, push, migrate the development database, or contact production systems.
+
+Prompt 26 runs this same script on `ubuntu-24.04` for pull requests and `main`, preventing local/CI quality-rule drift. SDK, EF tool, NuGet graphs, actions, and container bases are pinned. The separate container job verifies a non-root runtime, explicit empty-database migration, readiness, hardened runtime flags, and fixable High/Critical image vulnerabilities.
 
 ## SOLID and Refactoring Evidence
 

@@ -231,7 +231,18 @@ Current result:
 Docker command not found.
 ```
 
-This is an optional gap, not a blocker. Do not install Docker Desktop until a numbered task requires it and the owner approves the installation and licensing/resource implications.
+Docker remains optional for ordinary Visual Studio development, but Prompt 26 now requires Docker Desktop/Engine with Compose v2 to reproduce the local container workflow. It is still absent on this workstation. Do not install it without owner approval and a licensing/resource review; GitHub Actions supplies the first Docker-enabled verification environment.
+
+When Docker is approved and installed, validate:
+
+```powershell
+docker version
+docker compose version
+docker build --tag codelogic:local .
+docker compose config
+```
+
+See `docs/DELIVERY.md` before running Compose. The normal `dotnet`/Visual Studio workflow remains available without Docker.
 
 ## Prompt 24 Isolation Audit
 

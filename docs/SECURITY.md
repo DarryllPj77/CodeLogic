@@ -67,6 +67,9 @@ Browser input is untrusted even when it comes from a hidden field, `maxlength` c
 | Telemetry cardinality/privacy | Learner text or account values become log fields, trace tags, or metric dimensions | Correlation IDs are server-controlled; analysis records fixed outcome, character count, duration, and exception type only; tests reject source text in activities | A hosted exporter still requires access, retention, sampling, cost, and redaction review. |
 | Health information disclosure | Probe exposes database path, connection string, exception, or schema | Liveness has no dependency details; readiness returns only overall health and catches database failures behind a generic description | Hosting must restrict probe network exposure as appropriate for the selected platform. |
 | Cache poisoning/exhaustion | User-controlled keys fill memory or cross-user data is cached | Dedicated cache has one fixed server-owned key, size limit one, absolute expiration, and stores only the immutable seeded manifest | Any new cache entry or runtime curriculum editing requires a separate key/cardinality/invalidation/privacy review. |
+| CI supply-chain compromise | Mutable actions/images or broad token permissions run attacker-controlled build code | Workflow actions use full commit SHAs, .NET images use manifest digests, token permission is `contents: read`, dependency graphs are locked, and no secrets/deploy steps exist | Hosted runner images and upstream registries remain external trust; Dependabot updates still require review. |
+| Application-container escape | Compromised app process gains host capability or writable image access | Final image runs non-root; Compose/CI use read-only root, drop all capabilities, set no-new-privileges, bound CPU/memory/PIDs, and mount only dedicated data/key volumes | Docker/host/kernel security and production orchestration require patching and platform review. |
+| Image vulnerability | Known vulnerable OS or NuGet component ships | NuGet audit covers direct/transitive packages; Trivy blocks fixable High/Critical OS/library findings; digest pins and Dependabot make updates reviewable | Unfixed upstream findings are reported but initially non-blocking; owner must reassess for production risk. |
 
 ## Input and Request Limits
 
@@ -186,6 +189,7 @@ Before any feature flag can enable execution, tests must demonstrate blocked net
 - student source, answers, identity data, progress, attempts, or authored drafts in application caches or telemetry;
 - production rate-limiting infrastructure, WAF configuration, SIEM, or secret management;
 - enabling a worker based only on this design document.
+- privileged application containers, Docker-socket/source mounts, or treating the application image as the isolated code runner;
 
 ## Manual Visual Studio Verification
 

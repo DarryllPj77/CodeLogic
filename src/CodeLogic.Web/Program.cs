@@ -2,6 +2,7 @@ using CodeLogic.Infrastructure.Analysis;
 using CodeLogic.Infrastructure.Identity;
 using CodeLogic.Infrastructure.Persistence;
 using CodeLogic.Web.Components;
+using CodeLogic.Web.Deployment;
 using CodeLogic.Web.Identity;
 using CodeLogic.Web.Observability;
 using CodeLogic.Web.Progress;
@@ -9,6 +10,7 @@ using CodeLogic.Web.Security;
 
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,6 +20,12 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthorization();
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+}
 builder.Services.Configure<FormOptions>(options =>
 {
     options.MultipartBodyLengthLimit = SecurityRequestLimits.MaximumRequestBodyBytes;
@@ -64,6 +72,12 @@ builder.Services.AddHealthChecks()
     .AddCheck<DatabaseReadinessHealthCheck>("database", tags: ["ready"]);
 
 var app = builder.Build();
+
+if (DatabaseMigrationCommand.IsRequested(args))
+{
+    await DatabaseMigrationCommand.ApplyAsync(app.Services);
+    return;
+}
 
 // Configure the HTTP request pipeline.
 app.UseCodeLogicCorrelationId();

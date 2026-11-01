@@ -4,8 +4,9 @@
 
 - Last updated: 2026-11-01
 - Current completed milestone: Prompt 25 — Observability and performance
-- Exact next numbered task: Not supplied; Prompt 26 remains awaiting definition
-- Source coverage: Prompts 00–25 have been supplied; Prompts 26–29 have not yet been added to the repository
+- Current task: Prompt 26 implementation is ready; acceptance awaits a green pushed pull-request pipeline
+- Exact next numbered task: Prompt 27, only after Prompt 26 external verification and owner acceptance
+- Source coverage: Prompts 00–26 have been supplied; Prompts 27–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
 
@@ -24,6 +25,7 @@
 | Complete | Acceptance evidence exists in the repository and the change has been committed. |
 | Next | The next task eligible for execution after owner approval. |
 | Planned | The prompt is known but must not be started yet. |
+| Awaiting external verification | Implementation and local gates pass, but an acceptance condition requires an external system or owner-controlled setting. |
 | Awaiting definition | The playbook refers to the number, but its exact prompt has not been supplied. |
 
 ## Numbered Build Sequence
@@ -56,7 +58,8 @@
 | 23 | Security hardening and safe execution design | Complete | Threat model, negative gates, bounded inputs, response headers, and an isolated-worker prerequisite contract preserve fail-closed behavior with execution disabled. |
 | 24 | Isolated code runner experimental spike | Complete | Local containment audit records a no-go decision, separate-worker design, kill switch, and manual security checklist; no runner is implemented or deployed. |
 | 25 | Observability and performance | Complete | Privacy-safe correlation/logs/traces/metrics, health probes, bounded immutable-content cache, repeatable load harness, baseline, and actionable budgets are documented and tested. |
-| 26–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
+| 26 | CI/CD and containers | Awaiting external verification | Locked restore, PR/main quality and container security jobs, non-root digest-pinned image, hardened local Compose, explicit migration, and delivery guide are present; first pushed PR must supply green-run evidence. |
+| 27–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
 
 ## Completed Foundation
 
@@ -630,9 +633,32 @@ Acceptance gate:
 
 Prompt 25 does not add an external telemetry backend, public analysis API, dashboards, alerts, hosted load infrastructure, production scaling policy, or later playbook features.
 
+## Implemented CI/CD and Containers — Awaiting External Verification
+
+### Prompt 26 — CI/CD and containers
+
+Completed outcomes:
+
+- pinned SDK, repository-local EF tool, direct/transitive NuGet graphs, GitHub actions, and .NET container base manifests;
+- made local and CI quality use the same tool restore, locked restore, formatting, Release build, xUnit/coverage, EF consistency, and vulnerability audit;
+- added PR, `main`, and manual GitHub Actions triggers with read-only repository permission and concurrency cancellation;
+- added a separate container job for non-root declaration, explicit migration, readiness smoke test, resource/privilege restrictions, and Trivy image scanning;
+- added a multi-stage chiseled-extra application image that contains no SDK and runs as the built-in unprivileged .NET user;
+- added hardened local Compose services for explicit migration and the single web app using SQLite/data-protection named volumes;
+- added secret-free example environment values and weekly Dependabot proposals;
+- documented the reproducible workflow, branch-protection owner action, reset warning, security tradeoffs, and honest local verification gap.
+
+Acceptance gate:
+
+- local locked restore, build, tests, publish, migration test, dependency audit, and configuration review pass;
+- Docker/Trivy cannot run on the current machine because Docker is absent;
+- the first pushed pull request must show both **Quality gate** and **Container build and security** green before Prompt 26 is finally accepted.
+
+Prompt 26 does not push an image, deploy to cloud, run a production migration, add credentials, create a code-runner container, enable privileged access, or implement later playbook features.
+
 ## Awaiting the Next Supplied Prompt
 
-Prompts 26–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
+Prompts 27–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
 
 ## Six-Level Growth Map
 
@@ -649,6 +675,6 @@ Prompts 26–29 remain undefined in the repository. The owner must provide the e
 
 - Do not mark future implementation complete based only on documentation.
 - When a task is completed, update its status and evidence in this file within that task's allowed documentation scope.
-- Do not fill Prompts 26–29 with guessed requirements. Add them only from the owner's playbook.
+- Do not fill Prompts 27–29 with guessed requirements. Add them only from the owner's playbook.
 - If a new prompt conflicts with the accepted product charter or architecture, surface the conflict and obtain an owner decision before implementation.
 - Preserve historical ADRs; supersede decisions with a new ADR rather than rewriting accepted history.

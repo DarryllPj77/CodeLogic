@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: true
+
+jobs:
+  quality:
+    name: Quality gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up .NET from global.json
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Restore, format, build, test, migrate-check, and audit
+        shell: pwsh
+        run: ./scripts/quality-gate.ps1 -Configuration Release
+
+      - name: Run bounded analysis performance check
+        run: >-
+          dotnet run
+          --project tests/CodeLogic.LoadTests/CodeLogic.LoadTests.csproj
+          --configuration Release
+          --no-build
+          --
+          --operations 10000
+          --concurrency 4
+          --p95-budget-ms 50
+
+  container:
+    name: Container build and security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build pinned non-root image
+        run: docker build --tag codelogic:ci .
+
+      - name: Verify runtime user is non-root
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime_user="$(docker image inspect --format '{{.Config.User}}' codelogic:ci)"
+          test -n "$runtime_user"
+          test "$runtime_user" != "0"
+          test "$runtime_user" != "root"
+
+      - name: Apply local migration and smoke-test readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker volume create codelogic-ci-data >/dev/null
+          docker volume create codelogic-ci-keys >/dev/null
+          cleanup() {
+            docker logs codelogic-ci-app 2>/dev/null || true
+            docker rm --force codelogic-ci-app 2>/dev/null || true
+            docker volume rm codelogic-ci-data codelogic-ci-keys 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          docker run --rm \
+            --read-only \
+            --cap-drop ALL \
+            --security-opt no-new-privileges:true \
+            --memory 256m \
+            --cpus 1 \
+            --pids-limit 128 \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=32m \
+            --volume codelogic-ci-data:/data \
+            codelogic:ci --migrate
+
+          docker run --detach \
+            --name codelogic-ci-app \
+            --read-only \
+            --cap-drop ALL \
+            --security-opt no-new-privileges:true \
+            --memory 512m \
+            --cpus 1 \
+            --pids-limit 256 \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
+            --volume codelogic-ci-data:/data \
+            --volume codelogic-ci-keys:/keys \
+            --publish 127.0.0.1:8080:8080 \
+            codelogic:ci >/dev/null
+
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error http://127.0.0.1:8080/health/ready; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+
+      - name: Scan image for fixable high and critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: codelogic:ci
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
