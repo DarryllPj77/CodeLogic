@@ -6,7 +6,7 @@ using System.Security.Claims;
 
 namespace CodeLogic.Web.Progress;
 
-public static class QuizSubmissionEndpoint
+public static partial class QuizSubmissionEndpoint
 {
     public static IEndpointRouteBuilder MapQuizSubmission(this IEndpointRouteBuilder endpoints)
     {
@@ -25,11 +25,14 @@ public static class QuizSubmissionEndpoint
         ICurriculumCatalog curriculumCatalog,
         IUserLearningProgressStore progressStore,
         TimeProvider timeProvider,
+        ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        var logger = loggerFactory.CreateLogger("CodeLogic.Web.QuizSubmission");
         var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
         {
+            LogMissingOwner(logger);
             return Results.Challenge();
         }
 
@@ -38,6 +41,7 @@ public static class QuizSubmissionEndpoint
             lessonSlug);
         if (readingContext is null)
         {
+            LogUnknownLesson(logger, lessonSlug);
             return Results.LocalRedirect("/lessons");
         }
 
@@ -57,9 +61,28 @@ public static class QuizSubmissionEndpoint
             timeProvider.GetUtcNow(),
             cancellationToken);
 
+        LogAttemptRecorded(
+            logger,
+            attempt.Id.Value,
+            readingContext.Slug,
+            attempt.Outcome.ToString());
+
         return Results.LocalRedirect(
             $"/lessons/{readingContext.Slug}?attempt={attempt.Id.Value:D}#practice-preview");
     }
+
+    [LoggerMessage(1001, LogLevel.Warning, "Rejected an authorized quiz request without a name identifier claim.")]
+    private static partial void LogMissingOwner(ILogger logger);
+
+    [LoggerMessage(1002, LogLevel.Information, "Redirected a quiz submission for unknown lesson slug {LessonSlug}.")]
+    private static partial void LogUnknownLesson(ILogger logger, string lessonSlug);
+
+    [LoggerMessage(1003, LogLevel.Information, "Recorded quiz attempt {AttemptId} for lesson {LessonSlug} with outcome {Outcome}.")]
+    private static partial void LogAttemptRecorded(
+        ILogger logger,
+        Guid attemptId,
+        string lessonSlug,
+        string outcome);
 }
 
 public sealed class QuizSubmission

@@ -2,8 +2,8 @@ using CodeLogic.Application.Curriculum;
 using CodeLogic.Domain.Progress;
 using CodeLogic.Infrastructure.Identity;
 using CodeLogic.Infrastructure.Persistence;
+using CodeLogic.IntegrationTests.Support;
 
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace CodeLogic.IntegrationTests.Persistence;
@@ -15,9 +15,8 @@ public sealed class EfUserLearningProgressStoreTests
     [InlineData("   ")]
     public async Task BlankOwnerIdentifierIsRejected(string userId)
     {
-        await using var connection = new SqliteConnection("Data Source=:memory:");
-        await connection.OpenAsync();
-        await using var dbContext = CreateDbContext(connection);
+        await using var database = await SqliteTestDatabase.CreateMigratedAsync();
+        var dbContext = database.Context;
         var store = new EfUserLearningProgressStore(dbContext);
 
         await Assert.ThrowsAsync<ArgumentException>(() => store.LoadAsync(userId));
@@ -26,10 +25,8 @@ public sealed class EfUserLearningProgressStoreTests
     [Fact]
     public async Task ProgressIsIsolatedByAuthenticatedOwner()
     {
-        await using var connection = new SqliteConnection("Data Source=:memory:");
-        await connection.OpenAsync();
-        await using var dbContext = CreateDbContext(connection);
-        await dbContext.Database.MigrateAsync();
+        await using var database = await SqliteTestDatabase.CreateMigratedAsync();
+        var dbContext = database.Context;
         var firstUser = CreateUser("first@example.test");
         var secondUser = CreateUser("second@example.test");
         dbContext.Users.AddRange(firstUser, secondUser);
@@ -64,7 +61,7 @@ public sealed class EfUserLearningProgressStoreTests
 
         try
         {
-            await using (var firstContext = CreateDbContext(connectionString))
+            await using (var firstContext = SqliteTestDatabase.CreateContext(connectionString))
             {
                 await firstContext.Database.MigrateAsync();
                 firstContext.Users.Add(user);
@@ -79,7 +76,7 @@ public sealed class EfUserLearningProgressStoreTests
                     new DateTimeOffset(2026, 10, 31, 2, 30, 0, TimeSpan.Zero));
             }
 
-            await using var restartedContext = CreateDbContext(connectionString);
+            await using var restartedContext = SqliteTestDatabase.CreateContext(connectionString);
             var progress = await new EfUserLearningProgressStore(restartedContext)
                 .LoadAsync(user.Id);
 
@@ -97,10 +94,8 @@ public sealed class EfUserLearningProgressStoreTests
     [Fact]
     public async Task AttemptNumbersAreIndependentForEachUser()
     {
-        await using var connection = new SqliteConnection("Data Source=:memory:");
-        await connection.OpenAsync();
-        await using var dbContext = CreateDbContext(connection);
-        await dbContext.Database.MigrateAsync();
+        await using var database = await SqliteTestDatabase.CreateMigratedAsync();
+        var dbContext = database.Context;
         var firstUser = CreateUser("one@example.test");
         var secondUser = CreateUser("two@example.test");
         dbContext.Users.AddRange(firstUser, secondUser);
@@ -147,13 +142,4 @@ public sealed class EfUserLearningProgressStoreTests
         "Try again.",
         "Explanation.");
 
-    private static CodeLogicDbContext CreateDbContext(SqliteConnection connection) =>
-        new(new DbContextOptionsBuilder<CodeLogicDbContext>()
-            .UseSqlite(connection)
-            .Options);
-
-    private static CodeLogicDbContext CreateDbContext(string connectionString) =>
-        new(new DbContextOptionsBuilder<CodeLogicDbContext>()
-            .UseSqlite(connectionString)
-            .Options);
 }

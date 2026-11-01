@@ -3,9 +3,9 @@
 ## Roadmap Status
 
 - Last updated: 2026-11-01
-- Current completed milestone: Prompt 20 — Lesson authoring and content management
-- Exact next numbered task: Not supplied; Prompt 21 remains awaiting definition
-- Source coverage: Prompts 00–20 have been supplied; Prompts 21–29 have not yet been added to the repository
+- Current completed milestone: Prompt 21 — Application quality and test strategy
+- Exact next numbered task: Not supplied; Prompt 22 remains awaiting definition
+- Source coverage: Prompts 00–21 have been supplied; Prompts 22–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
 
@@ -51,7 +51,8 @@
 | 18 | Explain execution without running arbitrary code | Complete | Deterministic bounded traces expose program counter, active node, variables, and output with tested branch, reset, and operation-limit behavior. |
 | 19 | Logical mistake feedback | Complete | Authored age-boundary cases compare expected/actual output, separate syntax issues, provide hints, and disclose false-positive limits. |
 | 20 | Lesson authoring and content management | Complete | Administrator-owned drafts stay private; validated published lessons are public with version and audit basics. |
-| 21–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
+| 21 | Application quality and test strategy | Complete | Warning-free quality gate, meaningful coverage floors, xUnit strategy, structured logging, cancellation tests, and refactoring evidence are documented and passing. |
+| 22–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
 
 ## Completed Foundation
 
@@ -508,9 +509,34 @@ Acceptance gate:
 
 Prompt 20 does not add public submissions, runnable code, deletion, unpublishing, scheduled releases, multi-editor approval, or a full immutable audit history.
 
+## Completed Application Quality and Test Strategy
+
+### Prompt 21 — Application quality and test strategy
+
+Completed outcomes:
+
+- made compiler and analyzer warnings fail the shared build while narrowly excluding one unsuitable rule from generated migration operations;
+- added one repeatable Release quality script for restore, formatting, build, xUnit, coverage floors, and package audit;
+- defined a practical test pyramid and module-specific line/branch regression floors instead of a repository-wide vanity percentage;
+- centralized repeated SQLite integration-test setup without changing production architecture;
+- added privacy-safe source-generated logs for quiz and lesson-authoring events;
+- documented the existing central exception boundary and explicit expected-error results;
+- added authoring cancellation coverage alongside the existing analysis cancellation test;
+- evaluated and honestly deferred Playwright until browser provisioning can be repeatable locally and in CI.
+
+Acceptance gate:
+
+- Release quality gate passes with zero build warnings or errors;
+- 23 unit and 105 integration tests pass;
+- measured coverage exceeds every documented floor;
+- package audit finds no known vulnerable direct or transitive packages;
+- refactoring rationale, limitations, and manual UI layer are recorded in `docs/QUALITY.md`.
+
+Prompt 21 does not add CI, deployment, a browser installation, production monitoring, or future playbook features.
+
 ## Awaiting the Next Supplied Prompt
 
-Prompts 21–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
+Prompts 22–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
 
 ## Six-Level Growth Map
 
@@ -527,6 +553,6 @@ Prompts 21–29 remain undefined in the repository. The owner must provide the e
 
 - Do not mark future implementation complete based only on documentation.
 - When a task is completed, update its status and evidence in this file within that task's allowed documentation scope.
-- Do not fill Prompts 21–29 with guessed requirements. Add them only from the owner's playbook.
+- Do not fill Prompts 22–29 with guessed requirements. Add them only from the owner's playbook.
 - If a new prompt conflicts with the accepted product charter or architecture, surface the conflict and obtain an owner decision before implementation.
 - Preserve historical ADRs; supersede decisions with a new ADR rather than rewriting accepted history.

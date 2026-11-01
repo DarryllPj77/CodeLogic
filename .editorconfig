@@ -1,0 +1,6 @@
+root = true
+
+# EF Core migration operations are generated once and reviewed as migration
+# artifacts. CA1861's reusable-array suggestion is not useful inside them.
+[src/CodeLogic.Infrastructure/Persistence/Migrations/*.cs]
+dotnet_diagnostic.CA1861.severity = none

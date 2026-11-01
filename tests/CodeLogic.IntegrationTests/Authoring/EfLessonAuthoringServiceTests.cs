@@ -2,9 +2,11 @@ using CodeLogic.Application.Authoring;
 using CodeLogic.Infrastructure.Authoring;
 using CodeLogic.Infrastructure.Identity;
 using CodeLogic.Infrastructure.Persistence;
+using CodeLogic.IntegrationTests.Support;
 
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CodeLogic.IntegrationTests.Authoring;
 
@@ -28,7 +30,7 @@ public sealed class EfLessonAuthoringServiceTests
         await using var fixture = await AuthoringFixture.CreateAsync();
         var initialTime = new DateTimeOffset(2026, 11, 1, 2, 0, 0, TimeSpan.Zero);
         var time = new MutableTimeProvider(initialTime);
-        var service = new EfLessonAuthoringService(fixture.Context, time);
+        var service = CreateService(fixture.Context, time);
 
         var created = await service.CreateDraftAsync(ValidInput(), fixture.Owner.Id);
 
@@ -75,7 +77,7 @@ public sealed class EfLessonAuthoringServiceTests
     public async Task ValidationRejectsBlankAndOversizedContentWithoutSavingDraft()
     {
         await using var fixture = await AuthoringFixture.CreateAsync();
-        var service = new EfLessonAuthoringService(fixture.Context, TimeProvider.System);
+        var service = CreateService(fixture.Context);
         var input = new LessonAuthoringInput(
             Title: " ",
             Objective: "Learn safely.",
@@ -94,7 +96,7 @@ public sealed class EfLessonAuthoringServiceTests
     public async Task NonOwnerCannotUpdateOrPublishDraft()
     {
         await using var fixture = await AuthoringFixture.CreateAsync();
-        var service = new EfLessonAuthoringService(fixture.Context, TimeProvider.System);
+        var service = CreateService(fixture.Context);
         var created = await service.CreateDraftAsync(ValidInput(), fixture.Owner.Id);
 
         var update = await service.UpdateDraftAsync(
@@ -119,7 +121,7 @@ public sealed class EfLessonAuthoringServiceTests
     public async Task StaleVersionCannotOverwriteNewerDraft()
     {
         await using var fixture = await AuthoringFixture.CreateAsync();
-        var service = new EfLessonAuthoringService(fixture.Context, TimeProvider.System);
+        var service = CreateService(fixture.Context);
         var created = await service.CreateDraftAsync(ValidInput(), fixture.Owner.Id);
         var firstUpdate = await service.UpdateDraftAsync(
             created.Lesson!.Id,
@@ -138,11 +140,36 @@ public sealed class EfLessonAuthoringServiceTests
         Assert.Contains("Reload", Assert.Single(staleUpdate.Errors), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task CallerCancellationStopsDraftPersistence()
+    {
+        await using var fixture = await AuthoringFixture.CreateAsync();
+        var service = CreateService(fixture.Context);
+        using var cancellationSource = new CancellationTokenSource();
+        cancellationSource.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.CreateDraftAsync(
+                ValidInput(),
+                fixture.Owner.Id,
+                cancellationSource.Token));
+
+        Assert.Empty(await fixture.Context.AuthoredLessons.AsNoTracking().ToArrayAsync());
+    }
+
     private static LessonAuthoringInput ValidInput() => new(
         "Understand if and else",
         "Choose one branch from a Boolean condition.",
         "A condition selects exactly one of two paths. Test values at the boundary.",
         "int score = 8;\nConsole.WriteLine(score >= 5);");
+
+    private static EfLessonAuthoringService CreateService(
+        CodeLogicDbContext context,
+        TimeProvider? timeProvider = null) =>
+        new(
+            context,
+            timeProvider ?? TimeProvider.System,
+            NullLogger<EfLessonAuthoringService>.Instance);
 
     private sealed class MutableTimeProvider(DateTimeOffset current) : TimeProvider
     {
@@ -153,16 +180,15 @@ public sealed class EfLessonAuthoringServiceTests
 
     private sealed class AuthoringFixture : IAsyncDisposable
     {
-        private readonly SqliteConnection connection;
+        private readonly SqliteTestDatabase database;
 
         private AuthoringFixture(
-            SqliteConnection connection,
-            CodeLogicDbContext context,
+            SqliteTestDatabase database,
             CodeLogicUser owner,
             CodeLogicUser otherUser)
         {
-            this.connection = connection;
-            Context = context;
+            this.database = database;
+            Context = database.Context;
             Owner = owner;
             OtherUser = otherUser;
         }
@@ -175,24 +201,18 @@ public sealed class EfLessonAuthoringServiceTests
 
         public static async Task<AuthoringFixture> CreateAsync()
         {
-            var connection = new SqliteConnection("Data Source=:memory:");
-            await connection.OpenAsync();
-            var context = new CodeLogicDbContext(
-                new DbContextOptionsBuilder<CodeLogicDbContext>()
-                    .UseSqlite(connection)
-                    .Options);
-            await context.Database.MigrateAsync();
+            var database = await SqliteTestDatabase.CreateMigratedAsync();
+            var context = database.Context;
             var owner = User("owner");
             var other = User("other");
             context.Users.AddRange(owner, other);
             await context.SaveChangesAsync();
-            return new AuthoringFixture(connection, context, owner, other);
+            return new AuthoringFixture(database, owner, other);
         }
 
         public async ValueTask DisposeAsync()
         {
-            await Context.DisposeAsync();
-            await connection.DisposeAsync();
+            await database.DisposeAsync();
         }
 
         private static CodeLogicUser User(string prefix) => new()

@@ -2,10 +2,10 @@
 
 ## Document Status
 
-- Status: Implemented through Prompt 20
-- Playbook task: 20 — Lesson authoring and content management
+- Status: Implemented through Prompt 21
+- Playbook task: 21 — Application quality and test strategy
 - Last updated: 2026-11-01
-- Implementation status: The modular-monolith projects, curriculum and editorial flows, SQLite persistence, ASP.NET Core Identity, account-owned progress, editor, bounded Roslyn parsing, graph IR, Mermaid preview, bounded traces, and instructor-defined logical feedback are implemented. Hosted infrastructure remains planned.
+- Implementation status: The modular-monolith projects, curriculum and editorial flows, SQLite persistence, ASP.NET Core Identity, account-owned progress, editor, bounded Roslyn parsing, graph IR, Mermaid preview, bounded traces, instructor-defined logical feedback, and repeatable local quality gate are implemented. Hosted infrastructure remains planned.
 
 ## Architectural Goal
 
@@ -239,7 +239,12 @@ An extraction seam is permission to evolve, not a commitment to distribute the s
 - Student code is parsed and analyzed only within an explicitly supported subset; it is not executed in the web process.
 - Graph IR tests are independent of Mermaid rendering tests.
 - Provider-specific persistence behavior has integration tests.
+- Compiler and analyzer warnings fail the build; generated migration operations have only a reviewed, rule-specific exclusion.
+- The local quality script verifies formatting, Release build, xUnit suites, meaningful module coverage floors, migration/model consistency, and vulnerable packages.
+- Logging excludes secrets, account identifiers, answers, authored prose, and learner source.
 - Architecture changes update this document and the relevant ADR before implementation is treated as complete.
+
+See [QUALITY.md](QUALITY.md) for test-pyramid placement, coverage rationale, refactoring evidence, logging, error handling, cancellation, and the Playwright feasibility decision.
 
 ## Decision Records
 

@@ -2,12 +2,14 @@ using CodeLogic.Application.Authoring;
 using CodeLogic.Infrastructure.Persistence;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace CodeLogic.Infrastructure.Authoring;
 
-public sealed class EfLessonAuthoringService(
+public sealed partial class EfLessonAuthoringService(
     CodeLogicDbContext dbContext,
-    TimeProvider timeProvider) : ILessonAuthoringService
+    TimeProvider timeProvider,
+    ILogger<EfLessonAuthoringService> logger) : ILessonAuthoringService
 {
     public async Task<IReadOnlyList<AuthoredLesson>> GetOwnedAsync(
         string ownerUserId,
@@ -92,6 +94,7 @@ public sealed class EfLessonAuthoringService(
         };
         dbContext.AuthoredLessons.Add(entity);
         await dbContext.SaveChangesAsync(cancellationToken);
+        LogDraftCreated(logger, entity.Id, entity.Version);
         return Success(entity);
     }
 
@@ -132,7 +135,13 @@ public sealed class EfLessonAuthoringService(
         entity.SampleCode = input.SampleCode.Trim();
         entity.Version++;
         entity.UpdatedAtUtc = timeProvider.GetUtcNow();
-        return await SaveMutationAsync(entity, cancellationToken);
+        var result = await SaveMutationAsync(entity, cancellationToken);
+        if (result.IsSuccess)
+        {
+            LogDraftUpdated(logger, entity.Id, entity.Version);
+        }
+
+        return result;
     }
 
     public async Task<LessonAuthoringResult> PublishAsync(
@@ -174,7 +183,13 @@ public sealed class EfLessonAuthoringService(
         entity.Version++;
         entity.UpdatedAtUtc = now;
         entity.PublishedAtUtc = now;
-        return await SaveMutationAsync(entity, cancellationToken);
+        var result = await SaveMutationAsync(entity, cancellationToken);
+        if (result.IsSuccess)
+        {
+            LogLessonPublished(logger, entity.Id, entity.Version);
+        }
+
+        return result;
     }
 
     private async Task<(AuthoredLessonEntity? Entity, LessonAuthoringResult? Result)> FindForMutationAsync(
@@ -194,6 +209,7 @@ public sealed class EfLessonAuthoringService(
 
         if (!string.Equals(entity.OwnerUserId, ownerUserId, StringComparison.Ordinal))
         {
+            LogOwnershipRejected(logger, id);
             return (null, new LessonAuthoringResult(
                 LessonAuthoringResultStatus.Forbidden,
                 errors: ["Only the owning administrator can change this lesson."]));
@@ -213,6 +229,7 @@ public sealed class EfLessonAuthoringService(
         }
         catch (DbUpdateConcurrencyException)
         {
+            LogConcurrencyRejected(logger, entity.Id);
             return Conflict("This lesson changed concurrently. Reload it and review the newest version.");
         }
     }
@@ -244,4 +261,19 @@ public sealed class EfLessonAuthoringService(
 
     private static void ValidateOwner(string ownerUserId) =>
         ArgumentException.ThrowIfNullOrWhiteSpace(ownerUserId);
+
+    [LoggerMessage(2001, LogLevel.Information, "Created private authored lesson draft {LessonId} at version {Version}.")]
+    private static partial void LogDraftCreated(ILogger logger, Guid lessonId, int version);
+
+    [LoggerMessage(2002, LogLevel.Information, "Updated authored lesson draft {LessonId} to version {Version}.")]
+    private static partial void LogDraftUpdated(ILogger logger, Guid lessonId, int version);
+
+    [LoggerMessage(2003, LogLevel.Information, "Published authored lesson {LessonId} at version {Version}.")]
+    private static partial void LogLessonPublished(ILogger logger, Guid lessonId, int version);
+
+    [LoggerMessage(2004, LogLevel.Warning, "Rejected an authored lesson mutation because the requester does not own lesson {LessonId}.")]
+    private static partial void LogOwnershipRejected(ILogger logger, Guid lessonId);
+
+    [LoggerMessage(2005, LogLevel.Warning, "Rejected a concurrent authored lesson mutation for lesson {LessonId}.")]
+    private static partial void LogConcurrencyRejected(ILogger logger, Guid lessonId);
 }

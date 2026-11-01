@@ -1,7 +1,7 @@
 using CodeLogic.Application.Curriculum;
 using CodeLogic.Infrastructure.Persistence;
+using CodeLogic.IntegrationTests.Support;
 
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace CodeLogic.IntegrationTests.Persistence;
@@ -11,10 +11,8 @@ public sealed class CodeLogicDbContextTests
     [Fact]
     public async Task MigrationCreatesValidatedSeededCurriculum()
     {
-        await using var connection = await OpenInMemoryConnectionAsync();
-        await using var dbContext = CreateDbContext(connection);
-
-        await dbContext.Database.MigrateAsync();
+        await using var database = await SqliteTestDatabase.CreateMigratedAsync();
+        var dbContext = database.Context;
         var manifest = new EfCurriculumCatalog(dbContext).GetManifest();
 
         Assert.Empty(CurriculumManifestValidator.Validate(manifest));
@@ -28,12 +26,10 @@ public sealed class CodeLogicDbContextTests
     [Fact]
     public async Task EachTestDatabaseIsIsolated()
     {
-        await using var firstConnection = await OpenInMemoryConnectionAsync();
-        await using var secondConnection = await OpenInMemoryConnectionAsync();
-        await using var firstContext = CreateDbContext(firstConnection);
-        await using var secondContext = CreateDbContext(secondConnection);
-        await firstContext.Database.MigrateAsync();
-        await secondContext.Database.MigrateAsync();
+        await using var firstDatabase = await SqliteTestDatabase.CreateMigratedAsync();
+        await using var secondDatabase = await SqliteTestDatabase.CreateMigratedAsync();
+        var firstContext = firstDatabase.Context;
+        var secondContext = secondDatabase.Context;
 
         await firstContext.CurriculumLessons.ExecuteDeleteAsync();
 
@@ -51,13 +47,13 @@ public sealed class CodeLogicDbContextTests
 
         try
         {
-            await using (var firstContext = CreateDbContext(connectionString))
+            await using (var firstContext = SqliteTestDatabase.CreateContext(connectionString))
             {
                 await firstContext.Database.MigrateAsync();
                 Assert.Equal(9, await firstContext.CurriculumLessons.CountAsync());
             }
 
-            await using (var restartedContext = CreateDbContext(connectionString))
+            await using (var restartedContext = SqliteTestDatabase.CreateContext(connectionString))
             {
                 await restartedContext.Database.MigrateAsync();
                 var manifest = new EfCurriculumCatalog(restartedContext).GetManifest();
@@ -73,20 +69,4 @@ public sealed class CodeLogicDbContextTests
         }
     }
 
-    private static async Task<SqliteConnection> OpenInMemoryConnectionAsync()
-    {
-        var connection = new SqliteConnection("Data Source=:memory:");
-        await connection.OpenAsync();
-        return connection;
-    }
-
-    private static CodeLogicDbContext CreateDbContext(SqliteConnection connection) =>
-        new(new DbContextOptionsBuilder<CodeLogicDbContext>()
-            .UseSqlite(connection)
-            .Options);
-
-    private static CodeLogicDbContext CreateDbContext(string connectionString) =>
-        new(new DbContextOptionsBuilder<CodeLogicDbContext>()
-            .UseSqlite(connectionString)
-            .Options);
 }
