@@ -93,6 +93,9 @@ Perform these checks in Microsoft Edge or Chrome before accepting Prompt 10:
 27. Activate **Show line** and confirm focus returns to the textarea with the corresponding source selected.
 28. At 200% zoom and 320 CSS pixels, confirm the SVG scrolls inside its panel and the text map remains readable without page-level horizontal scrolling.
 29. Test unsupported `break`, malformed input, and a blocked renderer. Confirm each state has text feedback and does not depend on the SVG.
+30. Build a step trace using only the keyboard. Confirm program counter, active node, variables, output, and explanation are exposed as text.
+31. Activate **Next step** and **Reset trace**. Confirm the live status changes and reset returns to the empty Start state.
+32. At 200% zoom and 320 CSS pixels, confirm the three trace-state sections stack without page-level horizontal scrolling.
 
 ## Deferred Accessibility Checks
 

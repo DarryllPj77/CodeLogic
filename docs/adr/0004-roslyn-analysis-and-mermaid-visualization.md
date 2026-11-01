@@ -1,6 +1,6 @@
 # ADR 0004: Roslyn Analysis with Graph IR and Mermaid First
 
-- Status: Accepted; parsing, graph IR, Mermaid, and supported loop slices implemented
+- Status: Accepted; parsing, graph IR, Mermaid, loops, and bounded trace slices implemented
 - Date: 2026-10-31
 
 ## Context
@@ -36,6 +36,10 @@ Prompt 16 implements a safe Mermaid serializer, pinned Mermaid 12.2.0 browser re
 ## Prompt 17 Implementation Note
 
 Prompt 17 updates the graph contract to schema 1.1 and adds the explicit `LoopBack` edge. The Roslyn translator recursively supports nested `if/else`, `while`, `for`, and `do-while` within the established nesting bound. Golden tests lock loop exits, back edges, nesting, and infinite-looking syntax. `break` and `continue` remain deliberately unsupported because their jump targets need a separate tested design. Static graph construction still does not evaluate conditions, compile, or execute source.
+
+## Prompt 18 Implementation Note
+
+Prompt 18 adds a bounded pedagogical interpreter behind an Application interface. The Infrastructure adapter evaluates only a documented scalar/control-flow subset from Roslyn syntax nodes and maps every modeled operation to the existing graph IR. Immutable snapshots expose program counter, active node, variables, and cumulative output. A 100-operation limit safely terminates infinite-looking traces. No compilation, assembly emission, reflection, process launch, or learner-defined method invocation is introduced; the model must not be presented as general .NET execution.
 
 ## Alternatives Considered
 

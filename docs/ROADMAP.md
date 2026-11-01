@@ -3,9 +3,9 @@
 ## Roadmap Status
 
 - Last updated: 2026-11-01
-- Current completed milestone: Prompt 17 — Loops and nested control flow
-- Exact next numbered task: Not supplied; Prompt 18 remains awaiting definition
-- Source coverage: Prompts 00–17 have been supplied; Prompts 18–29 have not yet been added to the repository
+- Current completed milestone: Prompt 18 — Explain execution without running arbitrary code
+- Exact next numbered task: Not supplied; Prompt 19 remains awaiting definition
+- Source coverage: Prompts 00–18 have been supplied; Prompts 19–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
 
@@ -48,7 +48,8 @@
 | 15 | Flowchart intermediate representation | Complete | Stable graph schema and golden tests cover sequence, one-level branching, rejection, and non-crashing errors. |
 | 16 | Flowchart browser renderer | Complete | Safe Mermaid output renders correct branches with responsive visual and equivalent source-mapped text states. |
 | 17 | Loops and nested control flow | Complete | Golden graph tests cover exits, repeat edges, nested conditions, and infinite-loop-looking syntax. |
-| 18–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
+| 18 | Explain execution without running arbitrary code | Complete | Deterministic bounded traces expose program counter, active node, variables, and output with tested branch, reset, and operation-limit behavior. |
+| 19–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
 
 ## Completed Foundation
 
@@ -435,9 +436,34 @@ Acceptance gate:
 
 Prompt 17 does not add execution traces, semantic condition evaluation, `break`/`continue` graph jumps, compilation, or execution.
 
+## Completed Bounded Pedagogical Execution Traces
+
+### Prompt 18 — Explain execution without running arbitrary code
+
+Completed outcomes:
+
+- added an Application-owned trace contract and a Roslyn-syntax Infrastructure interpreter;
+- generated immutable deterministic snapshots with program counter, active graph node, scalar variables, cumulative output, and explanations;
+- supported initialized scalar variables, basic expressions, interpolation, output, branches, and the three supported loop forms;
+- enforced a 100-operation limit with an explicit `ET0002` result for infinite-looking input;
+- rejected arrays, live input, methods, unsupported targets, and incompatible operations without exposing a partial trace;
+- added tested Next step and Reset navigation plus an accessible responsive Playground trace panel;
+- documented the distinction between CodeLogic simulation and general C#/.NET execution.
+
+Acceptance gate:
+
+- identical accepted input produces identical ordered snapshots;
+- true and false branches select only their correct statements;
+- loop conditions, bodies, and iterators appear in deterministic order;
+- infinite-looking syntax stops at the operation limit;
+- Reset returns to program counter zero with empty variables and output;
+- no learner source is compiled, emitted, or executed through .NET.
+
+Prompt 18 does not add full C# semantics, arrays, live input, learner-defined methods, arbitrary execution, persistence, or future playbook features.
+
 ## Awaiting the Next Supplied Prompt
 
-Prompts 18–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
+Prompts 19–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
 
 ## Six-Level Growth Map
 
@@ -454,6 +480,6 @@ Prompts 18–29 remain undefined in the repository. The owner must provide the e
 
 - Do not mark future implementation complete based only on documentation.
 - When a task is completed, update its status and evidence in this file within that task's allowed documentation scope.
-- Do not fill Prompts 18–29 with guessed requirements. Add them only from the owner's playbook.
+- Do not fill Prompts 19–29 with guessed requirements. Add them only from the owner's playbook.
 - If a new prompt conflicts with the accepted product charter or architecture, surface the conflict and obtain an owner decision before implementation.
 - Preserve historical ADRs; supersede decisions with a new ADR rather than rewriting accepted history.

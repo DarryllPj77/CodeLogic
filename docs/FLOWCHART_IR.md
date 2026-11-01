@@ -88,9 +88,10 @@ Schema 1.1 translates:
 - Conditions are displayed but not semantically evaluated; `while (true)` and `for (;;)` therefore retain a structural false exit alongside the repeat edge.
 - Node labels describe syntax, not evaluated values or program output.
 - Input/output classification is deliberately limited to supported `Console` calls.
-- Prompt 16 provides Mermaid browser visualization and an equivalent structural text map; there is no execution trace.
+- Prompt 18 maps bounded interpreter operations back to these stable graph nodes; not every graph-supported construct is trace-supported.
 
 Renderer behavior and escaping are documented in [FLOWCHART_RENDERER.md](FLOWCHART_RENDERER.md).
+Bounded trace behavior is documented in [EXECUTION_TRACES.md](EXECUTION_TRACES.md).
 
 ## Manual Visual Studio Check
 

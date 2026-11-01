@@ -5,6 +5,7 @@
 @inject ICurriculumCatalog CurriculumCatalog
 @inject IFlowchartTranslator FlowchartTranslator
 @inject IMermaidFlowchartSerializer MermaidSerializer
+@inject IPedagogicalInterpreter PedagogicalInterpreter
 @inject IJSRuntime JavaScript
 
 <PageTitle>Playground | CodeLogic</PageTitle>
@@ -16,16 +17,18 @@
 <section class="page-header" aria-labelledby="playground-title">
     <p class="eyebrow">Editor playground</p>
     <h1 id="playground-title">Experiment with short C# snippets</h1>
-    <p>Edit a curated example, check its syntax, and preview a deterministic flowchart for supported sequence, branches, and loops. Nothing is compiled or run.</p>
+    <p>Edit a curated example, preview its flowchart, and step through CodeLogic's bounded simulation. Nothing is compiled or run by .NET.</p>
 </section>
 
 <aside class="notice notice--warning" aria-labelledby="editor-limitations-title">
     <h2 id="editor-limitations-title">Visible limitations</h2>
     <ul>
         <li>This is an accessible plain-text editor, not Visual Studio or Monaco.</li>
-        <li>Code is parsed only. It is never compiled or executed, and type checking and execution traces are not available.</li>
+        <li>Code is parsed and may be interpreted by CodeLogic's small teaching model. It is never compiled or executed as a .NET program.</li>
         <li>Flowcharts support sequence, nested <code>if/else</code>, <code>while</code>, <code>for</code>, and <code>do-while</code> within the stated nesting limit.</li>
         <li><code>break</code> and <code>continue</code> are not supported yet and produce an explanation.</li>
+        <li>Traces support scalar values, expressions, output, branches, and the supported loops; arrays, methods, live input, and general .NET behavior are not simulated.</li>
+        <li>A trace stops after @PedagogicalInterpreter.Limits.MaximumOperations operations.</li>
         <li>The editor accepts at most @EditorState.MaximumCharacters.ToString("N0") characters.</li>
         <li>Analysis stops after @CodeAnalysisService.Limits.MaximumDuration.TotalSeconds.ToString("N0") seconds and supports at most @CodeAnalysisService.Limits.MaximumNestingDepth nested control-flow statements.</li>
         <li>Save keeps one draft only in this browser's local storage. It is not synced to your account or another device.</li>
@@ -84,6 +87,9 @@
             <button class="button button--primary" type="button" @onclick="PreviewFlowchartAsync" disabled="@(!BrowserReady || JavaScriptModule is null || IsRendering)">
                 @(IsRendering ? "Rendering…" : "Preview flowchart")
             </button>
+            <button class="button button--primary" type="button" @onclick="BuildTraceAsync" disabled="@(!BrowserReady || IsTracing)">
+                @(IsTracing ? "Building trace…" : "Build step trace")
+            </button>
             <button class="button button--secondary" type="button" @onclick="SaveDraftAsync" disabled="@(!BrowserReady || JavaScriptModule is null)">Save browser draft</button>
             <button class="button button--secondary" type="button" @onclick="ResetDraftAsync" disabled="@(!BrowserReady)">Reset editor</button>
         </div>
@@ -129,6 +135,7 @@
             <li><span>1</span> You edit plain text.</li>
             <li><span>2</span> Save stores one draft in this browser.</li>
             <li><span>3</span> Preview maps supported syntax into a safe browser diagram.</li>
+            <li><span>4</span> Trace simulates the documented subset with a strict operation limit.</li>
         </ol>
         <p>The diagram explains source structure only. It does not predict values, program output, or runtime behavior.</p>
     </aside>
@@ -215,6 +222,106 @@
     }
 </section>
 
+<section class="trace-panel" aria-labelledby="trace-title" aria-live="polite">
+    <div class="section-heading">
+        <p class="eyebrow">Bounded teaching model</p>
+        <h2 id="trace-title">Step trace</h2>
+        <p>This is CodeLogic's deterministic simulation of a small C#-shaped subset. It is not the .NET runtime and does not claim general C# behavior.</p>
+    </div>
+
+    @if (TraceResult is null)
+    {
+        <div class="flowchart-empty">
+            <h3>No trace yet</h3>
+            <p>Choose <strong>Build step trace</strong> to inspect the program counter, active graph node, variables, and simulated output.</p>
+        </div>
+    }
+    else if (!TraceResult.HasTrace)
+    {
+        <div class="analysis-feedback" role="status">
+            <h3>@TraceHeading(TraceResult.Status)</h3>
+            <ol class="analysis-diagnostic-list">
+                @foreach (var diagnostic in TraceResult.Diagnostics)
+                {
+                    <li>
+                        <p class="analysis-diagnostic-heading">
+                            <strong>@diagnostic.Code</strong>
+                            @if (diagnostic.Line is not null && diagnostic.Column is not null)
+                            {
+                                <span>Line @diagnostic.Line, column @diagnostic.Column</span>
+                            }
+                        </p>
+                        <p>@diagnostic.Message</p>
+                        <p class="analysis-explanation">@diagnostic.Explanation</p>
+                    </li>
+                }
+            </ol>
+        </div>
+    }
+    else if (TraceNavigator is not null)
+    {
+        @if (TraceResult.Status == ExecutionTraceStatus.StepLimitReached)
+        {
+            <div class="notice notice--warning" role="status">
+                <h3>Operation limit reached</h3>
+                <p>@TraceResult.Diagnostics[0].Message @TraceResult.Diagnostics[0].Explanation</p>
+            </div>
+        }
+
+        <div class="trace-controls">
+            <p><strong>Trace step @TraceNavigator.StepNumber of @TraceNavigator.StepCount</strong></p>
+            <div class="button-row">
+                <button class="button button--primary" type="button" @onclick="NextTraceStep" disabled="@(!TraceNavigator.CanStep)">Next step</button>
+                <button class="button button--secondary" type="button" @onclick="ResetTrace">Reset trace</button>
+            </div>
+        </div>
+
+        <div class="trace-state">
+            <section aria-labelledby="trace-operation-title">
+                <h3 id="trace-operation-title">Active operation</h3>
+                <dl class="trace-details">
+                    <div><dt>Program counter</dt><dd>@TraceNavigator.Current.ProgramCounter</dd></div>
+                    <div><dt>Graph node</dt><dd><code>@TraceNavigator.Current.ActiveNodeId</code> · @TraceNavigator.Current.ActiveNodeType</dd></div>
+                    <div><dt>Source meaning</dt><dd>@TraceNavigator.Current.ActiveNodeLabel</dd></div>
+                </dl>
+                <p>@TraceNavigator.Current.Explanation</p>
+            </section>
+
+            <section aria-labelledby="trace-variables-title">
+                <h3 id="trace-variables-title">Variables</h3>
+                @if (TraceNavigator.Current.Variables.Count == 0)
+                {
+                    <p>No variables have values yet.</p>
+                }
+                else
+                {
+                    <table class="trace-table">
+                        <thead><tr><th scope="col">Name</th><th scope="col">Value</th></tr></thead>
+                        <tbody>
+                            @foreach (var variable in TraceNavigator.Current.Variables)
+                            {
+                                <tr><th scope="row"><code>@variable.Key</code></th><td><code>@variable.Value</code></td></tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </section>
+
+            <section aria-labelledby="trace-output-title">
+                <h3 id="trace-output-title">Simulated output</h3>
+                @if (TraceNavigator.Current.Output.Count == 0)
+                {
+                    <p>No output has been added yet.</p>
+                }
+                else
+                {
+                    <pre class="trace-output">@string.Join(Environment.NewLine, TraceNavigator.Current.Output)</pre>
+                }
+            </section>
+        </div>
+    }
+</section>
+
 @code {
     private const string DraftStorageKey = "CodeLogic.Playground.Draft.v1";
     private PlaygroundEditorState EditorState { get; set; } = null!;
@@ -223,11 +330,14 @@
     private bool BrowserReady { get; set; }
     private bool IsAnalyzing { get; set; }
     private bool IsRendering { get; set; }
+    private bool IsTracing { get; set; }
     private bool RenderPending { get; set; }
     private CodeAnalysisResult? AnalysisResult { get; set; }
     private FlowchartTranslationResult? FlowchartResult { get; set; }
     private MermaidFlowchartDocument? FlowchartDocument { get; set; }
     private string? RendererError { get; set; }
+    private ExecutionTraceResult? TraceResult { get; set; }
+    private ExecutionTraceNavigator? TraceNavigator { get; set; }
     private int RenderSequence { get; set; }
     private ElementReference EditorElement { get; set; }
     private ElementReference FlowchartContainer { get; set; }
@@ -419,6 +529,47 @@
         StatusMessage = "The graph is ready; rendering the browser preview.";
     }
 
+    private async Task BuildTraceAsync()
+    {
+        IsTracing = true;
+        TraceNavigator = null;
+        StatusMessage = "Building a bounded teaching trace. No .NET program is being run.";
+        try
+        {
+            TraceResult = await PedagogicalInterpreter.TraceAsync(EditorState.CurrentCode);
+            if (TraceResult.HasTrace)
+            {
+                TraceNavigator = new ExecutionTraceNavigator(TraceResult);
+                StatusMessage = TraceResult.Status == ExecutionTraceStatus.StepLimitReached
+                    ? $"Trace stopped safely at the {TraceResult.MaximumOperations}-operation limit."
+                    : $"Trace built with {TraceResult.Steps.Count} snapshots. Use Next step to inspect it.";
+            }
+            else
+            {
+                StatusMessage = $"Trace simulation found {TraceResult.Diagnostics.Count} item(s) to review.";
+            }
+        }
+        finally
+        {
+            IsTracing = false;
+        }
+    }
+
+    private void NextTraceStep()
+    {
+        TraceNavigator?.Step();
+        if (TraceNavigator is not null)
+        {
+            StatusMessage = $"Trace step {TraceNavigator.StepNumber} of {TraceNavigator.StepCount}: {TraceNavigator.Current.ActiveNodeLabel}.";
+        }
+    }
+
+    private void ResetTrace()
+    {
+        TraceNavigator?.Reset();
+        StatusMessage = "Trace reset to its initial state.";
+    }
+
     private async Task ShowSourceAsync(FlowNodeSourceMap item)
     {
         if (JavaScriptModule is null || item.SourceSpan is null)
@@ -443,6 +594,9 @@
         RendererError = null;
         RenderPending = false;
         IsRendering = false;
+        TraceResult = null;
+        TraceNavigator = null;
+        IsTracing = false;
     }
 
     private static string AnalysisHeading(CodeAnalysisStatus status) => status switch
@@ -462,6 +616,15 @@
         FlowchartTranslationStatus.Unsupported => "This syntax is not in the flowchart subset",
         FlowchartTranslationStatus.TimedOut => "Flowchart analysis stopped at the time limit",
         _ => "Flowchart unavailable",
+    };
+
+    private static string TraceHeading(ExecutionTraceStatus status) => status switch
+    {
+        ExecutionTraceStatus.InvalidInput => "Enter a short C# snippet",
+        ExecutionTraceStatus.SyntaxError => "Fix the C# syntax before tracing",
+        ExecutionTraceStatus.Unsupported => "This syntax is not in the trace subset",
+        ExecutionTraceStatus.TimedOut => "Trace analysis stopped at the time limit",
+        _ => "Trace unavailable",
     };
 
     private static string DescribeEdge(FlowEdge edge, FlowGraph graph)

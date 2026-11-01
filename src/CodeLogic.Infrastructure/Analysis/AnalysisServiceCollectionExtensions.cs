@@ -1,5 +1,7 @@
 using CodeLogic.Application.Analysis;
+using CodeLogic.Application.Execution;
 using CodeLogic.Application.Flowcharts;
+using CodeLogic.Infrastructure.Execution;
 using CodeLogic.Infrastructure.Flowcharts;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +16,7 @@ public static class AnalysisServiceCollectionExtensions
         services.AddSingleton<ICodeAnalysisService, RoslynCodeAnalysisService>();
         services.AddSingleton<IFlowchartTranslator, RoslynFlowchartTranslator>();
         services.AddSingleton<IMermaidFlowchartSerializer, MermaidFlowchartSerializer>();
+        services.AddSingleton<IPedagogicalInterpreter, RoslynPedagogicalInterpreter>();
         return services;
     }
 }
