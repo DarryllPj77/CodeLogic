@@ -96,6 +96,10 @@ Perform these checks in Microsoft Edge or Chrome before accepting Prompt 10:
 30. Build a step trace using only the keyboard. Confirm program counter, active node, variables, output, and explanation are exposed as text.
 31. Activate **Next step** and **Reset trace**. Confirm the live status changes and reset returns to the empty Start state.
 32. At 200% zoom and 320 CSS pixels, confirm the three trace-state sections stack without page-level horizontal scrolling.
+33. Load and check the age-boundary exercise using only the keyboard. Confirm each case exposes input, expected output, actual output, Pass/Fail text, and the Boundary label.
+34. Trigger a failing boundary and confirm its hint is readable without relying on color.
+35. Trigger malformed source and confirm syntax/support diagnostics are presented separately from logical results.
+36. At 200% zoom and 320 CSS pixels, confirm the logical-results table scrolls inside its container without page-level horizontal scrolling.
 
 ## Deferred Accessibility Checks
 

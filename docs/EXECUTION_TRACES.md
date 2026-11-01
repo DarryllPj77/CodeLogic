@@ -56,6 +56,8 @@ This makes `while (true)`, `for (;;)`, and other infinite-looking patterns safe 
 
 The trace panel uses native buttons, headings, definition lists, a variable table, text output, and live status messages. Its information does not depend on diagram color or animation.
 
+Prompt 19 reuses this interpreter for instructor-defined logical cases. Those results compare fixed expected and actual outputs; they do not expand the interpreter subset or turn traces into proof of general correctness. See [LOGICAL_FEEDBACK.md](LOGICAL_FEEDBACK.md).
+
 ## Manual Visual Studio Check
 
 1. Open `CodeLogic.slnx`, run `CodeLogic.Web`, and open **Playground**.

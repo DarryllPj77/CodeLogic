@@ -1,6 +1,6 @@
 # ADR 0004: Roslyn Analysis with Graph IR and Mermaid First
 
-- Status: Accepted; parsing, graph IR, Mermaid, loops, and bounded trace slices implemented
+- Status: Accepted; parsing, graph IR, Mermaid, loops, bounded traces, and authored logical checks implemented
 - Date: 2026-10-31
 
 ## Context
@@ -40,6 +40,10 @@ Prompt 17 updates the graph contract to schema 1.1 and adds the explicit `LoopBa
 ## Prompt 18 Implementation Note
 
 Prompt 18 adds a bounded pedagogical interpreter behind an Application interface. The Infrastructure adapter evaluates only a documented scalar/control-flow subset from Roslyn syntax nodes and maps every modeled operation to the existing graph IR. Immutable snapshots expose program counter, active node, variables, and cumulative output. A 100-operation limit safely terminates infinite-looking traces. No compilation, assembly emission, reflection, process launch, or learner-defined method invocation is introduced; the model must not be presented as general .NET execution.
+
+## Prompt 19 Implementation Note
+
+Prompt 19 adds instructor-defined cases for one known age-boundary exercise. Infrastructure uses Roslyn syntax replacement for the known input and delegates execution modeling to the bounded interpreter. Expected/actual comparisons and human-authored hints remain deterministic. Syntax/support failures produce no logic verdict, and every completed result states that finite cases can produce false positives. The service does not attempt general intent inference or claim to detect every logical error.
 
 ## Alternatives Considered
 

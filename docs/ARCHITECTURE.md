@@ -3,9 +3,9 @@
 ## Document Status
 
 - Status: Implemented through Prompt 16
-- Playbook task: 18 — Explain execution without running arbitrary code
+- Playbook task: 19 — Logical mistake feedback
 - Last updated: 2026-11-01
-- Implementation status: The modular-monolith projects, curriculum flow, SQLite persistence, ASP.NET Core Identity, account-owned progress, editor, bounded Roslyn parsing, graph IR, safe Mermaid browser preview, and bounded pedagogical traces are implemented. Hosted infrastructure remains planned.
+- Implementation status: The modular-monolith projects, curriculum flow, SQLite persistence, ASP.NET Core Identity, account-owned progress, editor, bounded Roslyn parsing, graph IR, Mermaid preview, bounded traces, and instructor-defined logical feedback are implemented. Hosted infrastructure remains planned.
 
 ## Architectural Goal
 
@@ -165,6 +165,8 @@ Prompt 16 adds a Mermaid-specific serializer behind `IMermaidFlowchartSerializer
 Prompt 17 advances the renderer-neutral IR to schema 1.1 with an explicit `LoopBack` edge. The Infrastructure translator recursively maps nested `if/else`, `while`, `for`, and `do-while` syntax within the existing three-level analysis limit. `break` and `continue` remain explicit unsupported diagnostics until their jump semantics are introduced with focused tests. Conditions are not evaluated, so even infinite-looking syntax retains a structural exit. See [FLOWCHART_IR.md](FLOWCHART_IR.md).
 
 Prompt 18 adds `IPedagogicalInterpreter` in Application and a Roslyn-syntax implementation in Infrastructure. It reuses validated graph boundaries, simulates only documented scalar expressions and control flow, and produces immutable snapshots containing a program counter, active graph node, variable state, and cumulative output. A 100-operation limit stops infinite-looking input. This is an interpreter for CodeLogic's teaching model—not compilation or general .NET execution. See [EXECUTION_TRACES.md](EXECUTION_TRACES.md).
+
+Prompt 19 adds `ILogicalFeedbackService` and an instructor-authored age-boundary specification in Application. Infrastructure replaces only the known `age` initializer through Roslyn syntax and runs the fixed 17/18/19 cases through the bounded interpreter. Web presents expected versus actual output, boundary labels, hints, separate syntax/support diagnostics, and an unavoidable false-positive warning. It does not infer arbitrary learner intent. See [LOGICAL_FEEDBACK.md](LOGICAL_FEEDBACK.md).
 
 ## Web and API Boundaries
 

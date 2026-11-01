@@ -2,7 +2,7 @@
 
 ## Document Status
 
-- Tasks: Prompts 13–18 — editor, diagnostics, graph IR, renderer, nested control flow, and bounded traces
+- Tasks: Prompts 13–19 — editor, diagnostics, graph IR, renderer, bounded traces, and known-exercise logical feedback
 - Last updated: 2026-11-01
 - Editor: accessible HTML textarea with interactive server UI
 
@@ -10,7 +10,7 @@
 
 The Playground provides a small editing workspace for the two complete curriculum samples. A learner can load either curated snippet, edit it, save one browser-local draft, restore that draft after reload, or reset to the selected curated source.
 
-Prompt 14 adds a server-side **Check syntax** action. Prompts 15–17 add graph translation and **Preview flowchart**. Prompt 18 adds **Build step trace**, which uses CodeLogic's bounded teaching interpreter rather than compiling or running a .NET program. See [CODE_ANALYSIS.md](CODE_ANALYSIS.md), [FLOWCHART_IR.md](FLOWCHART_IR.md), [FLOWCHART_RENDERER.md](FLOWCHART_RENDERER.md), and [EXECUTION_TRACES.md](EXECUTION_TRACES.md).
+Prompt 14 adds **Check syntax**. Prompts 15–17 add **Preview flowchart**. Prompt 18 adds **Build step trace** through CodeLogic's bounded teaching interpreter. Prompt 19 adds instructor-defined logical checks for the known adult-age exercise. See [CODE_ANALYSIS.md](CODE_ANALYSIS.md), [FLOWCHART_IR.md](FLOWCHART_IR.md), [FLOWCHART_RENDERER.md](FLOWCHART_RENDERER.md), [EXECUTION_TRACES.md](EXECUTION_TRACES.md), and [LOGICAL_FEEDBACK.md](LOGICAL_FEEDBACK.md).
 
 ## Why a Textarea First
 
@@ -48,6 +48,10 @@ The draft is not attached to an Identity account, sent to the database, synced a
 12. Reset the trace and confirm it returns to Start with empty state.
 13. Trace true and false branches, a bounded loop, and `while (true) { }`. Confirm branch correctness and the 100-operation limit.
 14. Confirm there is no Run, Compile, terminal, arbitrary execution, or claim of general .NET behavior.
+15. Load the age exercise and check its known cases. Confirm ages 17, 18, and 19 show expected and actual output and that 18 is labeled Boundary.
+16. Change `>=` to `>`. Confirm age 18 alone fails with an actionable hint.
+17. Enter malformed source. Confirm analysis diagnostics appear separately with no logical verdict.
+18. Use `age == 18 || age == 19`. Confirm all known cases pass while the visible limitation warns that untested age 20 can still fail.
 
 ## Known Limitations
 
@@ -61,3 +65,5 @@ The draft is not attached to an Identity account, sent to the database, synced a
 - Mermaid loads from a pinned CDN URL, so the SVG preview needs network access on first load; the text map survives renderer failure.
 - Traces do not support arrays, element access, live input, methods, `return`, `break`, or `continue`.
 - The trace model does not perform full C# semantic or type analysis.
+- Logical feedback exists only for the authored age-boundary exercise and its three fixed cases.
+- Passing known cases does not prove correctness for untested inputs or detect every logical mistake.
