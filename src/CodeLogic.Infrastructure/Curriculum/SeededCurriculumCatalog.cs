@@ -1,6 +1,7 @@
 using System.Globalization;
 
 using CodeLogic.Application.Curriculum;
+using CodeLogic.Application.Analysis;
 using CodeLogic.Domain;
 using CodeLogic.Domain.Curriculum;
 using CodeLogic.Domain.Practice;
@@ -287,8 +288,8 @@ public sealed class SeededCurriculumCatalog : ICurriculumCatalog
 
     private static SafeSnippetPolicy CreateSafeSnippetPolicy() =>
         new(
-            MaximumCharacters: 1_200,
-            MaximumNestingDepth: 3,
+            MaximumCharacters: CodeAnalysisDefaults.MaximumCharacters,
+            MaximumNestingDepth: CodeAnalysisDefaults.MaximumNestingDepth,
             ExecutionPolicy: "static-analysis-only",
             AllowedConstructs:
             [

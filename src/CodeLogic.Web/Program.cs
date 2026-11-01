@@ -1,3 +1,4 @@
+using CodeLogic.Infrastructure.Analysis;
 using CodeLogic.Infrastructure.Identity;
 using CodeLogic.Infrastructure.Persistence;
 using CodeLogic.Web.Components;
@@ -13,6 +14,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthorization();
+builder.Services.AddCodeLogicAnalysis();
 builder.Services.AddCodeLogicPersistence(
     builder.Configuration.GetConnectionString("CodeLogic")
         ?? throw new InvalidOperationException("Connection string 'CodeLogic' is required."),

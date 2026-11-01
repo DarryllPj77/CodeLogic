@@ -2,15 +2,15 @@
 
 ## Document Status
 
-- Task: Prompt 13 — Editor playground UI
-- Last updated: 2026-10-31
+- Tasks: Prompt 13 — Editor playground UI; Prompt 14 — Roslyn parse and diagnostics
+- Last updated: 2026-11-01
 - Editor: accessible HTML textarea with interactive server UI
 
 ## Scope
 
 The Playground provides a small editing workspace for the two complete curriculum samples. A learner can load either curated snippet, edit it, save one browser-local draft, restore that draft after reload, or reset to the selected curated source.
 
-This task does not parse, compile, execute, validate, or visualize learner code. The source remains plain text. Roslyn analysis and deterministic visualization belong to later numbered tasks.
+Prompt 14 adds a server-side **Check syntax** action. It parses the current text with Roslyn and validates a fixed learning subset, but does not compile, execute, type-check, or visualize learner code. See [CODE_ANALYSIS.md](CODE_ANALYSIS.md) for the exact subset and limits.
 
 ## Why a Textarea First
 
@@ -41,12 +41,14 @@ The draft is not attached to an Identity account, sent to the database, synced a
 5. Press `Ctrl+Alt+R`. Confirm the editor returns to the selected curated snippet and a later refresh no longer restores the old draft.
 6. Navigate through the selector, buttons, textarea, and limitation content using only the keyboard.
 7. Confirm visible focus, labels, live status messages, character count, and usable layout at 200% zoom and 320 CSS pixels.
-8. Confirm there is no Run, Compile, Analyze, Visualize, terminal, or output control.
+8. Select **Check syntax** for a valid sample, malformed syntax, and unsupported `foreach`. Confirm results are specific and the source text remains available for revision.
+9. Confirm there is no Run, Compile, Visualize, terminal, or program-output control.
 
 ## Known Limitations
 
-- Plain text only; no syntax highlighting, autocomplete, diagnostics, or formatting.
+- Plain text only; no syntax highlighting, autocomplete, semantic/type diagnostics, or formatting.
 - One local draft only; loading another snippet does not create a separate saved file.
 - Browser storage can be unavailable in restricted privacy modes.
 - Drafts are device/browser-specific and are not account data.
 - No arbitrary or curated code execution exists.
+- Graphs and traces are not available yet.

@@ -1,27 +1,29 @@
 @page "/playground"
 @rendermode InteractiveServer
 @implements IAsyncDisposable
+@inject ICodeAnalysisService CodeAnalysisService
 @inject ICurriculumCatalog CurriculumCatalog
 @inject IJSRuntime JavaScript
 
 <PageTitle>Playground | CodeLogic</PageTitle>
 
 <HeadContent>
-    <meta name="description" content="Edit and save short curated C# snippets without compiling or executing them." />
+    <meta name="description" content="Edit short C# snippets and receive bounded syntax and supported-subset feedback without compiling or executing them." />
 </HeadContent>
 
 <section class="page-header" aria-labelledby="playground-title">
     <p class="eyebrow">Editor playground</p>
     <h1 id="playground-title">Experiment with short C# snippets</h1>
-    <p>Edit a curated example and save one browser-local draft. CodeLogic does not compile, run, or analyze this text yet.</p>
+    <p>Edit a curated example, save one browser-local draft, and ask Roslyn to check its syntax and CodeLogic's supported subset. Nothing is compiled or run.</p>
 </section>
 
 <aside class="notice notice--warning" aria-labelledby="editor-limitations-title">
     <h2 id="editor-limitations-title">Visible limitations</h2>
     <ul>
         <li>This is an accessible plain-text editor, not Visual Studio or Monaco.</li>
-        <li>Code is never compiled or executed. Output, validation, flowcharts, and traces are not available in this task.</li>
+        <li>Code is parsed only. It is never compiled or executed, and type checking, flowcharts, and traces are not available in this task.</li>
         <li>The editor accepts at most @EditorState.MaximumCharacters.ToString("N0") characters.</li>
+        <li>Analysis stops after @CodeAnalysisService.Limits.MaximumDuration.TotalSeconds.ToString("N0") seconds and supports at most @CodeAnalysisService.Limits.MaximumNestingDepth nested control-flow statements.</li>
         <li>Save keeps one draft only in this browser's local storage. It is not synced to your account or another device.</li>
     </ul>
 </aside>
@@ -72,22 +74,56 @@
         </div>
 
         <div class="button-row">
-            <button class="button button--primary" type="button" @onclick="SaveDraftAsync" disabled="@(!BrowserReady || JavaScriptModule is null)">Save browser draft</button>
+            <button class="button button--primary" type="button" @onclick="AnalyzeAsync" disabled="@(!BrowserReady || IsAnalyzing)">
+                @(IsAnalyzing ? "Checking…" : "Check syntax")
+            </button>
+            <button class="button button--secondary" type="button" @onclick="SaveDraftAsync" disabled="@(!BrowserReady || JavaScriptModule is null)">Save browser draft</button>
             <button class="button button--secondary" type="button" @onclick="ResetDraftAsync" disabled="@(!BrowserReady)">Reset editor</button>
         </div>
 
         <p id="editor-status" class="editor-status" role="status" aria-live="polite">@StatusMessage</p>
+
+        @if (AnalysisResult is not null)
+        {
+            <section class="analysis-feedback" aria-labelledby="analysis-title" aria-live="polite">
+                <h3 id="analysis-title">@AnalysisHeading(AnalysisResult.Status)</h3>
+                @if (AnalysisResult.IsValid)
+                {
+                    <p>Roslyn understood the syntax, and every construct is inside CodeLogic's current learning subset.</p>
+                    <p class="analysis-caution">This is not proof that the code compiles or produces the intended result. CodeLogic did not perform type checking or run it.</p>
+                }
+                else
+                {
+                    <ol class="analysis-diagnostic-list">
+                        @foreach (var diagnostic in AnalysisResult.Diagnostics)
+                        {
+                            <li>
+                                <p class="analysis-diagnostic-heading">
+                                    <strong>@diagnostic.Code</strong>
+                                    @if (diagnostic.Line is not null && diagnostic.Column is not null)
+                                    {
+                                        <span>Line @diagnostic.Line, column @diagnostic.Column</span>
+                                    }
+                                </p>
+                                <p>@diagnostic.Message</p>
+                                <p class="analysis-explanation">@diagnostic.Explanation</p>
+                            </li>
+                        }
+                    </ol>
+                }
+            </section>
+        }
     </section>
 
     <aside class="playground-guide" aria-labelledby="playground-guide-title">
-        <p class="status-badge">Editing only</p>
+        <p class="status-badge">Parse only</p>
         <h2 id="playground-guide-title">What happens to this code?</h2>
         <ol class="step-list">
             <li><span>1</span> You edit plain text.</li>
             <li><span>2</span> Save stores one draft in this browser.</li>
-            <li><span>3</span> Nothing executes.</li>
+            <li><span>3</span> Check syntax parses a fixed subset; nothing executes.</li>
         </ol>
-        <p>Static analysis and deterministic visualization belong to later numbered tasks.</p>
+        <p>Semantic analysis, graph construction, and deterministic visualization belong to later numbered tasks.</p>
     </aside>
 </div>
 
@@ -97,6 +133,8 @@
     private string SelectedSnippetId { get; set; } = string.Empty;
     private string StatusMessage { get; set; } = "Preparing browser draft storage.";
     private bool BrowserReady { get; set; }
+    private bool IsAnalyzing { get; set; }
+    private CodeAnalysisResult? AnalysisResult { get; set; }
     private ElementReference EditorElement { get; set; }
     private IJSObjectReference? JavaScriptModule { get; set; }
 
@@ -168,6 +206,7 @@
 
     private void UpdateCode(ChangeEventArgs eventArgs)
     {
+        AnalysisResult = null;
         var code = eventArgs.Value?.ToString() ?? string.Empty;
         StatusMessage = EditorState.TryUpdateCode(code)
             ? "Unsaved changes."
@@ -176,6 +215,7 @@
 
     private void LoadSelectedSnippet()
     {
+        AnalysisResult = null;
         EditorState.LoadSnippet(SelectedSnippetId);
         StatusMessage = $"Loaded {EditorState.ActiveSnippet.Title}. Save to keep it as your browser draft.";
     }
@@ -205,6 +245,7 @@
 
     private async Task ResetDraftAsync()
     {
+        AnalysisResult = null;
         EditorState.Reset();
         if (JavaScriptModule is not null)
         {
@@ -221,6 +262,33 @@
 
         StatusMessage = $"Editor reset to {EditorState.ActiveSnippet.Title}; the browser draft was cleared.";
     }
+
+    private async Task AnalyzeAsync()
+    {
+        IsAnalyzing = true;
+        StatusMessage = "Checking syntax and the supported learning subset.";
+        try
+        {
+            AnalysisResult = await CodeAnalysisService.AnalyzeAsync(EditorState.CurrentCode);
+            StatusMessage = AnalysisResult.IsValid
+                ? "Syntax and supported-subset check passed. Nothing was compiled or run."
+                : $"Analysis found {AnalysisResult.Diagnostics.Count} item(s) to review.";
+        }
+        finally
+        {
+            IsAnalyzing = false;
+        }
+    }
+
+    private static string AnalysisHeading(CodeAnalysisStatus status) => status switch
+    {
+        CodeAnalysisStatus.Valid => "Syntax and supported subset check passed",
+        CodeAnalysisStatus.InvalidInput => "Enter a short C# snippet",
+        CodeAnalysisStatus.SyntaxError => "Fix the C# syntax",
+        CodeAnalysisStatus.Unsupported => "Valid syntax, unsupported CodeLogic feature",
+        CodeAnalysisStatus.TimedOut => "Analysis stopped at the time limit",
+        _ => "Analysis result",
+    };
 
     private Task HandleEditorKeyDown(KeyboardEventArgs eventArgs)
     {

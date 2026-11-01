@@ -2,10 +2,10 @@
 
 ## Document Status
 
-- Status: Implemented through Prompt 12
-- Playbook task: 12 — Identity and owned progress
-- Last updated: 2026-10-31
-- Implementation status: The modular-monolith projects, curriculum flow, SQLite persistence, ASP.NET Core Identity, and account-owned progress are implemented. Roslyn, Mermaid, and hosted infrastructure remain planned.
+- Status: Implemented through Prompt 14
+- Playbook task: 14 — Roslyn parse and diagnostics
+- Last updated: 2026-11-01
+- Implementation status: The modular-monolith projects, curriculum flow, SQLite persistence, ASP.NET Core Identity, account-owned progress, editor, and bounded Roslyn parsing are implemented. Semantic analysis, graph IR, Mermaid, and hosted infrastructure remain planned.
 
 ## Architectural Goal
 
@@ -30,7 +30,7 @@ flowchart LR
     Owner[Curriculum owner]
     Web[CodeLogic modular monolith<br/>ASP.NET Core + Blazor Web App]
     Db[(SQLite in development<br/>Relational database in hosted environments)]
-    Roslyn[Roslyn parsing and semantic analysis<br/>introduced in a later task]
+    Roslyn[In-process Roslyn syntax parser<br/>fixed subset and diagnostics]
     Diagram[Mermaid text and browser renderer]
 
     Student -->|Lessons, exercises, code samples| Web
@@ -41,7 +41,7 @@ flowchart LR
     Web -->|Escaped Mermaid definition| Diagram
 ```
 
-The Roslyn and Mermaid boxes describe planned adapters. They are not external microservices and are not yet implemented.
+Roslyn parsing is an in-process Infrastructure adapter behind an Application interface. Mermaid remains planned. Neither is an external microservice.
 
 ## Modular Monolith Structure
 
@@ -83,7 +83,7 @@ The dashed arrows show forbidden dependencies. `CodeLogic.Web` is the compositio
 | --- | --- | --- |
 | Domain | Learning concepts, domain invariants, value objects, domain behavior | EF Core, Blazor components, HTTP, file access, Roslyn APIs |
 | Application | Use cases, orchestration, ports/interfaces, authorization decisions, application DTOs | Database provider details, UI rendering, HTTP endpoints |
-| Infrastructure | EF Core persistence, identity adapters, file/content adapters, Roslyn adapter when introduced | Product rules or UI workflow |
+| Infrastructure | EF Core persistence, identity adapters, file/content adapters, Roslyn parsing adapter | Product rules or UI workflow |
 | Web | Blazor pages/components, HTTP/API endpoints, dependency composition, request validation and presentation | Database queries embedded in components, core domain rules |
 
 Feature folders may group related code within a boundary, but they do not reverse the dependency direction.
@@ -133,19 +133,20 @@ No generic repository is required by default. Application-specific ports or dire
 
 ## Code Analysis and Visualization
 
-The planned analysis pipeline is:
+The analysis pipeline, with Prompt 14's implemented slice shown first, is:
 
 ```mermaid
 flowchart LR
     Input[Student source text]
-    Gate[Supported-subset and size validation]
-    Parse[Roslyn syntax parsing]
-    Analyze[Semantic and control-flow analysis]
+    Gate[Size and input validation<br/>implemented]
+    Parse[Roslyn syntax parsing and diagnostics<br/>implemented]
+    Subset[Syntax-tree subset and nesting check<br/>implemented]
+    Analyze[Semantic and control-flow analysis<br/>planned]
     IR[Custom graph intermediate representation]
     Render[Mermaid adapter]
     Browser[Escaped diagram in browser]
 
-    Input --> Gate --> Parse --> Analyze --> IR --> Render --> Browser
+    Input --> Gate --> Parse --> Subset --> Analyze --> IR --> Render --> Browser
     Gate -->|Rejected with teaching feedback| Input
 ```
 
@@ -154,6 +155,8 @@ The custom graph intermediate representation (IR) prevents the UI from depending
 Mermaid is the first renderer because text output is easy to inspect, snapshot-test, and embed. It must be treated as presentation output: labels are escaped and untrusted input cannot inject Mermaid directives or HTML.
 
 Roslyn parsing is not code execution. Arbitrary compilation and execution remain out of scope unless a later security-approved design introduces an isolated runner with explicit resource limits.
+
+Prompt 14 keeps Roslyn types inside Infrastructure. `ICodeAnalysisService` and neutral result records live in Application, and Web registers the adapter. The parser accepts at most 1,200 characters, applies a two-second cooperative cancellation limit and a three-level control-flow nesting limit, and reports input, syntax, unsupported-feature, or timeout outcomes. It uses syntax APIs only; semantic/type checking begins only in a future supplied task.
 
 ## Web and API Boundaries
 
@@ -236,4 +239,4 @@ An extraction seam is permission to evolve, not a commitment to distribute the s
 
 - The hosted relational provider is not selected.
 - Identity email confirmation, recovery, two-factor authentication, and account lifecycle remain deferred.
-- Roslyn, graph IR, Mermaid, and delivery infrastructure await their numbered tasks.
+- Semantic analysis, graph IR, Mermaid, and delivery infrastructure await their numbered tasks.

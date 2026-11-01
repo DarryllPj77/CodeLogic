@@ -136,7 +136,7 @@ Priorities use **Must**, **Should**, and **Could**. Only Must items are required
 
 The MVP editor is not expected to match Visual Studio features. Syntax highlighting is beneficial but not required for the first vertical slice if plain text remains readable and accessible.
 
-Prompt 13 implements the first UI slice as an accessible textarea with two curated snippets, a 1,200-character curriculum limit, browser-local save/reset, and documented shortcuts. Analysis, rejection messages based on syntax, and visualization remain later acceptance work; saved text is never executed.
+Prompt 13 implements the first UI slice as an accessible textarea with two curated snippets, a 1,200-character curriculum limit, browser-local save/reset, and documented shortcuts. Prompt 14 adds bounded Roslyn syntax diagnostics and fixed-subset rejection messages. Semantic/type analysis and visualization remain later acceptance work; saved or analyzed text is never compiled or executed.
 
 ### Must: Deterministic visualization
 
@@ -305,7 +305,7 @@ Before calling the MVP complete, the owner reviews:
 - Confirm the exact two pilot lesson topics when the curriculum prompt is executed.
 - Confirm whether account-based persistent progress belongs in the first public release or immediately after the in-memory vertical slice.
 - Confirm the initial product language and accessibility testing tools.
-- Approve the supported C# subset before editor and analysis implementation.
+- Review additions to the Prompt 14 supported C# subset before they are implemented.
 
 ## Related Architecture
 

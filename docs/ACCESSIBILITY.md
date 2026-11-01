@@ -3,7 +3,7 @@
 ## Document Status
 
 - Task: Prompt 10 — First end-to-end learning vertical slice
-- Last checked: 2026-10-31
+- Last checked: 2026-11-01
 - Scope: Home, Lessons, lesson detail and deterministic quiz feedback, account forms, saved progress dashboard, recovery states, Playground, not-found page, and shared navigation shell
 - Standard target: WCAG 2.2 AA for the core learning experience
 
@@ -31,6 +31,7 @@ These checks cover the application shell, lesson reading, deterministic practice
 - The dashboard explains that session state can disappear and is not connected to an account or database.
 - Status words such as “Planned,” “Preview only,” and “No progress data” accompany color styling.
 - The playground safety message is available as text rather than only as a visual treatment.
+- Playground analysis results use a heading, diagnostic codes, line/column text, explanations, and a polite live status; meaning does not depend on color.
 - Motion is non-essential and reduced when `prefers-reduced-motion` is enabled.
 - Forced-colors mode receives an explicit focus outline color.
 - The error banner uses an alert role and assertive live region.
@@ -83,6 +84,8 @@ Perform these checks in Microsoft Edge or Chrome before accepting Prompt 10:
 21. With focus in the editor, confirm `Ctrl+S` saves and `Ctrl+Alt+R` resets; verify the live status text announces each result.
 22. Enter text up to the displayed 1,200-character limit and confirm the character count remains understandable without color.
 23. At 200% zoom and 320 CSS pixels, confirm the editor, controls, shortcuts, limitations, and status remain readable without page-level horizontal scrolling.
+24. Activate **Check syntax** using only the keyboard for valid, malformed, and unsupported source. Confirm the result heading, code, line/column, message, and explanation are readable and announced without relying on color.
+25. Edit the source after analysis and confirm stale feedback disappears without losing the current text.
 
 ## Deferred Accessibility Checks
 

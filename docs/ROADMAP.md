@@ -2,10 +2,10 @@
 
 ## Roadmap Status
 
-- Last updated: 2026-10-31
-- Current completed milestone: Prompt 13 — Editor playground UI
-- Exact next numbered task: Not supplied; Prompt 14 remains awaiting definition
-- Source coverage: Prompts 00–13 have been supplied; Prompts 14–29 have not yet been added to the repository
+- Last updated: 2026-11-01
+- Current completed milestone: Prompt 14 — Roslyn parse and diagnostics
+- Exact next numbered task: Not supplied; Prompt 15 remains awaiting definition
+- Source coverage: Prompts 00–14 have been supplied; Prompts 15–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
 
@@ -44,7 +44,8 @@
 | 11 | Persistence foundation | Complete | Migration applies cleanly, tests use isolated SQLite databases, and seeded curriculum survives restart. |
 | 12 | Identity and owned progress | Complete | Identity account flows work; authenticated progress persists and cross-user access is denied. |
 | 13 | Editor playground UI | Complete | Curated snippets can be edited, saved locally, restored, and reset within visible safety and size limits. |
-| 14–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
+| 14 | Roslyn parse and diagnostics | Complete | Bounded server-side parsing reports positioned syntax errors and fixed-subset violations without compilation or execution. |
+| 15–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
 
 ## Completed Foundation
 
@@ -335,9 +336,32 @@ Acceptance gate:
 
 Prompt 13 does not add Roslyn, syntax validation, code execution, Mermaid, traces, multiple saved files, account-synced code, or Monaco.
 
+## Completed Roslyn Parse and Diagnostics
+
+### Prompt 14 — Roslyn parse and diagnostics
+
+Completed outcomes:
+
+- added an Application analysis contract and neutral diagnostic result model;
+- added a pinned Roslyn Infrastructure adapter using C# syntax-tree APIs only;
+- enforced 1,200 characters, three control-flow nesting levels, and a two-second cooperative time limit;
+- distinguished invalid input, syntax errors, unsupported constructs, timeouts, and valid supported source;
+- displayed one-based line/column diagnostics and beginner explanations in the Playground;
+- tested valid curriculum samples, malformed syntax, limits, caller cancellation, and unsupported language/framework features.
+
+Acceptance gate:
+
+- valid supported snippets pass deterministically;
+- malformed snippets return Roslyn diagnostic codes, positions, and explanations;
+- unsupported constructs return actionable CodeLogic diagnostics;
+- the implementation contains no compilation, emit, or learner-code execution path;
+- solution restores, builds, and tests successfully.
+
+Prompt 14 does not add semantic/type checking, graph IR, Mermaid, traces, compilation, code execution, or a broader C# subset.
+
 ## Awaiting the Next Supplied Prompt
 
-Prompts 14–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
+Prompts 15–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
 
 ## Six-Level Growth Map
 
@@ -354,6 +378,6 @@ Prompts 14–29 remain undefined in the repository. The owner must provide the e
 
 - Do not mark future implementation complete based only on documentation.
 - When a task is completed, update its status and evidence in this file within that task's allowed documentation scope.
-- Do not fill Prompts 14–29 with guessed requirements. Add them only from the owner's playbook.
+- Do not fill Prompts 15–29 with guessed requirements. Add them only from the owner's playbook.
 - If a new prompt conflicts with the accepted product charter or architecture, surface the conflict and obtain an owner decision before implementation.
 - Preserve historical ADRs; supersede decisions with a new ADR rather than rewriting accepted history.

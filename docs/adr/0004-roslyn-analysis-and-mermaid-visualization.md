@@ -1,6 +1,6 @@
 # ADR 0004: Roslyn Analysis with Graph IR and Mermaid First
 
-- Status: Proposed
+- Status: Accepted; parsing slice implemented
 - Date: 2026-10-31
 
 ## Context
@@ -9,7 +9,7 @@ CodeLogic intends to explain supported C# source through flowcharts and bounded 
 
 ## Decision
 
-Introduce Roslyn in a later dedicated task for syntax and semantic analysis of an explicitly supported C# subset. Convert validated analysis results into a custom graph intermediate representation (IR). Render that IR through a Mermaid adapter first.
+Introduce Roslyn in dedicated tasks for syntax and later semantic analysis of an explicitly supported C# subset. Convert validated analysis results into a custom graph intermediate representation (IR). Render that IR through a Mermaid adapter first.
 
 The pipeline is:
 
@@ -20,6 +20,10 @@ The pipeline is:
 5. Escape labels and render Mermaid text.
 
 Do not compile or execute arbitrary student code inside the web application process.
+
+## Prompt 14 Implementation Note
+
+Prompt 14 implements steps 1 and 2 plus syntax-tree-only subset validation. Application owns the analysis contract; Infrastructure owns the pinned Roslyn adapter; Web is the composition root and result presenter. Input is limited to 1,200 characters, control-flow nesting to three levels, and analysis to two seconds. Semantic/control-flow analysis, graph IR, and Mermaid remain future work.
 
 ## Alternatives Considered
 
