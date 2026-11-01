@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
 using CodeLogic.Infrastructure.Identity;
@@ -12,6 +13,8 @@ public sealed class CodeLogicDbContext(DbContextOptions<CodeLogicDbContext> opti
 
     public DbSet<CurriculumLessonEntity> CurriculumLessons => Set<CurriculumLessonEntity>();
 
+    public DbSet<AuthoredLessonEntity> AuthoredLessons => Set<AuthoredLessonEntity>();
+
     public DbSet<UserExerciseAttemptEntity> UserExerciseAttempts => Set<UserExerciseAttemptEntity>();
 
     public DbSet<UserLessonProgressEntity> UserLessonProgress => Set<UserLessonProgressEntity>();
@@ -22,11 +25,22 @@ public sealed class CodeLogicDbContext(DbContextOptions<CodeLogicDbContext> opti
 
         base.OnModelCreating(builder);
 
+        ConfigureIdentityRoles(builder);
         ConfigureCurriculumTopic(builder);
         ConfigureCurriculumLesson(builder);
+        ConfigureAuthoredLesson(builder);
         ConfigureUserExerciseAttempt(builder);
         ConfigureUserLessonProgress(builder);
     }
+
+    private static void ConfigureIdentityRoles(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<IdentityRole>().HasData(new IdentityRole
+        {
+            Id = CodeLogicRoles.AdministratorRoleId,
+            Name = CodeLogicRoles.Administrator,
+            NormalizedName = CodeLogicRoles.Administrator.ToUpperInvariant(),
+            ConcurrencyStamp = "codelogic-administrator-role-v1",
+        });
 
     private static void ConfigureCurriculumTopic(ModelBuilder modelBuilder)
     {
@@ -91,6 +105,28 @@ public sealed class CodeLogicDbContext(DbContextOptions<CodeLogicDbContext> opti
         attempt.HasOne<CurriculumLessonEntity>()
             .WithMany()
             .HasForeignKey(entity => entity.LessonId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+
+    private static void ConfigureAuthoredLesson(ModelBuilder modelBuilder)
+    {
+        var lesson = modelBuilder.Entity<AuthoredLessonEntity>();
+        lesson.ToTable("AuthoredLessons");
+        lesson.HasKey(entity => entity.Id);
+        lesson.Property(entity => entity.Status).IsRequired();
+        lesson.Property(entity => entity.Version).IsRequired().IsConcurrencyToken();
+        lesson.Property(entity => entity.OwnerUserId).HasMaxLength(450).IsRequired();
+        lesson.Property(entity => entity.Title).HasMaxLength(200).IsRequired();
+        lesson.Property(entity => entity.Objective).HasMaxLength(1_000).IsRequired();
+        lesson.Property(entity => entity.Content).HasMaxLength(10_000).IsRequired();
+        lesson.Property(entity => entity.SampleCode).HasMaxLength(1_200).IsRequired();
+        lesson.Property(entity => entity.CreatedAtUtc).IsRequired();
+        lesson.Property(entity => entity.UpdatedAtUtc).IsRequired();
+        lesson.HasIndex(entity => new { entity.Status, entity.PublishedAtUtc });
+        lesson.HasIndex(entity => new { entity.OwnerUserId, entity.UpdatedAtUtc });
+        lesson.HasOne<CodeLogicUser>()
+            .WithMany()
+            .HasForeignKey(entity => entity.OwnerUserId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 

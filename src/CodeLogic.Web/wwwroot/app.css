@@ -575,6 +575,102 @@ pre code {
     width: 100%;
 }
 
+.authoring-layout {
+    display: grid;
+    gap: var(--space-6);
+    grid-template-columns: minmax(16rem, 0.7fr) minmax(0, 1.3fr);
+    margin-top: var(--space-8);
+}
+
+.authoring-panel,
+.lesson-authoring-preview {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    padding: var(--space-6);
+}
+
+.authoring-list {
+    display: grid;
+    gap: var(--space-3);
+    list-style: none;
+    margin: var(--space-6) 0 0;
+    padding: 0;
+}
+
+.authoring-list li {
+    align-items: center;
+    background: var(--color-surface-muted);
+    border-radius: var(--radius-sm);
+    display: flex;
+    gap: var(--space-4);
+    justify-content: space-between;
+    padding: var(--space-4);
+}
+
+.authoring-list li > div,
+.authoring-form {
+    display: grid;
+    gap: var(--space-3);
+}
+
+.authoring-list small,
+.authoring-empty {
+    color: var(--color-text-muted);
+}
+
+.authoring-list .status-badge {
+    justify-self: start;
+    margin-bottom: 0;
+}
+
+.authoring-form label {
+    color: var(--color-ink);
+    font-weight: 800;
+}
+
+.authoring-form input,
+.authoring-form textarea {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-ink);
+    padding: var(--space-3) var(--space-4);
+    width: 100%;
+}
+
+.authoring-form textarea {
+    resize: vertical;
+}
+
+.authoring-form :disabled {
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+}
+
+.authoring-errors {
+    background: var(--color-warning-soft);
+    border-left: 0.35rem solid var(--color-danger);
+    padding: var(--space-4);
+}
+
+.authoring-errors ul {
+    margin-bottom: 0;
+}
+
+.lesson-authoring-preview {
+    margin-top: var(--space-8);
+}
+
+.authored-lesson-content {
+    white-space: pre-wrap;
+}
+
+.authored-lesson-reading {
+    max-width: var(--content-reading);
+}
+
 .lesson-breadcrumb {
     color: var(--color-text-muted);
     font-size: var(--font-size-sm);
@@ -1427,6 +1523,7 @@ kbd {
 
 @media (max-width: 52rem) {
     .hero,
+    .authoring-layout,
     .lesson-reading__layout,
     .principles {
         grid-template-columns: 1fr;

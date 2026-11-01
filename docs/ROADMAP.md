@@ -3,9 +3,9 @@
 ## Roadmap Status
 
 - Last updated: 2026-11-01
-- Current completed milestone: Prompt 19 — Logical mistake feedback
-- Exact next numbered task: Not supplied; Prompt 20 remains awaiting definition
-- Source coverage: Prompts 00–19 have been supplied; Prompts 20–29 have not yet been added to the repository
+- Current completed milestone: Prompt 20 — Lesson authoring and content management
+- Exact next numbered task: Not supplied; Prompt 21 remains awaiting definition
+- Source coverage: Prompts 00–20 have been supplied; Prompts 21–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
 
@@ -50,7 +50,8 @@
 | 17 | Loops and nested control flow | Complete | Golden graph tests cover exits, repeat edges, nested conditions, and infinite-loop-looking syntax. |
 | 18 | Explain execution without running arbitrary code | Complete | Deterministic bounded traces expose program counter, active node, variables, and output with tested branch, reset, and operation-limit behavior. |
 | 19 | Logical mistake feedback | Complete | Authored age-boundary cases compare expected/actual output, separate syntax issues, provide hints, and disclose false-positive limits. |
-| 20–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
+| 20 | Lesson authoring and content management | Complete | Administrator-owned drafts stay private; validated published lessons are public with version and audit basics. |
+| 21–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
 
 ## Completed Foundation
 
@@ -485,9 +486,31 @@ Acceptance gate:
 
 Prompt 19 does not add general logical-error detection, generated tests, AI intent inference, formal verification, persistence, or future playbook features.
 
+## Completed Lesson Authoring and Content Management
+
+### Prompt 20 — Lesson authoring and content management
+
+Completed outcomes:
+
+- added an administrator-role-protected authoring page with create, edit, private preview, and publish actions;
+- kept authored lessons behind an Application contract and an EF Core Infrastructure adapter;
+- required trusted claim ownership and rechecked ownership for every mutation;
+- added field validation, optimistic version checks, and created/updated/published UTC audit fields;
+- filtered public list/detail queries to Published records only;
+- seeded the Administrator role without silently promoting any registered account;
+- preserved the rule that displayed sample code is never compiled or executed.
+
+Acceptance gate:
+
+- draft records cannot be retrieved through public authoring queries or learner pages;
+- publishing makes a validated lesson available on the public lesson list and detail route;
+- tests cover validation, version conflicts, ownership denial, route-role authorization, and public visibility.
+
+Prompt 20 does not add public submissions, runnable code, deletion, unpublishing, scheduled releases, multi-editor approval, or a full immutable audit history.
+
 ## Awaiting the Next Supplied Prompt
 
-Prompts 20–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
+Prompts 21–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
 
 ## Six-Level Growth Map
 
@@ -504,6 +527,6 @@ Prompts 20–29 remain undefined in the repository. The owner must provide the e
 
 - Do not mark future implementation complete based only on documentation.
 - When a task is completed, update its status and evidence in this file within that task's allowed documentation scope.
-- Do not fill Prompts 20–29 with guessed requirements. Add them only from the owner's playbook.
+- Do not fill Prompts 21–29 with guessed requirements. Add them only from the owner's playbook.
 - If a new prompt conflicts with the accepted product charter or architecture, surface the conflict and obtain an owner decision before implementation.
 - Preserve historical ADRs; supersede decisions with a new ADR rather than rewriting accepted history.

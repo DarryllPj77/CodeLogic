@@ -14,6 +14,11 @@
         </li>
         <AuthorizeView>
             <Authorized>
+                <AuthorizeView Roles="@CodeLogicRoles.Administrator">
+                    <Authorized Context="administratorContext">
+                        <li><NavLink href="/admin/lessons">Author lessons</NavLink></li>
+                    </Authorized>
+                </AuthorizeView>
                 <li class="account-name" title="Signed in account">@context.User.Identity?.Name</li>
                 <li>
                     <form method="post" action="/account/logout">

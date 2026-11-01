@@ -1,0 +1,222 @@
+@page "/admin/lessons"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = CodeLogicRoles.Administrator)]
+@inject ILessonAuthoringService LessonAuthoringService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Lesson authoring | CodeLogic</PageTitle>
+
+<section class="page-header" aria-labelledby="authoring-title">
+    <p class="eyebrow">Administrator tools</p>
+    <h1 id="authoring-title">Lesson authoring</h1>
+    <p>Create a private draft, preview its learning content, then publish it when it is ready for the public lesson list.</p>
+</section>
+
+<aside class="notice notice--warning" aria-labelledby="authoring-boundary-title">
+    <h2 id="authoring-boundary-title">Editorial safety boundary</h2>
+    <p>Sample code is displayed and analyzed as text only. This workflow never compiles or executes submitted C#.</p>
+</aside>
+
+<div class="authoring-layout">
+    <section class="authoring-panel" aria-labelledby="owned-lessons-title">
+        <div class="section-heading">
+            <p class="eyebrow">Owned content</p>
+            <h2 id="owned-lessons-title">Your lessons</h2>
+        </div>
+
+        <button class="button button--secondary" type="button" @onclick="StartNewDraft">New draft</button>
+
+        @if (OwnedLessons.Count == 0)
+        {
+            <p class="authoring-empty">No authored lessons yet.</p>
+        }
+        else
+        {
+            <ul class="authoring-list">
+                @foreach (var lesson in OwnedLessons)
+                {
+                    <li>
+                        <div>
+                            <span class="status-badge">@lesson.Status</span>
+                            <strong>@lesson.Title</strong>
+                            <small>Version @lesson.Version · updated @lesson.UpdatedAtUtc.ToLocalTime().ToString("g")</small>
+                        </div>
+                        <button class="text-button" type="button" @onclick="() => SelectLesson(lesson)">Open</button>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+
+    <section class="authoring-panel" aria-labelledby="lesson-editor-title">
+        <div class="section-heading">
+            <p class="eyebrow">@(SelectedLesson is null ? "New private draft" : $"{SelectedLesson.Status} · version {SelectedLesson.Version}")</p>
+            <h2 id="lesson-editor-title">@(SelectedLesson is null ? "Create a lesson" : "Edit lesson")</h2>
+        </div>
+
+        <div class="authoring-form">
+            <label for="authoring-title-input">Title</label>
+            <input id="authoring-title-input" @bind="Editor.Title" maxlength="@LessonAuthoringValidator.MaximumTitleLength" disabled="@IsReadOnly" />
+
+            <label for="authoring-objective">Learning objective</label>
+            <textarea id="authoring-objective" @bind="Editor.Objective" maxlength="@LessonAuthoringValidator.MaximumObjectiveLength" rows="3" disabled="@IsReadOnly"></textarea>
+
+            <label for="authoring-content">Lesson content</label>
+            <textarea id="authoring-content" @bind="Editor.Content" maxlength="@LessonAuthoringValidator.MaximumContentLength" rows="10" disabled="@IsReadOnly"></textarea>
+
+            <label for="authoring-code">Sample C# shown to learners</label>
+            <textarea id="authoring-code" class="code-editor" @bind="Editor.SampleCode" maxlength="@LessonAuthoringValidator.MaximumSampleCodeLength" rows="10" spellcheck="false" disabled="@IsReadOnly"></textarea>
+
+            @if (Errors.Count > 0)
+            {
+                <div class="authoring-errors" role="alert">
+                    <strong>Please review:</strong>
+                    <ul>
+                        @foreach (var error in Errors)
+                        {
+                            <li>@error</li>
+                        }
+                    </ul>
+                </div>
+            }
+
+            <div class="button-row">
+                @if (!IsReadOnly)
+                {
+                    <button class="button button--primary" type="button" @onclick="SaveAsync" disabled="@IsSaving">
+                        @(SelectedLesson is null ? "Create private draft" : "Save new version")
+                    </button>
+                }
+                @if (SelectedLesson?.Status == AuthoredLessonStatus.Draft)
+                {
+                    <button class="button button--secondary" type="button" @onclick="PublishAsync" disabled="@IsSaving">Publish lesson</button>
+                }
+            </div>
+            <p class="editor-status" role="status" aria-live="polite">@StatusMessage</p>
+        </div>
+    </section>
+</div>
+
+@if (SelectedLesson is not null || HasPreviewContent)
+{
+    <section class="lesson-authoring-preview" aria-labelledby="lesson-preview-title">
+        <p class="eyebrow">Private editorial preview</p>
+        <h2 id="lesson-preview-title">@(string.IsNullOrWhiteSpace(Editor.Title) ? "Untitled lesson" : Editor.Title)</h2>
+        <p><strong>Learning objective:</strong> @Editor.Objective</p>
+        <div class="authored-lesson-content">@Editor.Content</div>
+        <pre aria-label="Sample C# code"><code>@Editor.SampleCode</code></pre>
+    </section>
+}
+
+@code {
+    private readonly LessonEditorModel Editor = new();
+    private IReadOnlyList<AuthoredLesson> OwnedLessons { get; set; } = [];
+    private AuthoredLesson? SelectedLesson { get; set; }
+    private IReadOnlyList<string> Errors { get; set; } = [];
+    private string OwnerUserId { get; set; } = string.Empty;
+    private string StatusMessage { get; set; } = "Create or open a lesson to begin.";
+    private bool IsSaving { get; set; }
+    private bool IsReadOnly => SelectedLesson?.Status == AuthoredLessonStatus.Published;
+    private bool HasPreviewContent => !string.IsNullOrWhiteSpace(Editor.Title)
+        || !string.IsNullOrWhiteSpace(Editor.Objective)
+        || !string.IsNullOrWhiteSpace(Editor.Content)
+        || !string.IsNullOrWhiteSpace(Editor.SampleCode);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        OwnerUserId = authenticationState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? throw new InvalidOperationException("An administrator account identifier is required.");
+        await ReloadOwnedLessonsAsync();
+    }
+
+    private void StartNewDraft()
+    {
+        SelectedLesson = null;
+        Editor.Clear();
+        Errors = [];
+        StatusMessage = "New lessons remain private until you publish them.";
+    }
+
+    private void SelectLesson(AuthoredLesson lesson)
+    {
+        SelectedLesson = lesson;
+        Editor.Load(lesson);
+        Errors = [];
+        StatusMessage = lesson.Status == AuthoredLessonStatus.Published
+            ? "Published lessons are read-only in this first editorial workflow."
+            : "This preview is private until you publish the lesson.";
+    }
+
+    private async Task SaveAsync()
+    {
+        IsSaving = true;
+        Errors = [];
+        var input = Editor.ToInput();
+        var result = SelectedLesson is null
+            ? await LessonAuthoringService.CreateDraftAsync(input, OwnerUserId)
+            : await LessonAuthoringService.UpdateDraftAsync(SelectedLesson.Id, input, OwnerUserId, SelectedLesson.Version);
+        await ApplyResultAsync(result, "Draft saved. Its version and audit timestamp were updated.");
+        IsSaving = false;
+    }
+
+    private async Task PublishAsync()
+    {
+        if (SelectedLesson is null)
+        {
+            return;
+        }
+
+        IsSaving = true;
+        Errors = [];
+        var result = await LessonAuthoringService.PublishAsync(SelectedLesson.Id, OwnerUserId, SelectedLesson.Version);
+        await ApplyResultAsync(result, "Lesson published and is now available from the public lesson list.");
+        IsSaving = false;
+    }
+
+    private async Task ApplyResultAsync(LessonAuthoringResult result, string successMessage)
+    {
+        if (result.IsSuccess)
+        {
+            SelectedLesson = result.Lesson;
+            Editor.Load(result.Lesson!);
+            StatusMessage = successMessage;
+            await ReloadOwnedLessonsAsync();
+            return;
+        }
+
+        Errors = result.Errors;
+        StatusMessage = result.Status == LessonAuthoringResultStatus.Conflict
+            ? "The lesson changed. Reload it from your lesson list before trying again."
+            : "The lesson was not saved.";
+    }
+
+    private async Task ReloadOwnedLessonsAsync() =>
+        OwnedLessons = await LessonAuthoringService.GetOwnedAsync(OwnerUserId);
+
+    private sealed class LessonEditorModel
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Objective { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+        public string SampleCode { get; set; } = string.Empty;
+
+        public LessonAuthoringInput ToInput() => new(Title, Objective, Content, SampleCode);
+
+        public void Load(AuthoredLesson lesson)
+        {
+            Title = lesson.Title;
+            Objective = lesson.Objective;
+            Content = lesson.Content;
+            SampleCode = lesson.SampleCode;
+        }
+
+        public void Clear()
+        {
+            Title = string.Empty;
+            Objective = string.Empty;
+            Content = string.Empty;
+            SampleCode = string.Empty;
+        }
+    }
+}

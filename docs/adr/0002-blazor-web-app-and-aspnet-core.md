@@ -45,3 +45,7 @@ Aspire is useful for orchestrating distributed applications and their dependenci
 ## Future Extraction Seams
 
 Application use cases and explicit DTOs separate UI components from business behavior. A future SPA, mobile client, or public API can reuse the same application boundary without moving domain rules into the client.
+
+## Prompt 20 Implementation Note
+
+The lesson editor uses interactive server rendering because draft selection, validation feedback, preview, versioned save, and publication benefit from component state. Route authorization requires the seeded Administrator role, while public published-lesson pages remain server-rendered and anonymous-readable. Components call `ILessonAuthoringService`; they do not access EF Core directly.

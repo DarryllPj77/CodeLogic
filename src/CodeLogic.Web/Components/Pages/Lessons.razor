@@ -1,18 +1,19 @@
 @page "/lessons"
 @inject ICurriculumCatalog CurriculumCatalog
+@inject ILessonAuthoringService LessonAuthoringService
 
 <PageTitle>Lessons | CodeLogic</PageTitle>
 
 <HeadContent>
-    <meta name="description" content="Explore CodeLogic's first complete C# lessons and the planned beginner curriculum." />
+    <meta name="description" content="Explore CodeLogic's published beginner C# lessons." />
 </HeadContent>
 
 <section class="page-header" aria-labelledby="lessons-title">
     <p class="eyebrow">Lessons</p>
     <h1 id="lessons-title">Build your C# foundation</h1>
     <p>
-        Start with two complete pilot specifications, then preview the seven topics still being developed.
-        Lesson reading and exercises arrive in later reviewed tasks.
+        Start with the reviewed curriculum pilots, then explore lessons published through the editorial workflow.
+        Private drafts never appear on this public page.
     </p>
 </section>
 
@@ -22,8 +23,8 @@
         <span>complete pilots</span>
     </div>
     <div>
-        <strong>@DraftLessons.Count()</strong>
-        <span>draft lessons</span>
+        <strong>@PublishedAuthoredLessons.Count</strong>
+        <span>editorial lessons</span>
     </div>
     <div>
         <strong>@Manifest.SafeSnippetPolicy.MaximumNestingDepth</strong>
@@ -70,27 +71,27 @@
     </div>
 </section>
 
-<section class="section" aria-labelledby="draft-lessons-title">
-    <div class="section-heading">
-        <p class="eyebrow">Planned curriculum</p>
-        <h2 id="draft-lessons-title">Draft lessons</h2>
-        <p>Drafts define direction and safety boundaries, but their teaching content is not yet complete.</p>
-    </div>
-
-    <ol class="draft-list" start="3">
-        @foreach (var curriculumLesson in DraftLessons)
-        {
-            <li>
-                <div>
-                    <span class="status-badge">@curriculumLesson.StatusLabel</span>
-                    <span class="draft-list__difficulty">@curriculumLesson.DifficultyLabel</span>
-                </div>
-                <h3>@curriculumLesson.Lesson.Title</h3>
-                <p>@curriculumLesson.Lesson.Objective</p>
-            </li>
-        }
-    </ol>
-</section>
+@if (PublishedAuthoredLessons.Count > 0)
+{
+    <section class="section" aria-labelledby="published-lessons-title">
+        <div class="section-heading">
+            <p class="eyebrow">Published by CodeLogic administrators</p>
+            <h2 id="published-lessons-title">Editorial lessons</h2>
+            <p>These lessons passed validation and were explicitly published by their owning administrator.</p>
+        </div>
+        <div class="lesson-grid">
+            @foreach (var lesson in PublishedAuthoredLessons)
+            {
+                <article class="lesson-card">
+                    <div class="lesson-card__meta"><span class="status-badge">Published</span><span>Version @lesson.Version</span></div>
+                    <h3>@lesson.Title</h3>
+                    <p class="lesson-card__objective">@lesson.Objective</p>
+                    <a class="button button--secondary lesson-card__action" href="/authored-lessons/@lesson.Id">Read @lesson.Title</a>
+                </article>
+            }
+        </div>
+    </section>
+}
 
 <aside class="notice notice--warning" aria-labelledby="safe-subset-title">
     <h2 id="safe-subset-title">Safe snippet boundary</h2>
@@ -107,12 +108,14 @@
     private IEnumerable<CurriculumLesson> CompleteLessons =>
         Manifest.Lessons.Where(lesson => lesson.Status == CurriculumLessonStatus.Complete);
 
-    private IEnumerable<CurriculumLesson> DraftLessons =>
-        Manifest.Lessons.Where(lesson => lesson.Status == CurriculumLessonStatus.Draft);
+    private IReadOnlyList<AuthoredLesson> PublishedAuthoredLessons { get; set; } = [];
 
     private string GetTopicSlug(CurriculumLesson curriculumLesson) =>
         Manifest.Topics.Single(topic => topic.Id == curriculumLesson.Lesson.TopicId).Slug;
 
-    protected override void OnInitialized() =>
+    protected override async Task OnInitializedAsync()
+    {
         Manifest = CurriculumCatalog.GetManifest();
+        PublishedAuthoredLessons = await LessonAuthoringService.GetPublishedAsync();
+    }
 }

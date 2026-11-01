@@ -2,8 +2,8 @@
 
 ## Document Status
 
-- Task: Prompt 12 — Identity and owned progress
-- Last updated: 2026-10-31
+- Task: Updated through Prompt 20 — lesson-authoring authorization
+- Last updated: 2026-11-01
 - Account system: ASP.NET Core Identity with EF Core stores
 
 ## Anonymous Study Decision
@@ -38,6 +38,8 @@ Web obtains the owner ID from the authenticated `NameIdentifier` claim. No progr
 
 Only attempt outcome, attempt number, exercise/lesson identifiers, UTC timestamp, and completion are saved. Learner answers are evaluated deterministically and are not stored.
 
+Prompt 20 seeds an `Administrator` role definition and protects `/admin/lessons` with role authorization. No user is automatically promoted. The authenticated claim identifies the lesson owner, and the persistence adapter rejects another administrator's update or publish attempt. Local role assignment and hosted-provisioning limitations are documented in `docs/LESSON_AUTHORING.md`.
+
 ## Apply the Migration
 
 From the repository root in PowerShell:
@@ -65,3 +67,4 @@ The `IdentityAndOwnedProgress` migration adds standard ASP.NET Core Identity tab
 - Password reset, two-factor authentication, account deletion, and profile management are deferred.
 - Concurrent submissions for the same exercise are protected by a unique database index but are not retried automatically; a later concurrency task can add a friendly retry if real usage demonstrates the need.
 - SQLite is the development provider; hosted-provider behavior still requires provider-specific tests.
+- Administrator provisioning is manual for local development and needs a secure audited process before public hosting.

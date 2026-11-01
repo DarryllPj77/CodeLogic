@@ -61,3 +61,5 @@ Infrastructure owns the database provider and mappings. Moving to Azure SQL or P
 - The initial migration creates topic and lesson tables and inserts the nine-item development curriculum.
 - Local migrations are applied explicitly with `dotnet ef database update`; the web app does not migrate at startup.
 - Integration tests apply the real migration to isolated SQLite databases.
+- Prompt 20 adds `AuthoredLessons` through `ILessonAuthoringService`, with an owner foreign key, Draft/Published status, optimistic version token, and UTC audit fields.
+- SQLite cannot order `DateTimeOffset` values in SQL, so the small owner/public result sets are filtered in SQL and ordered in memory; a hosted provider should revisit this query plan.

@@ -2,10 +2,10 @@
 
 ## Document Status
 
-- Status: Implemented through Prompt 16
-- Playbook task: 19 — Logical mistake feedback
+- Status: Implemented through Prompt 20
+- Playbook task: 20 — Lesson authoring and content management
 - Last updated: 2026-11-01
-- Implementation status: The modular-monolith projects, curriculum flow, SQLite persistence, ASP.NET Core Identity, account-owned progress, editor, bounded Roslyn parsing, graph IR, Mermaid preview, bounded traces, and instructor-defined logical feedback are implemented. Hosted infrastructure remains planned.
+- Implementation status: The modular-monolith projects, curriculum and editorial flows, SQLite persistence, ASP.NET Core Identity, account-owned progress, editor, bounded Roslyn parsing, graph IR, Mermaid preview, bounded traces, and instructor-defined logical feedback are implemented. Hosted infrastructure remains planned.
 
 ## Architectural Goal
 
@@ -97,6 +97,7 @@ Prompt 06 establishes the initial framework-independent concepts described in [D
 - Progress: attempts, completion state, and progress summaries.
 - Code explanation: supported-code validation, graph construction, flowchart generation, and bounded trace descriptions.
 - Identity: ASP.NET Core Identity registration, sign-in, sign-out, authorization, and user association.
+- Authoring: administrator-owned lesson drafts, validation, private preview, publication, versioning, and basic audit fields.
 
 Modules should communicate through application use cases and explicit contracts. They may share one process and one database initially, but one module must not directly mutate another module's tables or internal entities.
 
@@ -120,6 +121,7 @@ Prompt 12 replaces temporary session ownership with ASP.NET Core Identity and ac
 The Application `LearningSessionProgress` workflow remains independent of ASP.NET Core. `IUserLearningProgressStore` is the narrow application port implemented by EF Core in Infrastructure.
 
 - Prompt 11 implements EF Core 10 as the curriculum persistence adapter behind `ICurriculumCatalog`.
+- Prompt 20 implements `ILessonAuthoringService` as the authoring seam; Web never queries the authoring table directly.
 - SQLite stores the development curriculum because it is file-based and requires little setup.
 - Domain and application code will not depend on SQLite-specific APIs.
 - `CodeLogicDbContext`, configurations, seed conversion, catalog adapter, and migrations live in Infrastructure.
@@ -167,6 +169,8 @@ Prompt 17 advances the renderer-neutral IR to schema 1.1 with an explicit `LoopB
 Prompt 18 adds `IPedagogicalInterpreter` in Application and a Roslyn-syntax implementation in Infrastructure. It reuses validated graph boundaries, simulates only documented scalar expressions and control flow, and produces immutable snapshots containing a program counter, active graph node, variable state, and cumulative output. A 100-operation limit stops infinite-looking input. This is an interpreter for CodeLogic's teaching model—not compilation or general .NET execution. See [EXECUTION_TRACES.md](EXECUTION_TRACES.md).
 
 Prompt 19 adds `ILogicalFeedbackService` and an instructor-authored age-boundary specification in Application. Infrastructure replaces only the known `age` initializer through Roslyn syntax and runs the fixed 17/18/19 cases through the bounded interpreter. Web presents expected versus actual output, boundary labels, hints, separate syntax/support diagnostics, and an unavoidable false-positive warning. It does not infer arbitrary learner intent. See [LOGICAL_FEEDBACK.md](LOGICAL_FEEDBACK.md).
+
+Prompt 20 adds an Application-owned `ILessonAuthoringService` and an EF Core adapter for administrator-owned lessons. Web supplies the authenticated claim owner and role-protects the interactive editor; Infrastructure enforces ownership, validation, expected-version updates, and public Published-only queries. The original reviewed manifest remains separate. See [LESSON_AUTHORING.md](LESSON_AUTHORING.md).
 
 ## Web and API Boundaries
 
@@ -221,7 +225,7 @@ Possible future trigger: multiple independently deployed services, demanding sca
 | Persistence | EF Core SQLite adapters behind curriculum and account-progress application ports | Azure SQL/PostgreSQL provider | Hosted environment, provider compatibility, backup, or scale requirement |
 | Code analysis | In-process adapter producing graph IR | Isolated worker or service | CPU/memory contention, security isolation, or independent scaling need |
 | Visualization | Mermaid renderer consuming graph IR | Alternate renderer/export service | Accessibility, export, or rendering requirement Mermaid cannot meet |
-| Curriculum content | Module-owned storage accessed via application contracts | Content service or external authoring system | Independent publishing workflow or ownership need |
+| Curriculum content | Seeded manifest plus administrator-owned editorial records behind application contracts | Content service or external authoring system | Independent scaling, organization ownership, or external-system need |
 | Progress | Module within shared deployment | Separate reporting/read model | Proven query load or analytics requirement |
 | Public access | Blazor/application calls | Versioned external API | Real external consumer and stable contract |
 
@@ -248,5 +252,5 @@ An extraction seam is permission to evolve, not a commitment to distribute the s
 ## Known Documentation Gaps
 
 - The hosted relational provider is not selected.
-- Identity email confirmation, recovery, two-factor authentication, and account lifecycle remain deferred.
+- Identity email confirmation, recovery, two-factor authentication, secure hosted administrator provisioning, and account lifecycle remain deferred.
 - Broader language semantics and delivery infrastructure await their numbered tasks.

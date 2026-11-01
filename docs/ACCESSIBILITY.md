@@ -2,9 +2,9 @@
 
 ## Document Status
 
-- Implemented through: Prompt 16 — Flowchart browser renderer
+- Implemented through: Prompt 20 — Lesson authoring and content management
 - Last checked: 2026-11-01
-- Scope: Home, Lessons, lesson detail and deterministic quiz feedback, account forms, saved progress dashboard, recovery states, Playground, not-found page, and shared navigation shell
+- Scope: Home, Lessons, lesson detail and deterministic quiz feedback, account forms, saved progress dashboard, lesson authoring and preview, recovery states, Playground, not-found page, and shared navigation shell
 - Standard target: WCAG 2.2 AA for the core learning experience
 
 These checks cover the application shell, lesson reading, deterministic practice forms, and temporary progress dashboard. Every later interactive feature needs its own keyboard, screen-reader, zoom, contrast, error, and reduced-motion review.
@@ -38,6 +38,8 @@ These checks cover the application shell, lesson reading, deterministic practice
 - Motion is non-essential and reduced when `prefers-reduced-motion` is enabled.
 - Forced-colors mode receives an explicit focus outline color.
 - The error banner uses an alert role and assertive live region.
+- Authoring fields use explicit labels, native controls, visible character limits, text validation errors, status announcements, and a responsive single-column layout at narrow widths.
+- Draft, Published, version, and read-only states are written in text rather than communicated by color alone.
 
 ## Automated and Markup Smoke Checks
 
@@ -100,6 +102,8 @@ Perform these checks in Microsoft Edge or Chrome before accepting Prompt 10:
 34. Trigger a failing boundary and confirm its hint is readable without relying on color.
 35. Trigger malformed source and confirm syntax/support diagnostics are presented separately from logical results.
 36. At 200% zoom and 320 CSS pixels, confirm the logical-results table scrolls inside its container without page-level horizontal scrolling.
+37. As an administrator, reach every authoring field and action using only the keyboard; confirm labels, focus, validation errors, and save/publish status are announced clearly.
+38. At 200% zoom and 320 CSS pixels, confirm the owned-lesson list, form, private preview, and published lesson stack without page-level horizontal scrolling.
 
 ## Deferred Accessibility Checks
 

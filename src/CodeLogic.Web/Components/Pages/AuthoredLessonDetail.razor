@@ -1,0 +1,48 @@
+@page "/authored-lessons/{LessonId:guid}"
+@inject ILessonAuthoringService LessonAuthoringService
+
+@if (Lesson is null)
+{
+    <PageTitle>Lesson unavailable | CodeLogic</PageTitle>
+    <section class="empty-state" aria-labelledby="authored-lesson-unavailable-title">
+        <div class="empty-state__mark" aria-hidden="true">?</div>
+        <div>
+            <p class="eyebrow">Lesson unavailable</p>
+            <h1 id="authored-lesson-unavailable-title">This published lesson is unavailable.</h1>
+            <p>The address may be incorrect, or the lesson may still be a private draft.</p>
+            <a class="button button--primary" href="/lessons">Return to lessons</a>
+        </div>
+    </section>
+}
+else
+{
+    <PageTitle>@Lesson.Title | CodeLogic</PageTitle>
+    <HeadContent><meta name="description" content="@Lesson.Objective" /></HeadContent>
+    <nav class="lesson-breadcrumb" aria-label="Breadcrumb">
+        <ol><li><a href="/">Home</a></li><li><a href="/lessons">Lessons</a></li><li aria-current="page">@Lesson.Title</li></ol>
+    </nav>
+    <article class="lesson-reading">
+        <header class="lesson-reading__header">
+            <div class="lesson-reading__meta"><span class="status-badge">Published</span><span>Editorial version @Lesson.Version</span></div>
+            <h1>@Lesson.Title</h1>
+            <p class="lesson-reading__objective"><strong>Learning objective:</strong> @Lesson.Objective</p>
+        </header>
+        <div class="lesson-reading__content authored-lesson-reading">
+            <section class="lesson-content-section" aria-labelledby="authored-content-title">
+                <p class="eyebrow">Lesson</p><h2 id="authored-content-title">Read and reflect</h2>
+                <div class="authored-lesson-content">@Lesson.Content</div>
+            </section>
+            <section class="lesson-code" aria-labelledby="authored-code-title">
+                <p class="eyebrow">Code example</p><h2 id="authored-code-title">Study this sample</h2>
+                <pre aria-label="Sample C# code for @Lesson.Title"><code>@Lesson.SampleCode</code></pre>
+                <p>This code is displayed as reviewed learning content. CodeLogic does not compile or execute it.</p>
+            </section>
+        </div>
+    </article>
+}
+
+@code {
+    [Parameter] public Guid LessonId { get; set; }
+    private AuthoredLesson? Lesson { get; set; }
+    protected override async Task OnParametersSetAsync() => Lesson = await LessonAuthoringService.GetPublishedByIdAsync(LessonId);
+}

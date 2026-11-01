@@ -2,8 +2,8 @@
 
 ## Document Status
 
-- Status: Implemented through Prompt 11
-- Last updated: 2026-10-31
+- Status: Updated through Prompt 20
+- Last updated: 2026-11-01
 - Manifest type: EF-backed runtime catalog with typed migration seed
 - Schema version: 1
 - Complete pilots: 2
@@ -15,7 +15,7 @@ The curriculum manifest is the single application contract for the initial learn
 
 The manifest contract lives in `CodeLogic.Application/Curriculum`. The reviewed typed seed lives in `CodeLogic.Infrastructure/Curriculum/SeededCurriculumCatalog.cs` and supplies deterministic rows to the initial migration. At runtime, `EfCurriculumCatalog` reads SQLite through `CodeLogicDbContext`, reconstructs the manifest, and validates it before returning it through `ICurriculumCatalog`.
 
-This separation keeps EF Core and SQLite out of Domain, Application, and Blazor components. A future hosted database or authoring adapter can preserve the same catalog contract.
+This separation keeps EF Core and SQLite out of Domain, Application, and Blazor components. Prompt 20 adds a separate authored-lesson application contract and table rather than weakening the fixed manifest's validation rules.
 
 ## Persistence Behavior
 
@@ -168,15 +168,13 @@ The `/lessons` route displays:
 
 - curriculum counts and safe nesting limit;
 - both complete pilot cards with objective, section count, practice type, sample code, and assessment goal;
-- all seven draft titles, difficulty labels, and objectives;
+- published administrator-authored lesson cards when they exist;
 - a visible static-analysis-only safety notice.
 
-Each complete pilot links to its lesson reading route. A lesson detail page displays the objective, ordered explanations, sample code, deterministic practice form and feedback, safe-concept list, current-session completion status, and previous/next links across complete lessons. Draft and unknown slugs render a recoverable unavailable state with a link back to the lesson catalog.
+Each complete pilot links to its lesson reading route. A lesson detail page displays the objective, ordered explanations, sample code, deterministic practice form and feedback, safe-concept list, current-session completion status, and previous/next links across complete lessons. Manifest drafts are no longer advertised publicly. Authored lessons appear only after publication; draft and unknown identifiers render a recoverable unavailable state.
 
 ## Explicitly Deferred
 
-- curriculum persistence or authoring UI;
-- saved raw answers and progress that survives the session;
-- learner accounts and cross-device progress;
-- Roslyn parsing and supported-subset enforcement;
+- editing or promoting the seeded manifest through the authoring UI;
+- multi-editor approval, unpublishing, and scheduled publication;
 - arbitrary code compilation or execution.
