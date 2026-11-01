@@ -16,7 +16,7 @@
 <section class="page-header" aria-labelledby="playground-title">
     <p class="eyebrow">Editor playground</p>
     <h1 id="playground-title">Experiment with short C# snippets</h1>
-    <p>Edit a curated example, check its syntax, and preview a deterministic flowchart for supported sequence and one-level branching. Nothing is compiled or run.</p>
+    <p>Edit a curated example, check its syntax, and preview a deterministic flowchart for supported sequence, branches, and loops. Nothing is compiled or run.</p>
 </section>
 
 <aside class="notice notice--warning" aria-labelledby="editor-limitations-title">
@@ -24,7 +24,8 @@
     <ul>
         <li>This is an accessible plain-text editor, not Visual Studio or Monaco.</li>
         <li>Code is parsed only. It is never compiled or executed, and type checking and execution traces are not available.</li>
-        <li>Flowcharts support simple sequence and one-level <code>if/else</code>; nested decisions and loops are rejected with an explanation.</li>
+        <li>Flowcharts support sequence, nested <code>if/else</code>, <code>while</code>, <code>for</code>, and <code>do-while</code> within the stated nesting limit.</li>
+        <li><code>break</code> and <code>continue</code> are not supported yet and produce an explanation.</li>
         <li>The editor accepts at most @EditorState.MaximumCharacters.ToString("N0") characters.</li>
         <li>Analysis stops after @CodeAnalysisService.Limits.MaximumDuration.TotalSeconds.ToString("N0") seconds and supports at most @CodeAnalysisService.Limits.MaximumNestingDepth nested control-flow statements.</li>
         <li>Save keeps one draft only in this browser's local storage. It is not synced to your account or another device.</li>
@@ -144,7 +145,7 @@
     {
         <div class="flowchart-empty">
             <h3>No preview yet</h3>
-            <p>Choose <strong>Preview flowchart</strong> to visualize supported sequence or one-level <code>if/else</code> source.</p>
+            <p>Choose <strong>Preview flowchart</strong> to visualize supported sequence, branching, or loop source.</p>
         </div>
     }
     else if (!FlowchartResult.IsSuccess)
@@ -471,6 +472,7 @@
         {
             FlowEdgeType.True => "True path",
             FlowEdgeType.False => "False path",
+            FlowEdgeType.LoopBack => edge.Label ?? "Repeat path",
             _ => "Next",
         };
         return $"{path}: {from.Label} → {to.Label}";

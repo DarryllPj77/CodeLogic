@@ -93,6 +93,28 @@ public sealed class MermaidFlowchartSerializerTests
         Assert.Equal(first.SourceMap, second.SourceMap);
     }
 
+    [Fact]
+    public void LoopBackEdgeKeepsItsExplicitRepeatLabel()
+    {
+        var graph = new FlowGraph(
+            [
+                new FlowNode("node-000", FlowNodeType.Start, "Start", null),
+                new FlowNode("node-001", FlowNodeType.Decision, "count < 3", Span(1)),
+                new FlowNode("node-002", FlowNodeType.Action, "count++;", Span(2)),
+                new FlowNode("node-003", FlowNodeType.End, "End", null),
+            ],
+            [
+                new FlowEdge("edge-000", "node-000", "node-001", FlowEdgeType.Next),
+                new FlowEdge("edge-001", "node-001", "node-002", FlowEdgeType.True, "True"),
+                new FlowEdge("edge-002", "node-002", "node-001", FlowEdgeType.LoopBack, "Repeat"),
+                new FlowEdge("edge-003", "node-001", "node-003", FlowEdgeType.False, "False"),
+            ]);
+
+        var document = serializer.Serialize(graph);
+
+        Assert.Contains("n002 -->|\"Repeat\"| n001", document.Definition, StringComparison.Ordinal);
+    }
+
     private static FlowGraph BranchGraph() => new(
         [
             new FlowNode("node-000", FlowNodeType.Start, "Start", null),

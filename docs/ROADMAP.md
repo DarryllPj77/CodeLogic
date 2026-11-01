@@ -3,9 +3,9 @@
 ## Roadmap Status
 
 - Last updated: 2026-11-01
-- Current completed milestone: Prompt 16 — Flowchart browser renderer
-- Exact next numbered task: Not supplied; Prompt 17 remains awaiting definition
-- Source coverage: Prompts 00–16 have been supplied; Prompts 17–29 have not yet been added to the repository
+- Current completed milestone: Prompt 17 — Loops and nested control flow
+- Exact next numbered task: Not supplied; Prompt 18 remains awaiting definition
+- Source coverage: Prompts 00–17 have been supplied; Prompts 18–29 have not yet been added to the repository
 
 ## How to Use This Roadmap
 
@@ -47,7 +47,8 @@
 | 14 | Roslyn parse and diagnostics | Complete | Bounded server-side parsing reports positioned syntax errors and fixed-subset violations without compilation or execution. |
 | 15 | Flowchart intermediate representation | Complete | Stable graph schema and golden tests cover sequence, one-level branching, rejection, and non-crashing errors. |
 | 16 | Flowchart browser renderer | Complete | Safe Mermaid output renders correct branches with responsive visual and equivalent source-mapped text states. |
-| 17–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
+| 17 | Loops and nested control flow | Complete | Golden graph tests cover exits, repeat edges, nested conditions, and infinite-loop-looking syntax. |
+| 18–29 | Remaining playbook tasks | Awaiting definition | Add the owner's exact prompt text before planning or implementation. |
 
 ## Completed Foundation
 
@@ -410,9 +411,33 @@ Acceptance gate:
 
 Prompt 16 does not add loop/nested-branch rendering, execution traces, semantic evaluation, export, compilation, execution, or frontend build tooling.
 
+## Completed Loops and Nested Control Flow
+
+### Prompt 17 — Loops and nested control flow
+
+Completed outcomes:
+
+- advanced the renderer-neutral graph contract to schema 1.1 with an explicit repeat edge;
+- recursively translated nested `if/else`, `while`, `for`, and `do-while` using Roslyn syntax nodes;
+- represented `for` initializers and iterators as visible action nodes;
+- retained explicit loop exits and back edges, including for infinite-loop-looking syntax;
+- added dedicated unsupported diagnostics for `break` and `continue` instead of guessing jump behavior;
+- updated the Playground's visual and equivalent-text descriptions for repeat paths;
+- added golden and boundary tests for nested decisions, all three loop forms, repeat edges, exits, and unsupported jumps.
+
+Acceptance gate:
+
+- golden graphs lock `while`, `for`, `do-while`, and nested decision structure;
+- loop bodies return through explicit `LoopBack` edges and decisions retain explicit false exits;
+- `while (true)` and `for (;;)` remain non-crashing structural graphs;
+- `break` and `continue` return actionable diagnostics and no partial graph;
+- translation uses Roslyn syntax nodes and does not compile or execute learner source.
+
+Prompt 17 does not add execution traces, semantic condition evaluation, `break`/`continue` graph jumps, compilation, or execution.
+
 ## Awaiting the Next Supplied Prompt
 
-Prompts 17–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
+Prompts 18–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
 
 ## Six-Level Growth Map
 
@@ -429,6 +454,6 @@ Prompts 17–29 remain undefined in the repository. The owner must provide the e
 
 - Do not mark future implementation complete based only on documentation.
 - When a task is completed, update its status and evidence in this file within that task's allowed documentation scope.
-- Do not fill Prompts 17–29 with guessed requirements. Add them only from the owner's playbook.
+- Do not fill Prompts 18–29 with guessed requirements. Add them only from the owner's playbook.
 - If a new prompt conflicts with the accepted product charter or architecture, surface the conflict and obtain an owner decision before implementation.
 - Preserve historical ADRs; supersede decisions with a new ADR rather than rewriting accepted history.

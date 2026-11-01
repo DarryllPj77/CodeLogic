@@ -45,6 +45,12 @@ public sealed class RoslynCodeAnalysisServiceTests
             {
                 Console.WriteLine(total);
             }
+
+            do
+            {
+                total--;
+            }
+            while (total > 0);
             """;
 
         var result = await service.AnalyzeAsync(source);
@@ -106,6 +112,8 @@ public sealed class RoslynCodeAnalysisServiceTests
     [InlineData("string value = new string('a', 2);", "Object creation")]
     [InlineData("string value = File.ReadAllText(\"secret.txt\");", "not supported")]
     [InlineData("int transform = values.Select(value => value + 1);", "not supported")]
+    [InlineData("while (true) { break; }", "break statement")]
+    [InlineData("for (;;) { continue; }", "continue statement")]
     public async Task UnsupportedFeaturesReturnActionableDiagnostics(
         string source,
         string expectedMessagePart)

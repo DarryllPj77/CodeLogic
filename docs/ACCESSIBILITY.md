@@ -89,10 +89,10 @@ Perform these checks in Microsoft Edge or Chrome before accepting Prompt 10:
 23. At 200% zoom and 320 CSS pixels, confirm the editor, controls, shortcuts, limitations, and status remain readable without page-level horizontal scrolling.
 24. Activate **Check syntax** using only the keyboard for valid, malformed, and unsupported source. Confirm the result heading, code, line/column, message, and explanation are readable and announced without relying on color.
 25. Edit the source after analysis and confirm stale feedback disappears without losing the current text.
-26. Preview sequence and one-level branching using only the keyboard. Confirm the visual, ordered nodes, and explicit True/False connection text agree.
+26. Preview sequence, nested branching, and loops using only the keyboard. Confirm the visual, ordered nodes, and explicit True/False/Repeat connection text agree.
 27. Activate **Show line** and confirm focus returns to the textarea with the corresponding source selected.
 28. At 200% zoom and 320 CSS pixels, confirm the SVG scrolls inside its panel and the text map remains readable without page-level horizontal scrolling.
-29. Test nested branching, malformed input, and a blocked renderer. Confirm each state has text feedback and does not depend on the SVG.
+29. Test unsupported `break`, malformed input, and a blocked renderer. Confirm each state has text feedback and does not depend on the SVG.
 
 ## Deferred Accessibility Checks
 

@@ -5,7 +5,7 @@
 - Status: Implemented through Prompt 16
 - Playbook task: 16 — Flowchart browser renderer
 - Last updated: 2026-11-01
-- Implementation status: The modular-monolith projects, curriculum flow, SQLite persistence, ASP.NET Core Identity, account-owned progress, editor, bounded Roslyn parsing, graph IR, and safe Mermaid browser preview for sequence plus one-level `if/else` are implemented. Broader control flow, traces, and hosted infrastructure remain planned.
+- Implementation status: The modular-monolith projects, curriculum flow, SQLite persistence, ASP.NET Core Identity, account-owned progress, editor, bounded Roslyn parsing, graph IR, and safe Mermaid browser preview for sequence, nested `if/else`, and supported loops are implemented. Traces and hosted infrastructure remain planned.
 
 ## Architectural Goal
 
@@ -161,6 +161,8 @@ Prompt 14 keeps Roslyn types inside Infrastructure. `ICodeAnalysisService` and n
 Prompt 15 adds Roslyn-free `FlowGraph`, `FlowNode`, `FlowEdge`, and `SourceSpan` contracts to Application. Infrastructure implements `IFlowchartTranslator` by visiting Roslyn syntax nodes. Schema 1.0 uses stable source-order IDs and explicit `Next`, `True`, and `False` edges. It translates simple sequence and one-level `if/else`; nested branches and other unimplemented control flow return positioned diagnostics without a partial graph. See [FLOWCHART_IR.md](FLOWCHART_IR.md).
 
 Prompt 16 adds a Mermaid-specific serializer behind `IMermaidFlowchartSerializer`. The serializer owns diagram IDs and escapes learner labels. Web loads pinned Mermaid 12.2.0 on demand with strict security and HTML labels disabled, parses the returned SVG without `innerHTML`, removes active/link-capable content, and provides an equivalent node/connection list with source-selection controls. See [FLOWCHART_RENDERER.md](FLOWCHART_RENDERER.md).
+
+Prompt 17 advances the renderer-neutral IR to schema 1.1 with an explicit `LoopBack` edge. The Infrastructure translator recursively maps nested `if/else`, `while`, `for`, and `do-while` syntax within the existing three-level analysis limit. `break` and `continue` remain explicit unsupported diagnostics until their jump semantics are introduced with focused tests. Conditions are not evaluated, so even infinite-looking syntax retains a structural exit. See [FLOWCHART_IR.md](FLOWCHART_IR.md).
 
 ## Web and API Boundaries
 

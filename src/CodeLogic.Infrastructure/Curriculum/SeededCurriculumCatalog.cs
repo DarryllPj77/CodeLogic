@@ -305,6 +305,7 @@ public sealed class SeededCurriculumCatalog : ICurriculumCatalog
                 "if-else",
                 "for-loop",
                 "while-loop",
+                "do-while-loop",
                 "method-declaration",
                 "method-call",
                 "return-statement",

@@ -52,75 +52,45 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
     }
 
     private static CodeDiagnostic? FindUnsupportedTranslationSyntax(
-        IReadOnlyList<StatementSyntax> statements)
+        IEnumerable<StatementSyntax> statements)
     {
         foreach (var statement in statements)
         {
-            if (statement is IfStatementSyntax branch)
+            CodeDiagnostic? diagnostic = statement switch
             {
-                var nestedBranch = branch.Statement.DescendantNodesAndSelf()
-                    .OfType<IfStatementSyntax>()
-                    .FirstOrDefault();
-                nestedBranch ??= branch.Else?.Statement.DescendantNodesAndSelf()
-                    .OfType<IfStatementSyntax>()
-                    .FirstOrDefault();
-                if (nestedBranch is not null)
-                {
-                    return Unsupported(
-                        nestedBranch,
-                        "FL1001",
-                        "Nested if/else branches are not supported by flowchart schema 1.0.",
-                        "Keep one decision level for now. Nested branching will be introduced in a later task.");
-                }
+                LocalDeclarationStatementSyntax or ExpressionStatementSyntax or EmptyStatementSyntax => null,
+                IfStatementSyntax branch => FindUnsupportedInBranch(branch),
+                WhileStatementSyntax loop => FindUnsupportedTranslationSyntax(Unwrap(loop.Statement)),
+                ForStatementSyntax loop => FindUnsupportedTranslationSyntax(Unwrap(loop.Statement)),
+                DoStatementSyntax loop => FindUnsupportedTranslationSyntax(Unwrap(loop.Statement)),
+                _ => UnsupportedStatement(statement),
+            };
 
-                var unsupportedBranchStatement = BranchStatements(branch)
-                    .FirstOrDefault(candidate => !IsSimpleStatement(candidate));
-                if (unsupportedBranchStatement is not null)
-                {
-                    return UnsupportedStatement(unsupportedBranchStatement);
-                }
-
-                continue;
-            }
-
-            if (!IsSimpleStatement(statement))
+            if (diagnostic is not null)
             {
-                return UnsupportedStatement(statement);
+                return diagnostic;
             }
         }
 
         return null;
     }
 
-    private static IEnumerable<StatementSyntax> BranchStatements(IfStatementSyntax branch)
+    private static CodeDiagnostic? FindUnsupportedInBranch(IfStatementSyntax branch)
     {
-        foreach (var statement in Unwrap(branch.Statement))
-        {
-            yield return statement;
-        }
-
-        if (branch.Else is not null)
-        {
-            foreach (var statement in Unwrap(branch.Else.Statement))
-            {
-                yield return statement;
-            }
-        }
+        var diagnostic = FindUnsupportedTranslationSyntax(Unwrap(branch.Statement));
+        return diagnostic ?? (branch.Else is null
+            ? null
+            : FindUnsupportedTranslationSyntax(Unwrap(branch.Else.Statement)));
     }
 
     private static StatementSyntax[] Unwrap(StatementSyntax statement) =>
         statement is BlockSyntax block ? [.. block.Statements] : [statement];
 
-    private static bool IsSimpleStatement(StatementSyntax statement) => statement is
-        LocalDeclarationStatementSyntax
-        or ExpressionStatementSyntax
-        or EmptyStatementSyntax;
-
     private static CodeDiagnostic UnsupportedStatement(StatementSyntax statement) => Unsupported(
         statement,
         "FL1002",
-        $"{statement.Kind()} is not supported by flowchart schema 1.0.",
-        "This task translates declarations, expressions, input/output calls, and one-level if/else branches only.");
+        $"{statement.Kind()} is not supported by flowchart schema 1.1.",
+        "This graph supports declarations, expressions, nested if/else, while, for, and do/while. Break, continue, return, and local functions remain unsupported.");
 
     private static CodeDiagnostic Unsupported(
         SyntaxNode node,
@@ -157,32 +127,41 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
         public FlowGraph Build(IReadOnlyList<StatementSyntax> statements)
         {
             var start = AddNode(FlowNodeType.Start, "Start", source: null);
-            IReadOnlyList<PendingEdge> exits = [new(start.Id, FlowEdgeType.Next)];
-
-            foreach (var statement in statements)
-            {
-                exits = AddStatement(statement, exits);
-            }
-
+            var exits = AddStatements(statements, [new(start.Id, FlowEdgeType.Next)]);
             var end = AddNode(FlowNodeType.End, "End", source: null);
             Connect(exits, end.Id);
             return new FlowGraph(nodes, edges);
         }
 
+        private IReadOnlyList<PendingEdge> AddStatements(
+            IEnumerable<StatementSyntax> statements,
+            IReadOnlyList<PendingEdge> incoming)
+        {
+            var exits = incoming;
+            foreach (var statement in statements)
+            {
+                exits = AddStatement(statement, exits);
+            }
+
+            return exits;
+        }
+
         private IReadOnlyList<PendingEdge> AddStatement(
+            StatementSyntax statement,
+            IReadOnlyList<PendingEdge> incoming) => statement switch
+            {
+                EmptyStatementSyntax => incoming,
+                IfStatementSyntax branch => AddBranch(branch, incoming),
+                WhileStatementSyntax loop => AddWhile(loop, incoming),
+                ForStatementSyntax loop => AddFor(loop, incoming),
+                DoStatementSyntax loop => AddDoWhile(loop, incoming),
+                _ => AddSimpleStatement(statement, incoming),
+            };
+
+        private IReadOnlyList<PendingEdge> AddSimpleStatement(
             StatementSyntax statement,
             IReadOnlyList<PendingEdge> incoming)
         {
-            if (statement is EmptyStatementSyntax)
-            {
-                return incoming;
-            }
-
-            if (statement is IfStatementSyntax branch)
-            {
-                return AddBranch(branch, incoming);
-            }
-
             var node = AddNode(Classify(statement), Text(statement), statement);
             Connect(incoming, node.Id);
             return [new PendingEdge(node.Id, FlowEdgeType.Next)];
@@ -192,30 +171,94 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
             IfStatementSyntax branch,
             IReadOnlyList<PendingEdge> incoming)
         {
-            var decision = AddNode(
-                FlowNodeType.Decision,
-                branch.Condition.NormalizeWhitespace().ToFullString(),
-                branch.Condition);
+            var decision = AddNode(FlowNodeType.Decision, Text(branch.Condition), branch.Condition);
             Connect(incoming, decision.Id);
 
-            IReadOnlyList<PendingEdge> trueExits =
-                [new PendingEdge(decision.Id, FlowEdgeType.True)];
-            foreach (var statement in Unwrap(branch.Statement))
-            {
-                trueExits = AddStatement(statement, trueExits);
-            }
-
-            IReadOnlyList<PendingEdge> falseExits =
-                [new PendingEdge(decision.Id, FlowEdgeType.False)];
-            if (branch.Else is not null)
-            {
-                foreach (var statement in Unwrap(branch.Else.Statement))
-                {
-                    falseExits = AddStatement(statement, falseExits);
-                }
-            }
+            var trueExits = AddStatements(
+                Unwrap(branch.Statement),
+                [new PendingEdge(decision.Id, FlowEdgeType.True)]);
+            var falseExits = branch.Else is null
+                ? [new PendingEdge(decision.Id, FlowEdgeType.False)]
+                : AddStatements(
+                    Unwrap(branch.Else.Statement),
+                    [new PendingEdge(decision.Id, FlowEdgeType.False)]);
 
             return [.. trueExits, .. falseExits];
+        }
+
+        private IReadOnlyList<PendingEdge> AddWhile(
+            WhileStatementSyntax loop,
+            IReadOnlyList<PendingEdge> incoming)
+        {
+            var decision = AddNode(FlowNodeType.Decision, Text(loop.Condition), loop.Condition);
+            Connect(incoming, decision.Id);
+            var bodyExits = AddStatements(
+                Unwrap(loop.Statement),
+                [new PendingEdge(decision.Id, FlowEdgeType.True)]);
+            ConnectLoopBack(bodyExits, decision.Id);
+            return [new PendingEdge(decision.Id, FlowEdgeType.False)];
+        }
+
+        private IReadOnlyList<PendingEdge> AddFor(
+            ForStatementSyntax loop,
+            IReadOnlyList<PendingEdge> incoming)
+        {
+            var exits = incoming;
+            if (loop.Declaration is not null)
+            {
+                exits = AddAction($"for init: {Text(loop.Declaration)}", loop.Declaration, exits);
+            }
+
+            foreach (var initializer in loop.Initializers)
+            {
+                exits = AddAction($"for init: {Text(initializer)}", initializer, exits);
+            }
+
+            var condition = AddNode(
+                FlowNodeType.Decision,
+                loop.Condition is null ? "true (implicit for condition)" : Text(loop.Condition),
+                (SyntaxNode?)loop.Condition ?? loop);
+            Connect(exits, condition.Id);
+
+            var bodyExits = AddStatements(
+                Unwrap(loop.Statement),
+                [new PendingEdge(condition.Id, FlowEdgeType.True)]);
+            foreach (var incrementor in loop.Incrementors)
+            {
+                bodyExits = AddAction(
+                    $"for iterator: {Text(incrementor)}",
+                    incrementor,
+                    bodyExits);
+            }
+
+            ConnectLoopBack(bodyExits, condition.Id);
+            return [new PendingEdge(condition.Id, FlowEdgeType.False)];
+        }
+
+        private IReadOnlyList<PendingEdge> AddDoWhile(
+            DoStatementSyntax loop,
+            IReadOnlyList<PendingEdge> incoming)
+        {
+            var firstBodyNodeIndex = nodes.Count;
+            var bodyExits = AddStatements(Unwrap(loop.Statement), incoming);
+            var decision = AddNode(FlowNodeType.Decision, Text(loop.Condition), loop.Condition);
+            Connect(bodyExits, decision.Id);
+
+            var repeatTarget = firstBodyNodeIndex < nodes.Count - 1
+                ? nodes[firstBodyNodeIndex].Id
+                : decision.Id;
+            AddEdge(decision.Id, repeatTarget, FlowEdgeType.LoopBack, "True · repeat");
+            return [new PendingEdge(decision.Id, FlowEdgeType.False)];
+        }
+
+        private IReadOnlyList<PendingEdge> AddAction(
+            string label,
+            SyntaxNode source,
+            IReadOnlyList<PendingEdge> incoming)
+        {
+            var action = AddNode(FlowNodeType.Action, label, source);
+            Connect(incoming, action.Id);
+            return [new PendingEdge(action.Id, FlowEdgeType.Next)];
         }
 
         private FlowNode AddNode(FlowNodeType type, string label, SyntaxNode? source)
@@ -233,19 +276,43 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
         {
             foreach (var pending in incoming)
             {
-                edges.Add(new FlowEdge(
-                    $"edge-{edges.Count:D3}",
-                    pending.FromNodeId,
-                    toNodeId,
-                    pending.Type,
-                    pending.Type switch
-                    {
-                        FlowEdgeType.True => "True",
-                        FlowEdgeType.False => "False",
-                        _ => null,
-                    }));
+                AddEdge(pending.FromNodeId, toNodeId, pending.Type, EdgeLabel(pending.Type));
             }
         }
+
+        private void ConnectLoopBack(IEnumerable<PendingEdge> incoming, string toNodeId)
+        {
+            foreach (var pending in incoming)
+            {
+                var label = pending.Type switch
+                {
+                    FlowEdgeType.True => "True · repeat",
+                    FlowEdgeType.False => "False · repeat",
+                    _ => "Repeat",
+                };
+                AddEdge(pending.FromNodeId, toNodeId, FlowEdgeType.LoopBack, label);
+            }
+        }
+
+        private void AddEdge(
+            string fromNodeId,
+            string toNodeId,
+            FlowEdgeType type,
+            string? label = null) =>
+            edges.Add(new FlowEdge(
+                $"edge-{edges.Count:D3}",
+                fromNodeId,
+                toNodeId,
+                type,
+                label));
+
+        private static string? EdgeLabel(FlowEdgeType type) => type switch
+        {
+            FlowEdgeType.True => "True",
+            FlowEdgeType.False => "False",
+            FlowEdgeType.LoopBack => "Repeat",
+            _ => null,
+        };
 
         private static FlowNodeType Classify(StatementSyntax statement)
         {

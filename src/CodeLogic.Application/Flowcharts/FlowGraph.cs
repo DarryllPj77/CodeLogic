@@ -17,6 +17,7 @@ public enum FlowEdgeType
     Next = 1,
     True = 2,
     False = 3,
+    LoopBack = 4,
 }
 
 public sealed record SourceSpan
@@ -124,7 +125,7 @@ public sealed record FlowEdge
 
 public sealed class FlowGraph
 {
-    public const string CurrentSchemaVersion = "1.0";
+    public const string CurrentSchemaVersion = "1.1";
 
     public FlowGraph(IEnumerable<FlowNode> nodes, IEnumerable<FlowEdge> edges)
     {

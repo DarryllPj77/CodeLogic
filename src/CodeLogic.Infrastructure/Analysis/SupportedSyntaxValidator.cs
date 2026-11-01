@@ -124,12 +124,32 @@ internal static class SupportedSyntaxValidator
                         rejectedSpans);
                     break;
 
+                case BreakStatementSyntax:
+                    AddUnsupported(
+                        node,
+                        "CL1006",
+                        "A break statement is not supported.",
+                        "Rewrite this learning snippet so the loop exits through its condition.",
+                        diagnostics,
+                        rejectedSpans);
+                    break;
+
+                case ContinueStatementSyntax:
+                    AddUnsupported(
+                        node,
+                        "CL1007",
+                        "A continue statement is not supported.",
+                        "Rewrite this learning snippet so control reaches the end of the loop body.",
+                        diagnostics,
+                        rejectedSpans);
+                    break;
+
                 case StatementSyntax statement when !IsAllowedStatement(statement):
                     AddUnsupported(
                         node,
                         "CL1001",
                         $"{FriendlyName(node)} is not supported.",
-                        "Use declarations, assignments, if/else, for, while, return, or a small local function.",
+                            "Use declarations, assignments, if/else, for, while, do/while, return, or a small local function.",
                         diagnostics,
                         rejectedSpans);
                     break;
@@ -202,7 +222,7 @@ internal static class SupportedSyntaxValidator
                         rejectedSpans);
                     break;
 
-                case IfStatementSyntax or ForStatementSyntax or WhileStatementSyntax:
+                case IfStatementSyntax or ForStatementSyntax or WhileStatementSyntax or DoStatementSyntax:
                     var depth = node.AncestorsAndSelf().Count(IsNestingStatement);
                     if (depth > maximumNestingDepth)
                     {
@@ -229,6 +249,7 @@ internal static class SupportedSyntaxValidator
         or IfStatementSyntax
         or ForStatementSyntax
         or WhileStatementSyntax
+        or DoStatementSyntax
         or ReturnStatementSyntax
         or LocalFunctionStatementSyntax
         or EmptyStatementSyntax;
@@ -278,7 +299,7 @@ internal static class SupportedSyntaxValidator
         && memberAccess.Name.Identifier.ValueText is "WriteLine" or "ReadLine";
 
     private static bool IsNestingStatement(SyntaxNode node) =>
-        node is IfStatementSyntax or ForStatementSyntax or WhileStatementSyntax;
+        node is IfStatementSyntax or ForStatementSyntax or WhileStatementSyntax or DoStatementSyntax;
 
     private static void AddUnsupportedType(
         SyntaxNode node,
@@ -333,6 +354,8 @@ internal static class SupportedSyntaxValidator
         SyntaxKind.NamespaceDeclaration or SyntaxKind.FileScopedNamespaceDeclaration => "A namespace declaration",
         SyntaxKind.ObjectCreationExpression or SyntaxKind.ImplicitObjectCreationExpression => "Object creation",
         SyntaxKind.ForEachStatement => "A foreach loop",
+        SyntaxKind.BreakStatement => "A break statement",
+        SyntaxKind.ContinueStatement => "A continue statement",
         SyntaxKind.SwitchStatement or SyntaxKind.SwitchExpression => "A switch",
         SyntaxKind.TryStatement => "Try/catch",
         SyntaxKind.SimpleLambdaExpression or SyntaxKind.ParenthesizedLambdaExpression => "A lambda expression",

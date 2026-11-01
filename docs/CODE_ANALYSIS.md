@@ -18,14 +18,14 @@ Prompt 14 accepts:
 
 - top-level statements and small local functions;
 - `int`, `double`, `bool`, `string`, `char`, and arrays of those types;
-- declarations, assignments, `if`/`else`, `for`, `while`, and `return`;
+- declarations, assignments, `if`/`else`, `for`, `while`, `do-while`, and `return`;
 - number, string, character, and Boolean literals;
 - basic arithmetic, comparison, Boolean, assignment, and increment/decrement operators;
 - array creation, initialization, and element access;
 - interpolated strings;
 - `Console.WriteLine`, `Console.ReadLine`, and calls to local functions declared in the snippet.
 
-The validator returns an actionable unsupported-feature diagnostic for constructs outside that list, including namespaces, type declarations, `using` directives, `foreach`, `switch`, exception handling, object creation, lambdas, general member access, and framework APIs. Preprocessor directives are rejected too.
+The validator returns an actionable unsupported-feature diagnostic for constructs outside that list, including `break`, `continue`, namespaces, type declarations, `using` directives, `foreach`, `switch`, exception handling, object creation, lambdas, general member access, and framework APIs. Preprocessor directives are rejected too.
 
 ## Limits and Outcomes
 
@@ -58,7 +58,7 @@ The time limit is a cooperative in-process cancellation bound, not a process-iso
 - Prompt 14 performs syntax and subset checks, not semantic or type analysis. For example, a type mismatch may parse successfully.
 - The accepted subset is intentionally smaller than the complete C# language.
 - Diagnostics point to source positions but do not yet highlight editor ranges.
-- Prompt 15 graph construction supports sequence and one-level `if/else`; Mermaid rendering and execution traces are not implemented.
+- Prompt 17 graph construction supports sequence, nested `if/else`, `while`, `for`, and `do-while`; execution traces are not implemented.
 - A passing result means only “parseable and currently supported,” not “compiles” or “is correct.”
 
 ## Manual Visual Studio Check
@@ -71,4 +71,4 @@ The time limit is a cooperative in-process cancellation bound, not a process-iso
 6. Edit the source after a result appears. Confirm the old result disappears and the editor text remains intact.
 7. Use only the keyboard to reach the editor and **Check syntax**, then verify the live status and diagnostic content are understandable at 200% zoom and a 320 CSS-pixel viewport.
 
-The flowchart IR and its narrower translation slice are documented in [FLOWCHART_IR.md](FLOWCHART_IR.md). Prompt 15 intentionally does not expose that graph in the Playground yet.
+The flowchart IR and its narrower translation slice are documented in [FLOWCHART_IR.md](FLOWCHART_IR.md).

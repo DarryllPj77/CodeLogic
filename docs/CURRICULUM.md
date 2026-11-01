@@ -125,7 +125,7 @@ Allowed constructs:
 - `Console.ReadLine` and `Console.WriteLine` concepts;
 - sequential statements;
 - `if`/`else`;
-- bounded `for` and `while` loops;
+- bounded `for`, `while`, and `do-while` loops;
 - method declarations, calls, and return statements;
 - basic array declarations and indexing;
 - comments.
@@ -141,7 +141,7 @@ Forbidden capabilities:
 - package loading;
 - threading.
 
-Allowed constructs describe curriculum intent, not an implemented parser. Roslyn-based enforcement belongs to a later analysis task. CodeLogic still must not execute learner code in the web process.
+Allowed constructs describe curriculum intent. The Roslyn validator enforces the implemented subset, while CodeLogic still must not execute learner code in the web process.
 
 ## Validation Rules
 

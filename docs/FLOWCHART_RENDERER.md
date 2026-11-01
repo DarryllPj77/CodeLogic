@@ -5,7 +5,7 @@
 - Task: Prompt 16 — Flowchart browser renderer
 - Last updated: 2026-11-01
 - Renderer: Mermaid 12.2.0, pinned browser ESM module
-- Input: flowchart IR schema 1.0
+- Input: flowchart IR schema 1.1
 
 ## Rendering Flow
 
@@ -51,7 +51,7 @@ This is defense in depth on top of strict Mermaid configuration and server-side 
 - Translation failures show the same positioned, actionable diagnostics as the graph service.
 - Browser-renderer failures keep the deterministic text/source map available.
 - The SVG has an image role and accessible label.
-- Every visual graph has an ordered node list and a connection list that explicitly says `True path`, `False path`, or `Next`.
+- Every visual graph has an ordered node list and a connection list that explicitly says `True path`, `False path`, `Repeat`, or `Next`.
 - Source-map controls are native keyboard-operable buttons.
 - The diagram scales to the panel and uses contained horizontal scrolling when its minimum readable width exceeds the viewport.
 - Editing, loading, or resetting source clears the old diagram so stale output is not presented.
@@ -67,12 +67,12 @@ A later delivery task may vendor the reviewed Mermaid distribution or add a form
 Automated tests lock:
 
 - exact shapes and arrows for a branching graph;
-- explicit True/False Mermaid arrows;
+- explicit True/False and repeat Mermaid arrows;
 - stable renderer output;
 - graph-to-Mermaid/source ID mapping;
 - escaping of quote, markup, and directive characters.
 
-Browser checks confirmed readable sequence labels, correct branch arrows and merge behavior, exact source selection, and the nested-branch error state.
+Browser checks cover readable sequence labels, correct branch arrows and merge behavior, repeat edges, loop exits, and exact source selection.
 
 ## Manual Visual Studio Check
 
@@ -80,7 +80,8 @@ Browser checks confirmed readable sequence labels, correct branch arrows and mer
 2. Select **Preview flowchart** for the default Variables sample. Confirm the diagram, ordered nodes, and connections appear.
 3. Enter the Prompt 15 `if/else` golden sample and preview it. Confirm True and False arrows leave the diamond and merge into the following output node.
 4. Choose **Show line 2** for the decision. Confirm the editor receives focus and selects `score >= 5`.
-5. Enter a nested `if`; confirm the panel shows `FL1001` with no partial SVG.
-6. Enter malformed C#; confirm syntax diagnostics replace the preview.
-7. Block the Mermaid CDN or go offline and request a preview. Confirm the renderer-unavailable message appears and the text/source map remains.
-8. Repeat with keyboard only, at 200% zoom, and at 320 CSS pixels. Confirm the diagram scrolls inside its panel without page-level horizontal scrolling.
+5. Enter a `while` loop and a nested `if`; confirm repeat, exit, True, and False paths agree with the equivalent connection text.
+6. Enter `while (true) { break; }`; confirm `CL1006` appears with no partial SVG.
+7. Enter malformed C#; confirm syntax diagnostics replace the preview.
+8. Block the Mermaid CDN or go offline and request a preview. Confirm the renderer-unavailable message appears and the text/source map remains.
+9. Repeat with keyboard only, at 200% zoom, and at 320 CSS pixels. Confirm the diagram scrolls inside its panel without page-level horizontal scrolling.
