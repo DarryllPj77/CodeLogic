@@ -36,6 +36,11 @@ These checks cover the application shell, lesson reading, deterministic practice
 - Native **Show line** buttons connect source-backed nodes to the exact editor selection without requiring Mermaid click directives.
 - Node selection is represented in the equivalent text map, property text, source selection, and a high-contrast SVG outline rather than color alone.
 - Flowchart zoom and fit are native buttons with accessible names and a text zoom value.
+- Generated SVG nodes are focusable buttons with node type, label, and source-line names; Enter and Space perform the same synchronized selection as a pointer click.
+- Panel resize handles use separator roles, orientation and value metadata, keyboard arrows, visible focus, and double-click reset. Resizing is not pointer-only.
+- The responsive node-properties panel is opened and closed by a native button with `aria-expanded`; no core graph detail exists only in the drawer.
+- In-progress analysis uses an indeterminate busy state and text rather than fabricated percentages. Completion notifications use status or alert semantics and can be dismissed.
+- Resetting the editor and deleting its browser-local draft requires explicit confirmation; cancelling preserves both source and saved data.
 - The SVG is labeled as an image, remains inside a horizontally scrollable panel, and renderer failures retain the text equivalent.
 - Motion is non-essential and reduced when `prefers-reduced-motion` is enabled.
 - Forced-colors mode receives an explicit focus outline color.
@@ -97,16 +102,19 @@ Perform these checks in Microsoft Edge or Chrome before accepting Prompt 10:
 27. Activate **Show line** and confirm focus returns to the textarea with the corresponding source selected.
 28. At 200% zoom and 320 CSS pixels, confirm the SVG scrolls inside its panel and the text map remains readable without page-level horizontal scrolling.
 29. Select a source-backed node and confirm its properties, text-map selection, SVG outline, and exact textarea selection agree. Use zoom in/out/fit with keyboard only.
-30. Test unsupported `break`, malformed input, and a blocked renderer. Confirm each state has text feedback and does not depend on the SVG.
-31. Build a step trace using only the keyboard. Confirm program counter, active node, variables, output, and explanation are exposed as text.
-32. Activate **Next step** and **Reset trace**. Confirm the live status changes and reset returns to the empty Start state.
-33. At 200% zoom and 320 CSS pixels, confirm the three trace-state sections stack without page-level horizontal scrolling.
-34. Load and check the age-boundary exercise using only the keyboard. Confirm each case exposes input, expected output, actual output, Pass/Fail text, and the Boundary label.
-35. Trigger a failing boundary and confirm its hint is readable without relying on color.
-36. Trigger malformed source and confirm syntax/support diagnostics are presented separately from logical results.
-37. At 200% zoom and 320 CSS pixels, confirm the logical-results table scrolls inside its container without page-level horizontal scrolling.
-38. As an administrator, reach every authoring field and action using only the keyboard; confirm labels, focus, validation errors, and save/publish status are announced clearly.
-39. At 200% zoom and 320 CSS pixels, confirm the owned-lesson list, form, private preview, and published lesson stack without page-level horizontal scrolling.
+30. Focus every panel separator. Use its arrow keys and confirm the panel changes size, `aria-valuenow` changes, and focus remains visible. Double-click each handle and confirm it resets.
+31. Activate a generated diagram node with Enter and Space, then move the editor caret into another mapped statement. Confirm the source, diagram, text map, and property panel synchronize without pointer-only interaction.
+32. At a tablet width, open and close Node properties using its labeled button; confirm focus remains visible and the drawer does not hide the underlying text alternative.
+33. Test unsupported `break`, malformed input, and a blocked renderer. Confirm each state has text feedback and does not depend on the SVG.
+34. Build a step trace using only the keyboard. Confirm program counter, active node, variables, output, and explanation are exposed as text.
+35. Activate **Next step** and **Reset trace**. Confirm the live status changes and reset returns to the empty Start state.
+36. At 200% zoom and 320 CSS pixels, confirm the three trace-state sections stack without page-level horizontal scrolling.
+37. Load and check the age-boundary exercise using only the keyboard. Confirm each case exposes input, expected output, actual output, Pass/Fail text, and the Boundary label.
+38. Trigger a failing boundary and confirm its hint is readable without relying on color.
+39. Trigger malformed source and confirm syntax/support diagnostics are presented separately from logical results.
+40. At 200% zoom and 320 CSS pixels, confirm the logical-results table scrolls inside its container without page-level horizontal scrolling.
+41. As an administrator, reach every authoring field and action using only the keyboard; confirm labels, focus, validation errors, and save/publish status are announced clearly.
+42. At 200% zoom and 320 CSS pixels, confirm the owned-lesson list, form, private preview, and published lesson stack without page-level horizontal scrolling.
 
 ## Deferred Accessibility Checks
 

@@ -24,10 +24,13 @@ The redesign uses centralized dark design tokens and keeps the source editor as 
 - an activity rail and read-only explorer representation;
 - a split source editor and grid-backed flowchart canvas;
 - a properties panel populated only from the selected `FlowNodeSourceMap`;
-- zoom-in, zoom-out, and fit controls for the rendered SVG;
+- pointer- and keyboard-resizable Explorer, editor, properties, and output panels, with browser-local size persistence and double-click reset;
+- zoom-in, zoom-out, fit, Ctrl+wheel zoom, and background drag-to-pan controls for the rendered SVG;
 - an output area for diagnostics, analysis, bounded trace, and the explicitly non-executing terminal state.
 
-Selecting a source-mapped node updates the property panel, highlights the generated Mermaid node, focuses the textarea, and selects the exact source span. Smaller widths hide secondary panels and stack editor, canvas, feedback, and trace without removing their keyboard-accessible content. “Flowchart focus” hides the editor visually at desktop width but never changes source or graph data.
+Selecting a node in the diagram or text map updates the property panel, highlights the generated Mermaid node, focuses the textarea, and selects the exact source span. Moving the caret into a mapped source span selects the corresponding node. Decision properties show only real graph edges, including their True/False destinations and whether a loop-back edge targets that decision. Smaller widths turn properties into an explicit drawer and stack editor, canvas, feedback, and trace without removing their keyboard-accessible content. “Flowchart focus” hides the editor visually at desktop width but never changes source or graph data.
+
+Resize handles use native separator semantics. Drag one with a pointer, focus it and use arrow keys, or double-click it to reset its panel. Operation status is indeterminate because analysis and rendering do not provide measured progress. Toasts report only completed success, warning, or failure states; they do not predict outcomes.
 
 ## Snippets and Size Limit
 
@@ -38,7 +41,7 @@ The HTML `maxlength` attribute prevents ordinary input beyond the limit. `Playgr
 ## Save and Reset
 
 - **Save browser draft** stores the current text under `CodeLogic.Playground.Draft.v1` in browser local storage.
-- **Reset editor** restores the currently loaded curated snippet and removes that saved draft.
+- **Reset editor** asks for confirmation, then restores the currently loaded curated snippet and removes that saved draft.
 - `Ctrl+S` saves while focus is in the editor.
 - `Ctrl+Alt+R` resets while focus is in the editor.
 - Tab retains its native behavior and moves focus out of the textarea; CodeLogic does not create a keyboard trap.
@@ -62,23 +65,28 @@ Analysis is limited to 1,200 characters, three control-flow nesting levels, and 
 7. Confirm visible focus, labels, live status messages, character count, and usable stacked layout at 200% zoom and 320 CSS pixels.
 8. Select **Check syntax** for a valid sample, malformed syntax, and unsupported `foreach`. Confirm results are specific and the source text remains available for revision.
 9. Preview the default sequence, a nested `if/else`, and each supported loop form. Confirm readable nodes, True/False/repeat arrows, zoom/fit controls, equivalent text connections, selected node properties, SVG highlighting, and **Show line** source selection.
-10. Try `break`, `continue`, excessive nesting, and malformed syntax. Confirm useful error states replace the old preview without losing source.
-11. Build a trace for the Variables sample. Confirm Next step exposes the program counter, active node, variable changes, and cumulative output.
-12. Reset the trace and confirm it returns to Start with empty state.
-13. Trace true and false branches, a bounded loop, and `while (true) { }`. Confirm branch correctness and the 100-operation limit.
-14. Confirm there is no Run, Compile, terminal, arbitrary execution, or claim of general .NET behavior.
-15. Load the age exercise and check its known cases. Confirm ages 17, 18, and 19 show expected and actual output and that 18 is labeled Boundary.
-16. Change `>=` to `>`. Confirm age 18 alone fails with an actionable hint.
-17. Enter malformed source. Confirm analysis diagnostics appear separately with no logical verdict.
-18. Use `age == 18 || age == 19`. Confirm all known cases pass while the visible limitation warns that untested age 20 can still fail.
-19. Enter process, file-write, reflection, and network-client examples. Confirm each fails closed with an Unsupported explanation and no trace steps.
+10. Drag each panel separator, resize it with arrow keys, and double-click to reset it. Refresh and confirm adjusted panel sizes persist in this browser.
+11. Click a flowchart node and activate one with Enter. Confirm source selection, graph highlight, properties, and text map remain synchronized. Move the editor caret into another mapped statement and confirm the selected node changes.
+12. Hold Ctrl while scrolling over the canvas to zoom, and drag empty canvas space to pan. Confirm node activation still works and the displayed zoom value changes.
+13. Try `break`, `continue`, excessive nesting, and malformed syntax. Confirm useful error states replace the old preview without losing source.
+14. Build a trace for the Variables sample. Confirm Next step exposes the program counter, active node, variable changes, and cumulative output.
+15. Reset the trace and confirm it returns to Start with empty state.
+16. Trace true and false branches, a bounded loop, and `while (true) { }`. Confirm branch correctness and the 100-operation limit.
+17. Confirm there is no Run, Compile, terminal, arbitrary execution, or claim of general .NET behavior.
+18. Load the age exercise and check its known cases. Confirm ages 17, 18, and 19 show expected and actual output and that 18 is labeled Boundary.
+19. Change `>=` to `>`. Confirm age 18 alone fails with an actionable hint.
+20. Enter malformed source. Confirm analysis diagnostics appear separately with no logical verdict.
+21. Use `age == 18 || age == 19`. Confirm all known cases pass while the visible limitation warns that untested age 20 can still fail.
+22. Enter process, file-write, reflection, and network-client examples. Confirm each fails closed with an Unsupported explanation and no trace steps.
 
 ## Known Limitations
 
 - Plain text only; no syntax highlighting, autocomplete, semantic/type diagnostics, or formatting.
 - The split-pane host is ready for a future reviewed Monaco integration, but Monaco is not installed in this redesign.
-- Panels use responsive CSS layouts rather than pointer-driven drag resizing; explicit drag handles are deferred.
+- The textarea has no line-number gutter, syntax highlighting, autocomplete, semantic/type diagnostics, or formatting. Source line and range remain visible in the synchronized node properties.
+- A native textarea cannot expose per-statement hover regions, so source-to-node synchronization follows caret and selection changes instead; diagram nodes do provide hover/focus highlights and source-backed tooltips.
 - Node properties expose graph type, label, and exact source span. Rich semantic fields such as inferred variable type require a future semantic-analysis contract and are not fabricated.
+- Panel sizes persist locally, but the selected sidebar panel, open/closed panels, and split/focus mode reset when the page is reloaded.
 - One local draft only; loading another snippet does not create a separate saved file.
 - Browser storage can be unavailable in restricted privacy modes.
 - Drafts are device/browser-specific and are not account data.

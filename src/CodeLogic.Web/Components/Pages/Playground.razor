@@ -39,36 +39,65 @@
 
 <div class="workspace-toolbar" id="workspace-settings">
     <div class="workspace-file-tab"><span aria-hidden="true">#</span> Program.cs <span class="unsaved-indicator" title="Browser-local draft">●</span></div>
-    <p role="status" aria-live="polite">@StatusMessage</p>
+    <div class="workspace-operation-status" role="status" aria-live="polite" aria-busy="@IsBusy.ToString().ToLowerInvariant()">
+        @if (IsBusy)
+        {
+            <span class="operation-spinner" aria-hidden="true"></span>
+        }
+        <span>@StatusMessage</span>
+    </div>
     <div class="workspace-view-actions" aria-label="Workspace view">
-        <button type="button" class="icon-button" title="Split editor and flowchart" @onclick='() => WorkspaceMode = "split"'>Split</button>
-        <button type="button" class="icon-button" title="Focus flowchart" @onclick='() => WorkspaceMode = "focus"'>Flowchart focus</button>
+        <button type="button" class="icon-button" title="Split editor and flowchart" aria-pressed="@(WorkspaceMode == "split" ? "true" : "false")" @onclick='() => SetWorkspaceModeAsync("split")'>Split</button>
+        <button type="button" class="icon-button" title="Focus flowchart" aria-pressed="@(WorkspaceMode == "focus" ? "true" : "false")" @onclick='() => SetWorkspaceModeAsync("focus")'>Flowchart focus</button>
+        <button type="button" class="icon-button properties-drawer-trigger" aria-expanded="@IsPropertiesOpen.ToString().ToLowerInvariant()" @onclick="TogglePropertiesAsync">Node properties</button>
     </div>
 </div>
 
-<div class="ide-workspace ide-workspace--@WorkspaceMode">
+<div @ref="WorkspaceRoot" class="ide-workspace ide-workspace--@WorkspaceMode @(IsExplorerCollapsed ? "ide-workspace--explorer-collapsed" : null) @(IsPropertiesOpen ? "ide-workspace--properties-open" : null)">
     <nav class="workspace-rail" aria-label="Workspace panels">
-        <button type="button" class="rail-button rail-button--active" title="File Explorer" aria-label="File Explorer">▱</button>
-        <button type="button" class="rail-button" title="Code Structure" aria-label="Code Structure">{ }</button>
-        <a class="rail-button" href="#flowchart-title" title="Flowchart Navigator" aria-label="Flowchart Navigator">◇</a>
-        <a class="rail-button" href="#code-editor" title="Search source" aria-label="Search source">⌕</a>
-        <a class="rail-button" href="#analysis-output" title="Diagnostics" aria-label="Diagnostics">△</a>
+        <button type="button" class="rail-button @(ActiveSidebarPanel == "explorer" ? "rail-button--active" : null)" title="File Explorer" aria-label="File Explorer" aria-pressed="@(ActiveSidebarPanel == "explorer" && !IsExplorerCollapsed ? "true" : "false")" @onclick='() => ActivateSidebarAsync("explorer")'>▱</button>
+        <button type="button" class="rail-button @(ActiveSidebarPanel == "structure" ? "rail-button--active" : null)" title="Code Structure" aria-label="Code Structure" aria-pressed="@(ActiveSidebarPanel == "structure" && !IsExplorerCollapsed ? "true" : "false")" @onclick='() => ActivateSidebarAsync("structure")'>{ }</button>
+        <button type="button" class="rail-button" title="Flowchart Navigator" aria-label="Flowchart Navigator" @onclick='() => ScrollToAsync("flowchart-title")'>◇</button>
+        <button type="button" class="rail-button" title="Focus source editor" aria-label="Focus source editor" @onclick="FocusEditorAsync">⌕</button>
+        <button type="button" class="rail-button" title="Open diagnostics" aria-label="Open diagnostics" @onclick="OpenDiagnosticsAsync">△</button>
     </nav>
 
     <aside class="workspace-explorer" aria-labelledby="explorer-title">
-        <div class="panel-title"><h2 id="explorer-title">Explorer</h2><span aria-hidden="true">•••</span></div>
-        <p class="tree-heading">CODELOGIC WORKSPACE</p>
-        <ul class="file-tree">
-            <li class="file-tree__folder">⌄ Source</li>
-            <li class="file-tree__file file-tree__file--active"># Program.cs</li>
-            <li class="file-tree__folder">› Flow graph</li>
-            <li class="file-tree__folder">› Diagnostics</li>
-        </ul>
-        <p class="explorer-note">Source text is the single source of truth. Diagram nodes are generated, not manually edited.</p>
+        <div class="panel-title"><h2 id="explorer-title">@(ActiveSidebarPanel == "structure" ? "Code structure" : "Explorer")</h2><button type="button" class="panel-close" aria-label="Collapse side panel" @onclick="ToggleExplorerAsync">×</button></div>
+        @if (ActiveSidebarPanel == "structure")
+        {
+            <p class="tree-heading">GENERATED STRUCTURE</p>
+            @if (FlowchartDocument is null)
+            {
+                <p class="explorer-note">Preview a flowchart to inspect its source-backed structure.</p>
+            }
+            else
+            {
+                <ul class="file-tree">
+                    @foreach (var item in FlowchartDocument.SourceMap)
+                    {
+                        <li><button type="button" class="tree-button" @onclick="() => SelectNodeAsync(item)">@item.NodeType · @item.Label</button></li>
+                    }
+                </ul>
+            }
+        }
+        else
+        {
+            <p class="tree-heading">CODELOGIC WORKSPACE</p>
+            <ul class="file-tree">
+                <li class="file-tree__folder">⌄ Source</li>
+                <li class="file-tree__file file-tree__file--active"># Program.cs</li>
+                <li class="file-tree__folder">› Flow graph</li>
+                <li class="file-tree__folder">› Diagnostics</li>
+            </ul>
+            <p class="explorer-note">Source text is the single source of truth. Diagram nodes are generated, not manually edited.</p>
+        }
+        <div class="resize-handle resize-handle--vertical" data-resize-panel="explorer" role="separator" tabindex="0" aria-label="Resize Explorer" aria-orientation="vertical" aria-valuemin="120" aria-valuemax="300" aria-valuenow="160" title="Drag or use arrow keys to resize. Double-click to reset."></div>
     </aside>
 
 <div class="playground-layout">
     <section class="editor-panel" aria-labelledby="editor-title">
+        <div class="resize-handle resize-handle--vertical" data-resize-panel="editor" role="separator" tabindex="0" aria-label="Resize source editor" aria-orientation="vertical" aria-valuemin="288" aria-valuemax="720" aria-valuenow="410" title="Drag or use arrow keys to resize. Double-click to reset."></div>
         <div class="section-heading">
             <p class="eyebrow">Plain-text editor</p>
             <h2 id="editor-title">Edit a supported learning example</h2>
@@ -161,7 +190,8 @@
     </section>
 
     <aside class="playground-guide properties-panel" aria-labelledby="playground-guide-title">
-        <div class="panel-title"><h2 id="playground-guide-title">Node properties</h2><span aria-hidden="true">×</span></div>
+        <div class="resize-handle resize-handle--vertical resize-handle--leading" data-resize-panel="properties" role="separator" tabindex="0" aria-label="Resize node properties" aria-orientation="vertical" aria-valuemin="220" aria-valuemax="420" aria-valuenow="240" title="Drag or use arrow keys to resize. Double-click to reset."></div>
+        <div class="panel-title"><h2 id="playground-guide-title">Node properties</h2><button type="button" class="panel-close" aria-label="Close node properties" @onclick="TogglePropertiesAsync">×</button></div>
         @if (SelectedNode is null)
         {
             <div class="properties-empty">
@@ -175,6 +205,12 @@
                 <div><dt>Name</dt><dd>@SelectedNode.Label</dd></div>
                 <div><dt>Node type</dt><dd><span class="node-kind node-kind--@SelectedNode.NodeType.ToString().ToLowerInvariant()">@SelectedNode.NodeType</span></dd></div>
                 <div><dt>Source file</dt><dd><code>Program.cs</code></dd></div>
+                @if (SelectedNode.NodeType == FlowNodeType.Decision)
+                {
+                    <div><dt>Control kind</dt><dd>@(SelectedNodeIsLoop ? "Loop condition" : "Decision")</dd></div>
+                    <div><dt>True path</dt><dd>@(BranchTarget(FlowEdgeType.True) ?? "No true edge")</dd></div>
+                    <div><dt>False path</dt><dd>@(BranchTarget(FlowEdgeType.False) ?? "No false edge")</dd></div>
+                }
                 @if (SelectedNode.SourceSpan is not null)
                 {
                     <div><dt>Source line</dt><dd>@SelectedNode.SourceSpan.StartLine:@SelectedNode.SourceSpan.StartColumn</dd></div>
@@ -351,7 +387,7 @@
         <div class="flowchart-canvas"
              @ref="FlowchartContainer"
              aria-label="Rendered CodeLogic flowchart"
-             aria-busy="@IsRendering"></div>
+             aria-busy="@IsRendering.ToString().ToLowerInvariant()"></div>
 
         <div class="flowchart-text-map">
             <h3>Equivalent text and source map</h3>
@@ -380,6 +416,7 @@
 </section>
 
 <section class="trace-panel bottom-panel bottom-panel--@ActiveBottomTab @(IsBottomPanelCollapsed ? "bottom-panel--collapsed" : null)" id="analysis-output" aria-labelledby="trace-title" aria-live="polite">
+    <div class="resize-handle resize-handle--horizontal" data-resize-panel="bottom" role="separator" tabindex="0" aria-label="Resize output panel" aria-orientation="horizontal" aria-valuemin="160" aria-valuemax="520" aria-valuenow="280" title="Drag or use arrow keys to resize. Double-click to reset."></div>
     <div class="bottom-tabs" role="tablist" aria-label="Output panels">
         <button type="button" class="bottom-tab @(ActiveBottomTab == "diagnostics" ? "bottom-tab--active" : null)" role="tab" aria-selected="@(ActiveBottomTab == "diagnostics")" @onclick='() => ActiveBottomTab = "diagnostics"'>Diagnostics <span>@(AnalysisResult?.Diagnostics.Count ?? 0)</span></button>
         <button type="button" class="bottom-tab @(ActiveBottomTab == "analysis" ? "bottom-tab--active" : null)" role="tab" aria-selected="@(ActiveBottomTab == "analysis")" @onclick='() => ActiveBottomTab = "analysis"'>Analysis output</button>
@@ -510,10 +547,20 @@
     }
     </div>
 </section>
+
+@if (ToastMessage is not null)
+{
+    <div class="workspace-toast workspace-toast--@ToastKind" role="@(ToastKind == "error" ? "alert" : "status")">
+        <span aria-hidden="true">@(ToastKind == "error" ? "!" : "✓")</span>
+        <p>@ToastMessage</p>
+        <button type="button" aria-label="Dismiss notification" @onclick="DismissToast">×</button>
+    </div>
+}
 </div>
 
 @code {
     private const string DraftStorageKey = "CodeLogic.Playground.Draft.v1";
+    private const string WorkspaceStorageKey = "CodeLogic.Playground.Workspace.v1";
     private static LogicalExerciseSpecification LogicalExercise => KnownLogicalExercises.AgeBoundary;
     private PlaygroundEditorState EditorState { get; set; } = null!;
     private string SelectedSnippetId { get; set; } = string.Empty;
@@ -534,12 +581,25 @@
     private int RenderSequence { get; set; }
     private double FlowchartZoom { get; set; } = 1;
     private string WorkspaceMode { get; set; } = "split";
+    private string ActiveSidebarPanel { get; set; } = "explorer";
     private string ActiveBottomTab { get; set; } = "trace";
     private bool IsBottomPanelCollapsed { get; set; }
+    private bool IsExplorerCollapsed { get; set; }
+    private bool IsPropertiesOpen { get; set; } = true;
+    private string? ToastMessage { get; set; }
+    private string ToastKind { get; set; } = "success";
+    private int ToastVersion { get; set; }
+    private bool IsDisposed { get; set; }
     private FlowNodeSourceMap? SelectedNode { get; set; }
+    private ElementReference WorkspaceRoot { get; set; }
     private ElementReference EditorElement { get; set; }
     private ElementReference FlowchartContainer { get; set; }
     private IJSObjectReference? JavaScriptModule { get; set; }
+    private IJSObjectReference? WorkspaceModule { get; set; }
+    private DotNetObjectReference<Playground>? ComponentReference { get; set; }
+    private bool IsBusy => IsAnalyzing || IsRendering || IsTracing || IsCheckingLogic;
+    private bool SelectedNodeIsLoop => SelectedNode is not null
+        && FlowchartResult?.Graph?.Edges.Any(edge => edge.Type == FlowEdgeType.LoopBack && edge.ToNodeId == SelectedNode.NodeId) == true;
 
     protected override void OnInitialized()
     {
@@ -566,7 +626,15 @@
             {
                 JavaScriptModule = await JavaScript.InvokeAsync<IJSObjectReference>(
                     "import",
-                    "./js/playground.js");
+                    "./js/playground.js?v=2");
+                WorkspaceModule = await JavaScript.InvokeAsync<IJSObjectReference>(
+                    "import",
+                    "./js/workspace.js?v=2");
+                ComponentReference = DotNetObjectReference.Create(this);
+                var layoutRestored = await WorkspaceModule.InvokeAsync<bool>(
+                    "initializeWorkspace",
+                    WorkspaceRoot,
+                    WorkspaceStorageKey);
                 await JavaScriptModule.InvokeVoidAsync(
                     "initializeEditorShortcuts",
                     EditorElement);
@@ -589,7 +657,9 @@
                 }
                 else
                 {
-                    StatusMessage = "The current snippet has not been saved in this browser.";
+                    StatusMessage = layoutRestored
+                        ? "Workspace layout restored. The current snippet has not been saved in this browser."
+                        : "The current snippet has not been saved in this browser.";
                 }
             }
             catch (JSException)
@@ -612,13 +682,17 @@
                     "renderMermaid",
                     FlowchartContainer,
                     FlowchartDocument.Definition,
-                    $"codelogic-flowchart-{++RenderSequence}");
+                    $"codelogic-flowchart-{++RenderSequence}",
+                    FlowchartDocument.SourceMap,
+                    ComponentReference);
                 StatusMessage = "Flowchart preview rendered. Nothing was compiled or executed.";
+                ShowToast("Flowchart preview is ready.");
             }
             catch (JSException)
             {
                 RendererError = "Mermaid could not render this preview. Check the browser connection and try again.";
                 StatusMessage = "The visual renderer failed; the equivalent text map is still available.";
+                ShowToast("Flowchart renderer failed. The text map is still available.", "error");
             }
             finally
             {
@@ -662,15 +736,24 @@
                 EditorState.CurrentCode);
             EditorState.MarkSaved();
             StatusMessage = "Draft saved in this browser.";
+            ShowToast("Draft saved in this browser.");
         }
         catch (JSException)
         {
             StatusMessage = "The browser refused local storage, so this draft was not saved.";
+            ShowToast("Draft could not be saved.", "error");
         }
     }
 
     private async Task ResetDraftAsync()
     {
+        if (JavaScriptModule is not null
+            && !await JavaScriptModule.InvokeAsync<bool>("confirmReset"))
+        {
+            StatusMessage = "Reset cancelled; the current source and browser draft were kept.";
+            return;
+        }
+
         AnalysisResult = null;
         ClearFlowchart();
         EditorState.Reset();
@@ -700,6 +783,9 @@
             StatusMessage = AnalysisResult.IsValid
                 ? "Syntax and supported-subset check passed. Nothing was compiled or run."
                 : $"Analysis found {AnalysisResult.Diagnostics.Count} item(s) to review.";
+            ShowToast(
+                AnalysisResult.IsValid ? "Syntax check passed." : $"Review {AnalysisResult.Diagnostics.Count} analysis item(s).",
+                AnalysisResult.IsValid ? "success" : "warning");
         }
         finally
         {
@@ -743,6 +829,7 @@
                 StatusMessage = TraceResult.Status == ExecutionTraceStatus.StepLimitReached
                     ? $"Trace stopped safely at the {TraceResult.MaximumOperations}-operation limit."
                     : $"Trace built with {TraceResult.Steps.Count} snapshots. Use Next step to inspect it.";
+                ShowToast("Bounded execution trace is ready.");
             }
             else
             {
@@ -825,10 +912,29 @@
     private async Task SelectNodeAsync(FlowNodeSourceMap item)
     {
         SelectedNode = item;
+        IsPropertiesOpen = true;
         if (item.SourceSpan is not null)
         {
             await ShowSourceAsync(item);
         }
+    }
+
+    [JSInvokable]
+    public async Task SelectNodeFromBrowser(string nodeId)
+    {
+        var item = FlowchartDocument?.SourceMap.FirstOrDefault(candidate => candidate.NodeId == nodeId);
+        if (item is not null)
+        {
+            await SelectNodeAsync(item);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    [JSInvokable]
+    public Task UpdateZoomFromBrowser(double zoom)
+    {
+        FlowchartZoom = Math.Clamp(zoom, 0.5, 2);
+        return InvokeAsync(StateHasChanged);
     }
 
     private async Task AdjustFlowchartZoomAsync(double change)
@@ -847,6 +953,99 @@
         {
             await JavaScriptModule.InvokeVoidAsync("fitFlowchart", FlowchartContainer);
         }
+    }
+
+    private async Task SetWorkspaceModeAsync(string mode)
+    {
+        WorkspaceMode = mode == "focus" ? "focus" : "split";
+        await SaveWorkspacePreferenceAsync("mode", WorkspaceMode);
+    }
+
+    private async Task ActivateSidebarAsync(string panel)
+    {
+        if (ActiveSidebarPanel == panel && !IsExplorerCollapsed)
+        {
+            IsExplorerCollapsed = true;
+        }
+        else
+        {
+            ActiveSidebarPanel = panel;
+            IsExplorerCollapsed = false;
+        }
+
+        await SaveWorkspacePreferenceAsync("explorerCollapsed", IsExplorerCollapsed);
+    }
+
+    private async Task ToggleExplorerAsync()
+    {
+        IsExplorerCollapsed = !IsExplorerCollapsed;
+        await SaveWorkspacePreferenceAsync("explorerCollapsed", IsExplorerCollapsed);
+    }
+
+    private async Task TogglePropertiesAsync()
+    {
+        IsPropertiesOpen = !IsPropertiesOpen;
+        await SaveWorkspacePreferenceAsync("propertiesOpen", IsPropertiesOpen);
+    }
+
+    private async Task SaveWorkspacePreferenceAsync(string name, object value)
+    {
+        if (WorkspaceModule is not null)
+        {
+            await WorkspaceModule.InvokeVoidAsync("savePanelPreference", WorkspaceStorageKey, name, value);
+        }
+    }
+
+    private Task FocusEditorAsync() => JavaScriptModule is null
+        ? Task.CompletedTask
+        : JavaScriptModule.InvokeVoidAsync("focusElement", EditorElement).AsTask();
+
+    private Task ScrollToAsync(string elementId) => JavaScriptModule is null
+        ? Task.CompletedTask
+        : JavaScriptModule.InvokeVoidAsync("scrollToElement", elementId).AsTask();
+
+    private async Task OpenDiagnosticsAsync()
+    {
+        ActiveBottomTab = "diagnostics";
+        IsBottomPanelCollapsed = false;
+        await ScrollToAsync("analysis-output");
+    }
+
+    private string? BranchTarget(FlowEdgeType edgeType)
+    {
+        if (SelectedNode is null || FlowchartResult?.Graph is null)
+        {
+            return null;
+        }
+
+        var edge = FlowchartResult.Graph.Edges.FirstOrDefault(candidate =>
+            candidate.FromNodeId == SelectedNode.NodeId && candidate.Type == edgeType);
+        return edge is null
+            ? null
+            : FlowchartResult.Graph.Nodes.FirstOrDefault(node => node.Id == edge.ToNodeId)?.Label;
+    }
+
+    private void ShowToast(string message, string kind = "success")
+    {
+        ToastMessage = message;
+        ToastKind = kind;
+        var version = ++ToastVersion;
+        _ = DismissToastLaterAsync(version);
+    }
+
+    private async Task DismissToastLaterAsync(int version)
+    {
+        await Task.Delay(TimeSpan.FromSeconds(4));
+        if (!IsDisposed && version == ToastVersion)
+        {
+            await InvokeAsync(DismissToast);
+        }
+    }
+
+    private void DismissToast()
+    {
+        ToastMessage = null;
+        ToastVersion++;
     }
 
     private void ClearFlowchart()
@@ -926,6 +1125,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        IsDisposed = true;
         if (JavaScriptModule is not null)
         {
             try
@@ -938,5 +1138,20 @@
                 // The browser has already disconnected; no client resource remains to release.
             }
         }
+
+        if (WorkspaceModule is not null)
+        {
+            try
+            {
+                await WorkspaceModule.InvokeVoidAsync("disposeWorkspace", WorkspaceRoot);
+                await WorkspaceModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The browser has already disconnected; no client resource remains to release.
+            }
+        }
+
+        ComponentReference?.Dispose();
     }
 }
