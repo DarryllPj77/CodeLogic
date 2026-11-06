@@ -512,9 +512,18 @@
 
         <div class="trace-controls">
             <p><strong>Trace step @TraceNavigator.StepNumber of @TraceNavigator.StepCount</strong></p>
-            <div class="button-row">
-                <button class="button button--primary" type="button" @onclick="NextTraceStep" disabled="@(!TraceNavigator.CanStep)">Next step</button>
-                <button class="button button--secondary" type="button" @onclick="ResetTrace">Reset trace</button>
+            <div class="trace-playback-row">
+                <div class="button-row" aria-label="Trace playback controls">
+                    <button class="button button--primary" type="button" @onclick="ToggleTracePlaybackAsync" disabled="@(!TraceNavigator.CanStep && !IsTracePlaying)">@(IsTracePlaying ? "Pause" : "Play")</button>
+                    <button class="button button--secondary" type="button" @onclick="NextTraceStepAsync" disabled="@(!TraceNavigator.CanStep || IsTracePlaying)">Step</button>
+                    <button class="button button--secondary" type="button" @onclick="PreviousTraceStepAsync" disabled="@(!TraceNavigator.CanStepBack || IsTracePlaying)">Back</button>
+                    <button class="button button--secondary" type="button" @onclick="ResetTraceAsync">Reset</button>
+                </div>
+                <label class="trace-speed" for="trace-speed">
+                    Speed
+                    <input id="trace-speed" type="range" min="200" max="1600" step="100" @bind="TracePlaybackDelayMilliseconds" @bind:event="oninput" aria-valuetext="@TraceSpeedDescription" />
+                    <span>@TraceSpeedDescription</span>
+                </label>
             </div>
         </div>
 
@@ -525,6 +534,10 @@
                     <div><dt>Program counter</dt><dd>@TraceNavigator.Current.ProgramCounter</dd></div>
                     <div><dt>Graph node</dt><dd><code>@TraceNavigator.Current.ActiveNodeId</code> · @TraceNavigator.Current.ActiveNodeType</dd></div>
                     <div><dt>Source meaning</dt><dd>@TraceNavigator.Current.ActiveNodeLabel</dd></div>
+                    @if (CurrentTraceNodeIsLoop)
+                    {
+                        <div><dt>Loop iteration</dt><dd>@Math.Max(0, TraceNavigator.CurrentNodeVisitCount - 1)</dd></div>
+                    }
                 </dl>
                 <p>@TraceNavigator.Current.Explanation</p>
             </section>
@@ -542,7 +555,10 @@
                         <tbody>
                             @foreach (var variable in TraceNavigator.Current.Variables)
                             {
-                                <tr><th scope="row"><code>@variable.Key</code></th><td><code>@variable.Value</code></td></tr>
+                                <tr class="@(TraceNavigator.ChangedVariables.Contains(variable.Key) ? "trace-variable--changed" : null)">
+                                    <th scope="row"><code>@variable.Key</code></th>
+                                    <td><code>@variable.Value</code>@if (TraceNavigator.ChangedVariables.Contains(variable.Key)) { <span class="visually-hidden"> changed this step</span> }</td>
+                                </tr>
                             }
                         </tbody>
                     </table>
@@ -550,14 +566,14 @@
             </section>
 
             <section aria-labelledby="trace-output-title">
-                <h3 id="trace-output-title">Simulated output</h3>
+                <h3 id="trace-output-title">Console output</h3>
                 @if (TraceNavigator.Current.Output.Count == 0)
                 {
-                    <p>No output has been added yet.</p>
+                    <p>No <code>Console.WriteLine</code> output has been produced at this step.</p>
                 }
                 else
                 {
-                    <pre class="trace-output">@string.Join(Environment.NewLine, TraceNavigator.Current.Output)</pre>
+                    <pre class="trace-output" aria-live="polite">@string.Join(Environment.NewLine, TraceNavigator.Current.Output)</pre>
                 }
             </section>
         </div>
@@ -603,6 +619,8 @@
     private bool IsBottomPanelCollapsed { get; set; }
     private bool IsExplorerCollapsed { get; set; }
     private bool IsPropertiesOpen { get; set; } = true;
+    private bool IsTracePlaying { get; set; }
+    private int TracePlaybackDelayMilliseconds { get; set; } = 700;
     private string? ToastMessage { get; set; }
     private string ToastKind { get; set; } = "success";
     private int ToastVersion { get; set; }
@@ -614,9 +632,19 @@
     private IJSObjectReference? JavaScriptModule { get; set; }
     private IJSObjectReference? WorkspaceModule { get; set; }
     private DotNetObjectReference<Playground>? ComponentReference { get; set; }
+    private CancellationTokenSource? TracePlaybackCancellation { get; set; }
     private bool IsBusy => IsAnalyzing || IsRendering || IsTracing || IsCheckingLogic;
     private bool SelectedNodeIsLoop => SelectedNode is not null
         && FlowchartResult?.Graph?.Edges.Any(edge => edge.Type == FlowEdgeType.LoopBack && edge.ToNodeId == SelectedNode.NodeId) == true;
+    private bool CurrentTraceNodeIsLoop => TraceNavigator is not null
+        && FlowchartResult?.Graph?.Edges.Any(edge => edge.Type == FlowEdgeType.LoopBack
+            && edge.ToNodeId == TraceNavigator.Current.ActiveNodeId) == true;
+    private string TraceSpeedDescription => TracePlaybackDelayMilliseconds switch
+    {
+        <= 300 => "Fast",
+        <= 800 => "Normal",
+        _ => "Slow",
+    };
 
     protected override void OnInitialized()
     {
@@ -847,6 +875,7 @@
                     ? $"Trace stopped safely at the {TraceResult.MaximumOperations}-operation limit."
                     : $"Trace built with {TraceResult.Steps.Count} snapshots. Use Next step to inspect it.";
                 ShowToast("Bounded execution trace is ready.");
+                await SynchronizeTraceStepAsync();
             }
             else
             {
@@ -894,19 +923,126 @@
         }
     }
 
-    private void NextTraceStep()
+    private async Task NextTraceStepAsync()
     {
         TraceNavigator?.Step();
         if (TraceNavigator is not null)
         {
             StatusMessage = $"Trace step {TraceNavigator.StepNumber} of {TraceNavigator.StepCount}: {TraceNavigator.Current.ActiveNodeLabel}.";
+            await SynchronizeTraceStepAsync();
         }
     }
 
-    private void ResetTrace()
+    private async Task PreviousTraceStepAsync()
     {
+        TraceNavigator?.StepBack();
+        if (TraceNavigator is not null)
+        {
+            StatusMessage = $"Returned to trace step {TraceNavigator.StepNumber} of {TraceNavigator.StepCount}.";
+            await SynchronizeTraceStepAsync();
+        }
+    }
+
+    private async Task ResetTraceAsync()
+    {
+        StopTracePlayback();
         TraceNavigator?.Reset();
         StatusMessage = "Trace reset to its initial state.";
+        await SynchronizeTraceStepAsync();
+    }
+
+    private Task ToggleTracePlaybackAsync()
+    {
+        if (IsTracePlaying)
+        {
+            StopTracePlayback();
+            StatusMessage = "Trace playback paused.";
+            return Task.CompletedTask;
+        }
+
+        if (TraceNavigator?.CanStep != true)
+        {
+            return Task.CompletedTask;
+        }
+
+        TracePlaybackCancellation = new CancellationTokenSource();
+        IsTracePlaying = true;
+        StatusMessage = "Playing the bounded trace.";
+        _ = RunTracePlaybackAsync(TracePlaybackCancellation.Token);
+        return Task.CompletedTask;
+    }
+
+    private async Task RunTracePlaybackAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (TraceNavigator?.CanStep == true)
+            {
+                await Task.Delay(TracePlaybackDelayMilliseconds, cancellationToken);
+                TraceNavigator.Step();
+                StatusMessage = $"Trace step {TraceNavigator.StepNumber} of {TraceNavigator.StepCount}: {TraceNavigator.Current.ActiveNodeLabel}.";
+                await SynchronizeTraceStepAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Pausing and resetting intentionally cancel the playback delay.
+        }
+        finally
+        {
+            IsTracePlaying = false;
+            if (!IsDisposed)
+            {
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    private void StopTracePlayback()
+    {
+        TracePlaybackCancellation?.Cancel();
+        TracePlaybackCancellation?.Dispose();
+        TracePlaybackCancellation = null;
+        IsTracePlaying = false;
+    }
+
+    private async Task SynchronizeTraceStepAsync()
+    {
+        if (TraceNavigator is null || FlowchartDocument is null || JavaScriptModule is null)
+        {
+            return;
+        }
+
+        var current = FlowchartDocument.SourceMap.FirstOrDefault(item => item.NodeId == TraceNavigator.Current.ActiveNodeId);
+        if (current is null)
+        {
+            return;
+        }
+
+        SelectedNode = current;
+        var previousNodeId = TraceNavigator.CurrentIndex > 0
+            ? TraceResult?.Steps[TraceNavigator.CurrentIndex - 1].ActiveNodeId
+            : null;
+        var previous = FlowchartDocument.SourceMap.FirstOrDefault(item => item.NodeId == previousNodeId);
+        var skippedTargets = previousNodeId is null || FlowchartResult?.Graph is null
+            ? []
+            : FlowchartResult.Graph.Edges
+                .Where(edge => edge.FromNodeId == previousNodeId && edge.ToNodeId != current.NodeId)
+                .Select(edge => FlowchartDocument.SourceMap.FirstOrDefault(item => item.NodeId == edge.ToNodeId)?.MermaidId)
+                .Where(id => id is not null)
+                .Cast<string>()
+                .ToArray();
+
+        await JavaScriptModule.InvokeVoidAsync(
+            "showTraceStep",
+            EditorElement,
+            FlowchartContainer,
+            current.MermaidId,
+            current.SourceSpan?.StartOffset,
+            current.SourceSpan?.Length,
+            previous?.MermaidId,
+            skippedTargets);
     }
 
     private async Task ShowSourceAsync(FlowNodeSourceMap item)
@@ -1067,6 +1203,7 @@
 
     private void ClearFlowchart()
     {
+        StopTracePlayback();
         FlowchartResult = null;
         FlowchartDocument = null;
         SelectedNode = null;
@@ -1143,6 +1280,7 @@
     public async ValueTask DisposeAsync()
     {
         IsDisposed = true;
+        StopTracePlayback();
         if (JavaScriptModule is not null)
         {
             try

@@ -116,6 +116,35 @@ export function fitFlowchart(container) {
     container.scrollTo({ top: 0, left: 0, behavior: "smooth" });
 }
 
+export function showTraceStep(editor, container, currentMermaidId, startOffset, length, previousMermaidId, skippedMermaidIds) {
+    container.querySelectorAll(".flowchart-node--trace-current, .flowchart-node--trace-skipped")
+        .forEach(node => node.classList.remove("flowchart-node--trace-current", "flowchart-node--trace-skipped"));
+    container.querySelectorAll(".edgePath")
+        .forEach(edge => edge.classList.remove("flowchart-edge--trace-taken"));
+
+    const current = findDiagramNode(container, currentMermaidId);
+    current?.classList.add("flowchart-node--trace-current");
+    for (const mermaidId of skippedMermaidIds ?? []) {
+        findDiagramNode(container, mermaidId)?.classList.add("flowchart-node--trace-skipped");
+    }
+
+    if (previousMermaidId !== null && previousMermaidId !== undefined) {
+        const edge = [...container.querySelectorAll(".edgePath")]
+            .find(candidate => candidate.id.includes(previousMermaidId) && candidate.id.includes(currentMermaidId));
+        edge?.classList.add("flowchart-edge--trace-taken");
+    }
+
+    if (Number.isInteger(startOffset) && Number.isInteger(length)) {
+        suppressedSelections.add(editor);
+        editor.setSelectionRange(startOffset, startOffset + length);
+        window.setTimeout(() => suppressedSelections.delete(editor), 0);
+    }
+
+    if (current !== null) {
+        centerNode(container, current);
+    }
+}
+
 export function focusElement(element) {
     element?.focus();
 }
@@ -230,6 +259,10 @@ function highlightNode(container, mermaidId) {
         .forEach(node => node.classList.remove("flowchart-node--selected"));
     const node = container.querySelector(`[id*="${CSS.escape(`-flowchart-${mermaidId}-`)}"]`);
     node?.classList.add("flowchart-node--selected");
+}
+
+function findDiagramNode(container, mermaidId) {
+    return container.querySelector(`[id*="${CSS.escape(`-flowchart-${mermaidId}-`)}"]`);
 }
 
 function centerNode(container, node) {

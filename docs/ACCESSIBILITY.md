@@ -42,6 +42,7 @@ These checks cover the application shell, lesson reading, deterministic practice
 - The responsive node-properties panel is opened and closed by a native button with `aria-expanded`; no core graph detail exists only in the drawer.
 - In-progress analysis uses an indeterminate busy state and text rather than fabricated percentages. Completion notifications use status or alert semantics and can be dismissed.
 - Resetting the editor and deleting its browser-local draft requires explicit confirmation; cancelling preserves both source and saved data.
+- Trace Play, Pause, Step, Back, Reset, and speed controls are native keyboard-operable controls. Current node, changed variable values, loop visits, and progressive console output all have text equivalents in addition to animation.
 - The SVG is labeled as an image, remains inside a horizontally scrollable panel, and renderer failures retain the text equivalent.
 - Motion is non-essential and reduced when `prefers-reduced-motion` is enabled.
 - Forced-colors mode receives an explicit focus outline color.
