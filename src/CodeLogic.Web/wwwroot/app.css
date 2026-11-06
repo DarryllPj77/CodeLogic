@@ -1768,6 +1768,10 @@ select, input, textarea { accent-color: var(--color-accent); }
 .property-list div { display: grid; gap: var(--space-1); }
 .property-list dt { color: var(--color-text-muted); font-size: 0.68rem; text-transform: uppercase; }
 .property-list dd { color: var(--color-text-primary); font-family: var(--font-mono); font-size: 0.72rem; margin: 0; overflow-wrap: anywhere; }
+.node-source-editor { border-top: 1px solid var(--color-border); display: grid; gap: var(--space-2); margin: var(--space-4) 0; padding-top: var(--space-4); }
+.node-source-editor label { color: var(--color-text-muted); font-size: 0.68rem; text-transform: uppercase; }
+.node-source-editor textarea { background: var(--color-background); color: var(--color-text-primary); font-family: var(--font-mono); font-size: 0.7rem; min-height: 6rem; resize: vertical; }
+.node-edit-message { color: var(--color-text-secondary); font-size: 0.68rem; margin: 0; }
 .node-kind { border-left: 2px solid var(--color-brand); padding-left: var(--space-2); }
 .node-kind--start, .node-kind--end { border-color: var(--color-accent); }
 .node-kind--decision { border-color: var(--color-decision); }

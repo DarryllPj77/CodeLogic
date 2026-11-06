@@ -172,6 +172,18 @@ function bindDiagramNodes(container, sourceMap, dotNetReference) {
         node.prepend(title);
         const activate = () => dotNetReference?.invokeMethodAsync("SelectNodeFromBrowser", item.nodeId);
         node.addEventListener("click", activate);
+        if (item.sourceSpan !== null && item.sourceSpan !== undefined) {
+            node.addEventListener("dblclick", event => {
+                event.preventDefault();
+                event.stopPropagation();
+                const replacement = window.prompt(
+                    "Edit the mapped C# statement. CodeLogic will reject invalid or unsupported syntax.",
+                    item.label);
+                if (replacement !== null && replacement !== item.label) {
+                    dotNetReference?.invokeMethodAsync("EditNodeFromBrowser", item.nodeId, replacement);
+                }
+            });
+        }
         node.addEventListener("keydown", event => {
             if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();

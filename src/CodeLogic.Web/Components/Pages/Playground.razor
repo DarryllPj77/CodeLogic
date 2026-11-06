@@ -236,6 +236,15 @@
             </dl>
             @if (SelectedNode.SourceSpan is not null)
             {
+                <div class="node-source-editor">
+                    <label for="node-source-text">Mapped C# statement</label>
+                    <textarea id="node-source-text" @bind="NodeEditText" rows="4" maxlength="@EditorState.MaximumCharacters" spellcheck="false"></textarea>
+                    <button class="button button--primary" type="button" @onclick="ApplyNodeEditAsync">Apply safe edit</button>
+                    @if (NodeEditMessage is not null)
+                    {
+                        <p class="node-edit-message" role="status">@NodeEditMessage</p>
+                    }
+                </div>
                 <button class="button button--secondary" type="button" @onclick="() => ShowSourceAsync(SelectedNode!)">Reveal in source</button>
             }
         }
@@ -637,6 +646,8 @@
     private bool IsTracePlaying { get; set; }
     private int TracePlaybackDelayMilliseconds { get; set; } = 700;
     private string? ToastMessage { get; set; }
+    private string NodeEditText { get; set; } = string.Empty;
+    private string? NodeEditMessage { get; set; }
     private string ToastKind { get; set; } = "success";
     private int ToastVersion { get; set; }
     private bool IsDisposed { get; set; }
@@ -1135,6 +1146,8 @@
     private async Task SelectNodeAsync(FlowNodeSourceMap item)
     {
         SelectedNode = item;
+        NodeEditText = item.Label;
+        NodeEditMessage = null;
         IsPropertiesOpen = true;
         if (item.SourceSpan is not null)
         {
@@ -1151,6 +1164,65 @@
             await SelectNodeAsync(item);
             await InvokeAsync(StateHasChanged);
         }
+    }
+
+    [JSInvokable]
+    public async Task EditNodeFromBrowser(string nodeId, string replacement)
+    {
+        var item = FlowchartDocument?.SourceMap.FirstOrDefault(candidate => candidate.NodeId == nodeId);
+        if (item is null || item.SourceSpan is null)
+        {
+            ShowToast("This generated node has no editable source range.", "warning");
+            return;
+        }
+
+        SelectedNode = item;
+        NodeEditText = replacement;
+        await ApplyNodeEditAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ApplyNodeEditAsync()
+    {
+        if (SelectedNode?.SourceSpan is null)
+        {
+            NodeEditMessage = "Select a source-backed node before editing.";
+            return;
+        }
+
+        if (!SourceMappedSourceEditor.TryReplace(
+            EditorState.CurrentCode,
+            SelectedNode.SourceSpan,
+            NodeEditText,
+            EditorState.MaximumCharacters,
+            out var candidate,
+            out var error))
+        {
+            NodeEditMessage = error;
+            ShowToast(error, "warning");
+            return;
+        }
+
+        var result = await FlowchartTranslator.TranslateAsync(candidate);
+        if (!result.IsSuccess)
+        {
+            var diagnostic = result.Diagnostics.FirstOrDefault();
+            NodeEditMessage = diagnostic is null
+                ? "The edit is not supported by CodeLogic."
+                : $"{diagnostic.Code}: {diagnostic.Message}";
+            ShowToast("Node edit rejected; the source was not changed.", "warning");
+            return;
+        }
+
+        if (!EditorState.TryUpdateCode(candidate))
+        {
+            NodeEditMessage = "The edited source exceeds the editor limit.";
+            return;
+        }
+
+        ApplyValidFlowchart(result, "Node edit applied to the mapped source statement.");
+        NodeEditMessage = "Edit accepted. The editor and flowchart now use the updated statement.";
+        ShowToast("Node edit applied safely.");
     }
 
     [JSInvokable]
