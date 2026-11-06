@@ -1789,7 +1789,7 @@ select, input, textarea { accent-color: var(--color-accent); }
 .flowchart-node--interactive:hover rect, .flowchart-node--interactive:focus-visible rect, .flowchart-node--interactive:hover polygon, .flowchart-node--interactive:focus-visible polygon, .flowchart-node--interactive:hover circle, .flowchart-node--interactive:focus-visible circle { filter: drop-shadow(0 0 0.35rem var(--color-information)); stroke: var(--color-information) !important; }
 .flowchart-node--trace-current rect, .flowchart-node--trace-current circle, .flowchart-node--trace-current ellipse, .flowchart-node--trace-current polygon, .flowchart-node--trace-current path { animation: trace-node-pulse 900ms ease-in-out infinite alternate; filter: drop-shadow(0 0 0.55rem var(--color-accent)); stroke: var(--color-accent) !important; stroke-width: 3px !important; }
 .flowchart-node--trace-skipped { opacity: 0.3; transition: opacity 180ms ease; }
-.flowchart-edge--trace-taken path { animation: trace-edge-pulse 700ms linear infinite; stroke: var(--color-accent) !important; stroke-dasharray: 8 5; stroke-width: 3px !important; }
+.flowchart-edge--trace-taken path, .flowchart-link.flowchart-edge--trace-taken { animation: trace-edge-pulse 700ms linear infinite; stroke: var(--color-accent) !important; stroke-dasharray: 8 5; stroke-width: 3px !important; }
 @keyframes trace-node-pulse { to { filter: drop-shadow(0 0 0.8rem var(--color-accent)); } }
 @keyframes trace-edge-pulse { to { stroke-dashoffset: -13; } }
 .flowchart-node--selected rect, .flowchart-node--selected circle, .flowchart-node--selected ellipse, .flowchart-node--selected polygon, .flowchart-node--selected path { filter: drop-shadow(0 0 0.45rem var(--color-information)); stroke: var(--color-information) !important; }

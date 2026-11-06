@@ -119,7 +119,7 @@ export function fitFlowchart(container) {
 export function showTraceStep(editor, container, currentMermaidId, startOffset, length, previousMermaidId, skippedMermaidIds) {
     container.querySelectorAll(".flowchart-node--trace-current, .flowchart-node--trace-skipped")
         .forEach(node => node.classList.remove("flowchart-node--trace-current", "flowchart-node--trace-skipped"));
-    container.querySelectorAll(".edgePath")
+    container.querySelectorAll(".edgePath, .flowchart-link")
         .forEach(edge => edge.classList.remove("flowchart-edge--trace-taken"));
 
     const current = findDiagramNode(container, currentMermaidId);
@@ -129,7 +129,7 @@ export function showTraceStep(editor, container, currentMermaidId, startOffset, 
     }
 
     if (previousMermaidId !== null && previousMermaidId !== undefined) {
-        const edge = [...container.querySelectorAll(".edgePath")]
+        const edge = [...container.querySelectorAll(".edgePath, .flowchart-link")]
             .find(candidate => candidate.id.includes(previousMermaidId) && candidate.id.includes(currentMermaidId));
         edge?.classList.add("flowchart-edge--trace-taken");
     }
