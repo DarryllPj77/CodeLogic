@@ -113,7 +113,7 @@ Lesson practice uses authorized, antiforgery-protected HTML POST forms so refres
 
 Global limits:
 
-- maximum source length: 1,200 characters;
+- maximum source length: 10,000 characters through the shared analysis policy;
 - maximum nesting depth: 3;
 - execution policy: `static-analysis-only`.
 

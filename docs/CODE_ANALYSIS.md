@@ -3,7 +3,7 @@
 ## Document Status
 
 - Task: Prompt 14 — Roslyn parse and diagnostics
-- Last updated: 2026-11-01
+- Last updated: 2026-11-06
 - Scope: syntax parsing, fixed-subset validation, beginner explanations, and bounded server-side analysis
 
 ## What the Analyzer Does
@@ -33,7 +33,7 @@ Analysis applies these explicit limits before or during parsing:
 
 | Limit | Value | Reason |
 | --- | --- | --- |
-| Source length | 1,200 characters | Matches the curriculum and editor policy. |
+| Source length | 10,000 characters | Matches the shared curriculum, editor, authoring, and storage policy. |
 | Control-flow nesting | 3 levels | Keeps later explanations and traces understandable. |
 | Analysis duration | 2 seconds | Stops unusually expensive analysis, including cold-start overhead. |
 
@@ -51,7 +51,7 @@ Editing, loading, or resetting source clears the displayed result so stale feedb
 
 The adapter calls `CSharpSyntaxTree.ParseText` and inspects syntax nodes only. It does not create a `CSharpCompilation`, resolve or load assemblies, emit binaries, use reflection, start a process, or execute learner source. Parsing permission is not execution permission.
 
-The time limit is a cooperative in-process cancellation bound, not a process-isolation security boundary. The 1,200-character input limit is applied first. Moving analysis to an isolated worker remains a future option if measured load or security policy justifies it.
+The time limit is a cooperative in-process cancellation bound, not a process-isolation security boundary. The 10,000-character input limit is applied first. Live flowchart work is debounced by 400 milliseconds, and boundary tests require analysis and translation at the maximum accepted length to complete inside the existing two-second budget. Moving analysis to an isolated worker remains a future option if measured load or security policy justifies it.
 
 ## Known Limitations
 

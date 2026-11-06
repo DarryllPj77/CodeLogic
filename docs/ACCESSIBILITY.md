@@ -98,7 +98,8 @@ Perform these checks in Microsoft Edge or Chrome before accepting Prompt 10:
 19. Open Playground and reach the snippet selector, load button, textarea, save button, and reset button using only `Tab` and `Shift+Tab`.
 20. Confirm Tab leaves the textarea instead of inserting indentation or trapping focus.
 21. With focus in the editor, confirm `Ctrl+S` saves and `Ctrl+Alt+R` resets; verify the live status text announces each result.
-22. Enter text up to the displayed 1,200-character limit and confirm the character count remains understandable without color.
+22. Enter text up to the displayed 10,000-character limit and confirm the character count remains understandable without color.
+23. In the source editor, confirm `Tab` and `Shift+Tab` indent and outdent, the visible hint is referenced by `aria-describedby`, and `Esc` followed by `Tab` moves focus to the next control.
 23. At 200% zoom and 320 CSS pixels, confirm the editor, controls, shortcuts, limitations, and status remain readable without page-level horizontal scrolling.
 24. Activate **Check syntax** using only the keyboard for valid, malformed, and unsupported source. Confirm the result heading, code, line/column, message, and explanation are readable and announced without relying on color.
 25. Edit the source after analysis and confirm stale feedback disappears without losing the current text.

@@ -52,7 +52,7 @@ Browser input is untrusted even when it comes from a hidden field, `maxlength` c
 
 | Threat | Example | Current controls | Residual risk / next trigger |
 | --- | --- | --- | --- |
-| Malicious snippet | `Process.Start`, file access, reflection, networking, infinite loops | 1,200-character limit, three-level nesting limit, syntax-only Roslyn validation, supported-type/API allowlist, two-second analysis timeout, 100-operation interpreter limit, no compilation/execution primitives | The interpreter is not a security sandbox; every new supported syntax feature needs negative tests. |
+| Malicious snippet | `Process.Start`, file access, reflection, networking, infinite loops | 10,000-character limit, three-level nesting limit, syntax-only Roslyn validation, supported-type/API allowlist, two-second analysis timeout, 100-operation interpreter limit, no compilation/execution primitives | The interpreter is not a security sandbox; every new supported syntax feature needs negative tests. |
 | File upload | Executable, archive bomb, oversized source file, path traversal | No upload control or route exists; static tests fail if an upload surface appears. Requests and multipart forms are capped at 64 KiB. | Any future upload requires a separate threat model, storage quarantine, content/type validation, quotas, malware strategy, and authorization tests. |
 | Resource exhaustion | Huge form values, deep syntax, infinite-looking loop, password-hash abuse | 64 KiB request/multipart limit, 16 KiB form value limit, 32-value cap, account field limits, analysis time/size/nesting limits, trace operation limit, cancellation propagation | Per-IP/account rate limiting and distributed quotas are not implemented; required before public scale. |
 | Authentication attack | Brute force, credential stuffing, account enumeration | ASP.NET Core Identity hashing, strong password policy, unique email, five-attempt lockout, generic login failure, bounded 128-character password input | Email confirmation, MFA, recovery, breached-password checks, and production rate limiting remain required for public deployment. |
@@ -83,7 +83,7 @@ Server-side checks are authoritative; browser attributes are only usability aids
 | Email | 254 characters |
 | Password submitted to Identity | 128 characters |
 | Local return URL | 2,048 characters |
-| Analysis/editor source | 1,200 characters |
+| Analysis/editor source | 10,000 characters |
 | Analysis nesting | 3 control-flow levels |
 | Analysis duration | 2 seconds |
 | Pedagogical trace | 100 operations |

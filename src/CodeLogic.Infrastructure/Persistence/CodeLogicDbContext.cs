@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
+using CodeLogic.Application.Analysis;
 using CodeLogic.Infrastructure.Identity;
 
 namespace CodeLogic.Infrastructure.Persistence;
@@ -70,7 +71,7 @@ public sealed class CodeLogicDbContext(DbContextOptions<CodeLogicDbContext> opti
         lesson.Property(entity => entity.ExerciseTitle).HasMaxLength(200).IsRequired();
         lesson.Property(entity => entity.ExercisePrompt).HasMaxLength(2_000).IsRequired();
         lesson.Property(entity => entity.ExerciseKind).IsRequired();
-        lesson.Property(entity => entity.SampleCode).HasMaxLength(1_200).IsRequired();
+        lesson.Property(entity => entity.SampleCode).HasMaxLength(CodeAnalysisDefaults.MaximumCharacters).IsRequired();
         lesson.Property(entity => entity.AllowedConceptsJson).IsRequired();
         lesson.Property(entity => entity.QuizResponseKind).IsRequired();
         lesson.Property(entity => entity.QuizAssessmentGoal).HasMaxLength(1_000).IsRequired();
@@ -119,7 +120,7 @@ public sealed class CodeLogicDbContext(DbContextOptions<CodeLogicDbContext> opti
         lesson.Property(entity => entity.Title).HasMaxLength(200).IsRequired();
         lesson.Property(entity => entity.Objective).HasMaxLength(1_000).IsRequired();
         lesson.Property(entity => entity.Content).HasMaxLength(10_000).IsRequired();
-        lesson.Property(entity => entity.SampleCode).HasMaxLength(1_200).IsRequired();
+        lesson.Property(entity => entity.SampleCode).HasMaxLength(CodeAnalysisDefaults.MaximumCharacters).IsRequired();
         lesson.Property(entity => entity.CreatedAtUtc).IsRequired();
         lesson.Property(entity => entity.UpdatedAtUtc).IsRequired();
         lesson.HasIndex(entity => new { entity.Status, entity.PublishedAtUtc });

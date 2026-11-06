@@ -1,5 +1,6 @@
 using System.Text;
 
+using CodeLogic.Application.Analysis;
 using CodeLogic.Application.Flowcharts;
 using CodeLogic.Infrastructure.Analysis;
 using CodeLogic.Infrastructure.Flowcharts;
@@ -320,6 +321,19 @@ public sealed class RoslynFlowchartTranslatorTests
         Assert.Equal(expectedStatus, result.Status);
         Assert.Null(result.Graph);
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == expectedCode);
+    }
+
+    [Fact]
+    public async Task MaximumLengthSourceTranslatesWithinTheAnalysisTimeBudget()
+    {
+        var source = "int value = 1;".PadRight(CodeAnalysisDefaults.MaximumCharacters);
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+
+        var result = await translator.TranslateAsync(source, cancellationSource.Token);
+
+        Assert.Equal(10_000, source.Length);
+        Assert.Equal(FlowchartTranslationStatus.Success, result.Status);
+        Assert.NotNull(result.Graph);
     }
 
     private static string Golden(FlowGraph graph)

@@ -1,4 +1,5 @@
 const shortcutHandlers = new WeakMap();
+const editorTabModes = new WeakMap();
 const sourceControllers = new WeakMap();
 const canvasControllers = new WeakMap();
 const suppressedSelections = new WeakSet();
@@ -7,6 +8,7 @@ const mermaidModuleUrl = "https://cdn.jsdelivr.net/npm/mermaid@12.2.0/dist/merma
 let mermaidPromise = null;
 
 export function initializeEditorShortcuts(editor) {
+    editorTabModes.set(editor, true);
     const handler = event => {
         const key = event.key.toLowerCase();
         let command = null;
@@ -17,11 +19,34 @@ export function initializeEditorShortcuts(editor) {
             command = "reset";
         }
 
-        if (command === null) {
+        if (command !== null) {
+            event.preventDefault();
+            return;
+        }
+
+        const tabAction = resolveEditorTabKey(event.key, event.shiftKey, editorTabModes.get(editor) ?? true);
+        editorTabModes.set(editor, tabAction.tabIndentEnabled);
+        if (tabAction.action === "release") {
+            event.preventDefault();
+            return;
+        }
+
+        if (tabAction.action === "focus-next" || tabAction.action === "none") {
             return;
         }
 
         event.preventDefault();
+        const edit = createIndentEdit(
+            editor.value,
+            editor.selectionStart,
+            editor.selectionEnd,
+            tabAction.action === "outdent");
+        const editedLength = edit === null
+            ? editor.value.length
+            : editor.value.length - (edit.rangeEnd - edit.rangeStart) + edit.replacement.length;
+        if (edit !== null && (editor.maxLength < 0 || editedLength <= editor.maxLength)) {
+            applyEditorEdit(editor, edit);
+        }
     };
 
     editor.addEventListener("keydown", handler);
@@ -33,6 +58,7 @@ export function disposeEditorShortcuts(editor) {
     if (handler !== undefined) {
         editor.removeEventListener("keydown", handler);
         shortcutHandlers.delete(editor);
+        editorTabModes.delete(editor);
     }
     sourceControllers.get(editor)?.abort();
     sourceControllers.delete(editor);
@@ -42,8 +68,133 @@ export function loadDraft(storageKey) {
     return window.localStorage.getItem(storageKey);
 }
 
-export function saveDraft(storageKey, code) {
+export function saveDraft(storageKey, code, maximumCharacters) {
+    if (!Number.isInteger(maximumCharacters) || maximumCharacters <= 0) {
+        throw new RangeError("The draft character limit must be a positive integer.");
+    }
+    if (code.length > maximumCharacters) {
+        throw new RangeError(`The draft exceeds the ${maximumCharacters.toLocaleString()}-character limit.`);
+    }
+
     window.localStorage.setItem(storageKey, code);
+}
+
+export function resolveEditorTabKey(key, shiftKey, tabIndentEnabled) {
+    if (key === "Escape") {
+        return { action: "release", tabIndentEnabled: false };
+    }
+    if (key !== "Tab") {
+        return { action: "none", tabIndentEnabled };
+    }
+    if (!tabIndentEnabled) {
+        return { action: "focus-next", tabIndentEnabled: true };
+    }
+
+    return { action: shiftKey ? "outdent" : "indent", tabIndentEnabled: true };
+}
+
+export function createIndentEdit(value, selectionStart, selectionEnd, outdent = false) {
+    if (typeof value !== "string"
+        || !Number.isInteger(selectionStart)
+        || !Number.isInteger(selectionEnd)
+        || selectionStart < 0
+        || selectionEnd < selectionStart
+        || selectionEnd > value.length) {
+        throw new RangeError("The editor selection must be within the source text.");
+    }
+
+    if (!outdent && selectionStart === selectionEnd) {
+        return {
+            rangeStart: selectionStart,
+            rangeEnd: selectionEnd,
+            replacement: "    ",
+            selectionStart: selectionStart + 4,
+            selectionEnd: selectionEnd + 4
+        };
+    }
+
+    const rangeStart = value.lastIndexOf("\n", Math.max(0, selectionStart - 1)) + 1;
+    let rangeEnd;
+    if (selectionEnd > selectionStart && value[selectionEnd - 1] === "\n") {
+        rangeEnd = selectionEnd - 1;
+    } else {
+        const nextLineBreak = value.indexOf("\n", selectionEnd);
+        rangeEnd = nextLineBreak === -1 ? value.length : nextLineBreak;
+    }
+    if (rangeEnd > rangeStart && value[rangeEnd - 1] === "\r") {
+        rangeEnd--;
+    }
+
+    const block = value.slice(rangeStart, rangeEnd);
+    const lines = block.split("\n");
+    const changes = [];
+    let lineStart = rangeStart;
+    const changedLines = lines.map(line => {
+        if (!outdent) {
+            changes.push({ start: lineStart, removed: 0, inserted: 4 });
+            lineStart += line.length + 1;
+            return `    ${line}`;
+        }
+
+        const leadingSpaces = line.match(/^ {1,4}/)?.[0].length ?? 0;
+        if (leadingSpaces > 0) {
+            changes.push({ start: lineStart, removed: leadingSpaces, inserted: 0 });
+        }
+        lineStart += line.length + 1;
+        return line.slice(leadingSpaces);
+    });
+
+    if (changes.length === 0) {
+        return null;
+    }
+
+    return {
+        rangeStart,
+        rangeEnd,
+        replacement: changedLines.join("\n"),
+        selectionStart: mapSelectionPosition(selectionStart, changes),
+        selectionEnd: mapSelectionPosition(selectionEnd, changes)
+    };
+}
+
+function mapSelectionPosition(position, changes) {
+    let delta = 0;
+    for (const change of changes) {
+        if (change.removed === 0) {
+            if (position >= change.start) {
+                delta += change.inserted;
+            }
+            continue;
+        }
+        if (position < change.start) {
+            break;
+        }
+        if (position <= change.start + change.removed) {
+            return change.start + delta;
+        }
+
+        delta += change.inserted - change.removed;
+    }
+
+    return position + delta;
+}
+
+function applyEditorEdit(editor, edit) {
+    editor.focus();
+    editor.setSelectionRange(edit.rangeStart, edit.rangeEnd);
+    let inputObserved = false;
+    editor.addEventListener("input", () => inputObserved = true, { once: true });
+
+    const insertedWithUndo = typeof document.execCommand === "function"
+        && document.execCommand("insertText", false, edit.replacement);
+    if (!insertedWithUndo) {
+        editor.setRangeText(edit.replacement, edit.rangeStart, edit.rangeEnd, "end");
+    }
+
+    editor.setSelectionRange(edit.selectionStart, edit.selectionEnd);
+    if (!inputObserved) {
+        editor.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    }
 }
 
 export function clearDraft(storageKey) {

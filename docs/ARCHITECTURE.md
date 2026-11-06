@@ -156,7 +156,7 @@ Mermaid is the first renderer because text output is easy to inspect, snapshot-t
 
 Roslyn parsing is not code execution. Arbitrary compilation and execution remain out of scope unless a later security-approved design introduces an isolated runner with explicit resource limits.
 
-Prompt 14 keeps Roslyn types inside Infrastructure. `ICodeAnalysisService` and neutral result records live in Application, and Web registers the adapter. The parser accepts at most 1,200 characters, applies a two-second cooperative cancellation limit and a three-level control-flow nesting limit, and reports input, syntax, unsupported-feature, or timeout outcomes. It uses syntax APIs only; semantic/type checking begins only in a future supplied task.
+Prompt 14 keeps Roslyn types inside Infrastructure. `ICodeAnalysisService` and neutral result records live in Application, and Web registers the adapter. The shared source policy accepts at most 10,000 characters, applies a two-second cooperative cancellation limit and a three-level control-flow nesting limit, and reports input, syntax, unsupported-feature, or timeout outcomes. It uses syntax APIs only; semantic/type checking begins only in a future supplied task.
 
 Prompt 15 adds Roslyn-free `FlowGraph`, `FlowNode`, `FlowEdge`, and `SourceSpan` contracts to Application. Infrastructure implements `IFlowchartTranslator` by visiting Roslyn syntax nodes. Schema 1.0 uses stable source-order IDs and explicit `Next`, `True`, and `False` edges. It translates simple sequence and one-level `if/else`; nested branches and other unimplemented control flow return positioned diagnostics without a partial graph. See [FLOWCHART_IR.md](FLOWCHART_IR.md).
 

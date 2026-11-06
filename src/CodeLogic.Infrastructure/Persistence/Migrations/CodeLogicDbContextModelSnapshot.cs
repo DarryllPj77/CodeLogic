@@ -110,7 +110,7 @@ namespace CodeLogic.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("SampleCode")
                         .IsRequired()
-                        .HasMaxLength(1200)
+                        .HasMaxLength(10000)
                         .HasColumnType("TEXT");
 
                     b.Property<int>("Status")
@@ -201,7 +201,7 @@ namespace CodeLogic.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("SampleCode")
                         .IsRequired()
-                        .HasMaxLength(1200)
+                        .HasMaxLength(10000)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("SectionsJson")

@@ -23,7 +23,7 @@ Do not compile or execute arbitrary student code inside the web application proc
 
 ## Prompt 14 Implementation Note
 
-Prompt 14 implements steps 1 and 2 plus syntax-tree-only subset validation. Application owns the analysis contract; Infrastructure owns the pinned Roslyn adapter; Web is the composition root and result presenter. Input is limited to 1,200 characters, control-flow nesting to three levels, and analysis to two seconds. Semantic/control-flow analysis, graph IR, and Mermaid remain future work.
+Prompt 14 originally implemented steps 1 and 2 plus syntax-tree-only subset validation. Application owns the analysis contract; Infrastructure owns the pinned Roslyn adapter; Web is the composition root and result presenter. The current shared input limit is 10,000 characters, control-flow nesting remains limited to three levels, and analysis remains limited to two seconds. Semantic/control-flow analysis, graph IR, and Mermaid were introduced only in their later designated tasks.
 
 ## Prompt 15 Implementation Note
 

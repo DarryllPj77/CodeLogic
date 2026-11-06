@@ -335,7 +335,7 @@ Completed outcomes:
 
 - replaced the placeholder with an accessible plain-text C# editor;
 - loaded the two complete curriculum samples without duplicating lesson source;
-- enforced the curriculum's 1,200-character size limit in HTML and editor state;
+- enforced the shared 10,000-character size limit in HTML, editor state, browser storage, authoring, persistence, and analysis;
 - added one browser-local draft with save, restore, and reset behavior;
 - added `Ctrl+S` save and `Ctrl+Alt+R` reset shortcuts without trapping Tab;
 - documented visible limitations and the non-execution boundary;
@@ -359,7 +359,7 @@ Completed outcomes:
 
 - added an Application analysis contract and neutral diagnostic result model;
 - added a pinned Roslyn Infrastructure adapter using C# syntax-tree APIs only;
-- enforced 1,200 characters, three control-flow nesting levels, and a two-second cooperative time limit;
+- enforced 10,000 characters, three control-flow nesting levels, and a two-second cooperative time limit;
 - distinguished invalid input, syntax errors, unsupported constructs, timeouts, and valid supported source;
 - displayed one-based line/column diagnostics and beginner explanations in the Playground;
 - tested valid curriculum samples, malformed syntax, limits, caller cancellation, and unsupported language/framework features.
@@ -660,6 +660,13 @@ Prompt 26 does not push an image, deploy to cloud, run a production migration, a
 ## Awaiting the Next Supplied Prompt
 
 Prompts 27–29 remain undefined in the repository. The owner must provide the exact next prompt before implementation continues.
+
+## Owner-Directed Editor Accessibility Update
+
+- raised the one shared source-text policy to 10,000 characters across curriculum, authoring, persistence, analysis, editor state, HTML, and browser draft storage;
+- added four-space `Tab` indentation and `Shift+Tab` outdent for a cursor or multi-line selection while preserving the textarea's native undo path and existing input-driven source mapping/live preview;
+- added an `Esc`, then `Tab` focus-exit path, visible editor guidance, and `aria-describedby` linkage;
+- retained the existing 400-millisecond live-flowchart debounce and two-second analysis bound, with 10,000-character boundary coverage for analysis and translation.
 
 ## Six-Level Growth Map
 

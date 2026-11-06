@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 
+using CodeLogic.Application.Analysis;
+
 namespace CodeLogic.Application.Authoring;
 
 public enum AuthoredLessonStatus
@@ -67,7 +69,7 @@ public static class LessonAuthoringValidator
     public const int MaximumTitleLength = 200;
     public const int MaximumObjectiveLength = 1_000;
     public const int MaximumContentLength = 10_000;
-    public const int MaximumSampleCodeLength = 1_200;
+    public const int MaximumSampleCodeLength = CodeAnalysisDefaults.MaximumCharacters;
 
     public static IReadOnlyList<string> Validate(LessonAuthoringInput input)
     {

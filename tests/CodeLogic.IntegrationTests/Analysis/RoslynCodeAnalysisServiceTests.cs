@@ -94,15 +94,20 @@ public sealed class RoslynCodeAnalysisServiceTests
     [Fact]
     public async Task SizeBoundaryIsEnforcedBeforeParsing()
     {
-        var validAtLimit = "int value = 1;".PadRight(service.Limits.MaximumCharacters);
+        var validAtLimit = "int value = 1;".PadRight(CodeAnalysisDefaults.MaximumCharacters);
         var oversized = validAtLimit + " ";
 
-        var boundaryResult = await service.AnalyzeAsync(validAtLimit);
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        var boundaryResult = await service.AnalyzeAsync(validAtLimit, cancellationSource.Token);
         var oversizedResult = await service.AnalyzeAsync(oversized);
 
+        Assert.Equal(10_000, validAtLimit.Length);
+        Assert.Equal(10_001, oversized.Length);
         Assert.Equal(CodeAnalysisStatus.Valid, boundaryResult.Status);
         Assert.Equal(CodeAnalysisStatus.InvalidInput, oversizedResult.Status);
-        Assert.Equal("CL0002", Assert.Single(oversizedResult.Diagnostics).Code);
+        var diagnostic = Assert.Single(oversizedResult.Diagnostics);
+        Assert.Equal("CL0002", diagnostic.Code);
+        Assert.Contains("10,000", diagnostic.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -191,7 +196,7 @@ public sealed class RoslynCodeAnalysisServiceTests
     {
         var policy = new SeededCurriculumCatalog().GetManifest().SafeSnippetPolicy;
 
-        Assert.Equal(1_200, service.Limits.MaximumCharacters);
+        Assert.Equal(10_000, service.Limits.MaximumCharacters);
         Assert.Equal(3, service.Limits.MaximumNestingDepth);
         Assert.Equal(TimeSpan.FromSeconds(2), service.Limits.MaximumDuration);
         Assert.Equal(policy.MaximumCharacters, service.Limits.MaximumCharacters);

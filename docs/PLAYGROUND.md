@@ -3,7 +3,7 @@
 ## Document Status
 
 - Tasks: Prompts 13–19 plus the owner-directed IDE workspace redesign
-- Last updated: 2026-11-01
+- Last updated: 2026-11-06
 - Editor: accessible HTML textarea with interactive server UI
 
 ## Scope
@@ -46,9 +46,9 @@ The Explorer is a size-aware container rather than a scaled desktop panel. At in
 
 ## Snippets and Size Limit
 
-The editor loads sample code from the two complete curriculum lessons rather than maintaining duplicate examples in the UI. It uses the curriculum `SafeSnippetPolicy.MaximumCharacters` value, currently 1,200 characters.
+The editor loads sample code from the two complete curriculum lessons rather than maintaining duplicate examples in the UI. It uses the shared `CodeAnalysisDefaults.MaximumCharacters` policy through the curriculum manifest, currently 10,000 characters. The same limit controls authoring validation, Roslyn analysis, flowchart translation, EF mappings, the textarea, editor state, and browser draft saves.
 
-The HTML `maxlength` attribute prevents ordinary input beyond the limit. `PlaygroundEditorState` independently rejects oversized restored or programmatic text, so browser storage cannot bypass the limit.
+The HTML `maxlength` attribute prevents ordinary input beyond the limit. `PlaygroundEditorState` independently rejects oversized restored or programmatic text, and the browser storage adapter refuses oversized saves, so local storage cannot bypass the limit. Live flowchart translation remains debounced by 400 milliseconds and bounded analysis retains its two-second cancellation limit.
 
 ## Save and Reset
 
@@ -56,7 +56,8 @@ The HTML `maxlength` attribute prevents ordinary input beyond the limit. `Playgr
 - **Reset editor** asks for confirmation, then restores the currently loaded curated snippet and removes that saved draft.
 - `Ctrl+S` saves while focus is in the editor.
 - `Ctrl+Alt+R` resets while focus is in the editor.
-- Tab retains its native behavior and moves focus out of the textarea; CodeLogic does not create a keyboard trap.
+- `Tab` inserts four spaces at the cursor or indents every selected line. `Shift+Tab` removes up to four leading spaces from the current or selected lines.
+- Press `Esc`, then `Tab` to leave the editor. The following editor visit restores indentation behavior, so CodeLogic does not create a keyboard trap.
 
 The draft is not attached to an Identity account, sent to the database, synced across browsers, or submitted to a server for processing. Clearing browser storage removes it.
 
@@ -64,7 +65,7 @@ The draft is not attached to an Identity account, sent to the database, synced a
 
 The Playground does not provide Run, Compile, terminal, package restore, file upload, or general .NET execution. Potentially dangerous APIs such as process launch, filesystem access, reflection, networking, and unsupported object creation return an Unsupported diagnostic. They produce no partial trace.
 
-Analysis is limited to 1,200 characters, three control-flow nesting levels, and two seconds. The teaching trace stops after 100 operations. Empty/oversized input, unsupported input, limit exhaustion, and internal failure remain visibly distinct. See [SECURITY.md](SECURITY.md) for the threat model and the disabled-execution decision.
+Analysis is limited to 10,000 characters, three control-flow nesting levels, and two seconds. The teaching trace stops after 100 operations. Empty/oversized input, unsupported input, limit exhaustion, and internal failure remain visibly distinct. See [SECURITY.md](SECURITY.md) for the threat model and the disabled-execution decision.
 
 ## Manual Visual Studio Check
 
@@ -74,22 +75,23 @@ Analysis is limited to 1,200 characters, three control-flow nesting levels, and 
 4. Select Operators, choose **Load snippet**, change it, and press `Ctrl+S`. Refresh and confirm that one saved draft returns.
 5. Press `Ctrl+Alt+R`. Confirm the editor returns to the selected curated snippet and a later refresh no longer restores the old draft.
 6. Navigate through the selector, buttons, textarea, and limitation content using only the keyboard.
-7. Confirm visible focus, labels, live status messages, character count, and usable stacked layout at 200% zoom and 320 CSS pixels.
-8. Select **Check syntax** for a valid sample, malformed syntax, and unsupported `foreach`. Confirm results are specific and the source text remains available for revision.
-9. Preview the default sequence, a nested `if/else`, and each supported loop form. Confirm readable nodes, True/False/repeat arrows, zoom/fit controls, equivalent text connections, selected node properties, SVG highlighting, and **Show line** source selection.
-10. Drag each panel separator, resize it with arrow keys, and double-click to reset it. Refresh and confirm adjusted panel sizes persist in this browser.
-11. Click a flowchart node and activate one with Enter. Confirm source selection, graph highlight, properties, and text map remain synchronized. Move the editor caret into another mapped statement and confirm the selected node changes.
-12. Hold Ctrl while scrolling over the canvas to zoom, and drag empty canvas space to pan. Confirm node activation still works and the displayed zoom value changes.
-13. Try `break`, `continue`, excessive nesting, and malformed syntax. Confirm useful error states replace the old preview without losing source.
-14. Build a trace for the Variables sample. Confirm Next step exposes the program counter, active node, variable changes, and cumulative output.
-15. Reset the trace and confirm it returns to Start with empty state.
-16. Trace true and false branches, a bounded loop, and `while (true) { }`. Confirm branch correctness and the 100-operation limit.
-17. Confirm there is no Run, Compile, terminal, arbitrary execution, or claim of general .NET behavior.
-18. Load the age exercise and check its known cases. Confirm ages 17, 18, and 19 show expected and actual output and that 18 is labeled Boundary.
-19. Change `>=` to `>`. Confirm age 18 alone fails with an actionable hint.
-20. Enter malformed source. Confirm analysis diagnostics appear separately with no logical verdict.
-21. Use `age == 18 || age == 19`. Confirm all known cases pass while the visible limitation warns that untested age 20 can still fail.
-22. Enter process, file-write, reflection, and network-client examples. Confirm each fails closed with an Unsupported explanation and no trace steps.
+7. In the editor, press `Tab` at a cursor and across a multi-line selection, then use `Shift+Tab`. Confirm four-space indentation/outdent, correct selection, undo with `Ctrl+Z`, and a refreshed flowchart after the debounce. Press `Esc`, then `Tab`, and confirm focus moves to the next control.
+8. Confirm visible focus, labels, live status messages, the `x / 10000 characters` counter, and usable stacked layout at 200% zoom and 320 CSS pixels.
+9. Select **Check syntax** for a valid sample, malformed syntax, and unsupported `foreach`. Confirm results are specific and the source text remains available for revision.
+10. Preview the default sequence, a nested `if/else`, and each supported loop form. Confirm readable nodes, True/False/repeat arrows, zoom/fit controls, equivalent text connections, selected node properties, SVG highlighting, and **Show line** source selection.
+11. Drag each panel separator, resize it with arrow keys, and double-click to reset it. Refresh and confirm adjusted panel sizes persist in this browser.
+12. Click a flowchart node and activate one with Enter. Confirm source selection, graph highlight, properties, and text map remain synchronized. Move the editor caret into another mapped statement and confirm the selected node changes.
+13. Hold Ctrl while scrolling over the canvas to zoom, and drag empty canvas space to pan. Confirm node activation still works and the displayed zoom value changes.
+14. Try `break`, `continue`, excessive nesting, and malformed syntax. Confirm useful error states replace the old preview without losing source.
+15. Build a trace for the Variables sample. Confirm Next step exposes the program counter, active node, variable changes, and cumulative output.
+16. Reset the trace and confirm it returns to Start with empty state.
+17. Trace true and false branches, a bounded loop, and `while (true) { }`. Confirm branch correctness and the 100-operation limit.
+18. Confirm there is no Run, Compile, terminal, arbitrary execution, or claim of general .NET behavior.
+19. Load the age exercise and check its known cases. Confirm ages 17, 18, and 19 show expected and actual output and that 18 is labeled Boundary.
+20. Change `>=` to `>`. Confirm age 18 alone fails with an actionable hint.
+21. Enter malformed source. Confirm analysis diagnostics appear separately with no logical verdict.
+22. Use `age == 18 || age == 19`. Confirm all known cases pass while the visible limitation warns that untested age 20 can still fail.
+23. Enter process, file-write, reflection, and network-client examples. Confirm each fails closed with an Unsupported explanation and no trace steps.
 
 ## Known Limitations
 

@@ -93,6 +93,25 @@ public sealed class EfLessonAuthoringServiceTests
     }
 
     [Fact]
+    public async Task SampleCodeUsesTheSharedTenThousandCharacterBoundary()
+    {
+        await using var fixture = await AuthoringFixture.CreateAsync();
+        var service = CreateService(fixture.Context);
+
+        var accepted = await service.CreateDraftAsync(
+            ValidInput() with { SampleCode = "int value = 1;".PadRight(10_000) },
+            fixture.Owner.Id);
+        var rejected = await service.CreateDraftAsync(
+            ValidInput() with { SampleCode = "int value = 1;".PadRight(10_001) },
+            fixture.Owner.Id);
+
+        Assert.True(accepted.IsSuccess);
+        Assert.Equal(LessonAuthoringResultStatus.ValidationFailed, rejected.Status);
+        Assert.Contains(rejected.Errors, error => error.Contains("10,000", StringComparison.Ordinal));
+        Assert.Single(await fixture.Context.AuthoredLessons.ToArrayAsync());
+    }
+
+    [Fact]
     public async Task NonOwnerCannotUpdateOrPublishDraft()
     {
         await using var fixture = await AuthoringFixture.CreateAsync();

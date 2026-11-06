@@ -1,3 +1,4 @@
+using CodeLogic.Application.Analysis;
 using CodeLogic.Web.Playground;
 
 namespace CodeLogic.IntegrationTests.Playground;
@@ -23,6 +24,19 @@ public sealed class PlaygroundEditorStateTests
         Assert.True(state.TryUpdateCode(new string('a', state.MaximumCharacters)));
         Assert.False(state.TryUpdateCode(new string('b', state.MaximumCharacters + 1)));
         Assert.Equal(new string('a', state.MaximumCharacters), state.CurrentCode);
+        Assert.Equal(0, state.RemainingCharacters);
+    }
+
+    [Fact]
+    public void SharedSourceLimitAcceptsTenThousandAndRejectsTenThousandAndOne()
+    {
+        var state = new PlaygroundEditorState(
+            [new PlaygroundSnippet("variables", "Variables", "Variable example", "int score = 5;")],
+            CodeAnalysisDefaults.MaximumCharacters);
+
+        Assert.True(state.TryUpdateCode(new string('a', 10_000)));
+        Assert.False(state.TryUpdateCode(new string('b', 10_001)));
+        Assert.Equal(10_000, state.CurrentCode.Length);
         Assert.Equal(0, state.RemainingCharacters);
     }
 

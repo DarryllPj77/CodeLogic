@@ -38,7 +38,7 @@ Do not guess the user ID, run this against production, or assign the role to an 
 
 ## Validation, Versioning, and Audit Basics
 
-Every draft and publication requires non-blank title, objective, lesson content, and sample code. Limits are 200, 1,000, 10,000, and 1,200 characters respectively. Application validation is authoritative even though the UI also exposes matching limits.
+Every draft and publication requires non-blank title, objective, lesson content, and sample code. Limits are 200, 1,000, 10,000, and 10,000 characters respectively. Sample code uses the shared analysis limit; Application validation is authoritative even though the UI also exposes matching limits.
 
 Version starts at 1 and increments on each successful update and publication. Updates carry the expected version; stale writes receive a conflict instead of silently overwriting newer content. Each record stores owner, created UTC, updated UTC, and optional published UTC timestamps. The public page shows the published version but does not expose the owner's account identifier.
 

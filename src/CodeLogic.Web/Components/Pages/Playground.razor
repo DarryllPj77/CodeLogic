@@ -112,7 +112,7 @@
         <div class="section-heading">
             <p class="eyebrow">Plain-text editor</p>
             <h2 id="editor-title">Edit a supported learning example</h2>
-            <p>Tab moves to the next control so keyboard users are never trapped inside the editor.</p>
+            <p>Tab and Shift+Tab indent code. Press Esc, then Tab to move to the next control.</p>
         </div>
 
         <div class="snippet-picker">
@@ -143,9 +143,10 @@
                   autocomplete="off"
                   autocapitalize="off"
                   disabled="@(!BrowserReady)"
-                  aria-describedby="editor-help editor-character-count editor-status"></textarea>
+                  aria-describedby="editor-tab-help editor-help editor-character-count editor-status"></textarea>
 
         <div class="editor-meta">
+            <p id="editor-tab-help">Tab indents. Press Esc, then Tab to leave the editor.</p>
             <p id="editor-help">
                 Shortcuts: <kbd>Ctrl</kbd>+<kbd>S</kbd> saves; <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd> resets.
             </p>
@@ -874,7 +875,8 @@
             await JavaScriptModule.InvokeVoidAsync(
                 "saveDraft",
                 DraftStorageKey,
-                EditorState.CurrentCode);
+                EditorState.CurrentCode,
+                EditorState.MaximumCharacters);
             EditorState.MarkSaved();
             StatusMessage = "Draft saved in this browser.";
             ShowToast("Draft saved in this browser.");

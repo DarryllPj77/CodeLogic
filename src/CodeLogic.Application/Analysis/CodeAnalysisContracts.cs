@@ -4,7 +4,7 @@ namespace CodeLogic.Application.Analysis;
 
 public static class CodeAnalysisDefaults
 {
-    public const int MaximumCharacters = 1_200;
+    public const int MaximumCharacters = 10_000;
 
     public const int MaximumNestingDepth = 3;
 
