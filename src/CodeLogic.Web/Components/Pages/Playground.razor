@@ -62,8 +62,13 @@
         <button type="button" class="rail-button" title="Open diagnostics" aria-label="Open diagnostics" @onclick="OpenDiagnosticsAsync">△</button>
     </nav>
 
+    <aside class="workspace-sidebar-strip workspace-sidebar-strip--explorer @(!IsExplorerCollapsed ? "workspace-sidebar-strip--hidden" : null)" aria-label="Collapsed Explorer">
+        <button type="button" class="sidebar-expand-button" title="Expand Explorer" aria-label="Expand Explorer" @onclick="ToggleExplorerAsync">›</button>
+        <span aria-hidden="true">Explorer</span>
+    </aside>
+
     <aside class="workspace-explorer" aria-labelledby="explorer-title">
-        <div class="panel-title"><h2 id="explorer-title">@(ActiveSidebarPanel == "structure" ? "Code structure" : "Explorer")</h2><button type="button" class="panel-close" aria-label="Collapse side panel" @onclick="ToggleExplorerAsync">×</button></div>
+        <div class="panel-title"><h2 id="explorer-title">@(ActiveSidebarPanel == "structure" ? "Code structure" : "Explorer")</h2><button type="button" class="panel-close" aria-label="Collapse Explorer" title="Collapse Explorer" @onclick="ToggleExplorerAsync">×</button></div>
         @if (ActiveSidebarPanel == "structure")
         {
             <p class="tree-heading">GENERATED STRUCTURE</p>
@@ -76,7 +81,12 @@
                 <ul class="file-tree">
                     @foreach (var item in FlowchartDocument.SourceMap)
                     {
-                        <li><button type="button" class="tree-button" @onclick="() => SelectNodeAsync(item)">@item.NodeType · @item.Label</button></li>
+                        <li>
+                            <button type="button" class="tree-button" title="@item.NodeType: @item.Label" @onclick="() => SelectNodeAsync(item)">
+                                <span class="file-tree__icon" aria-hidden="true">◇</span>
+                                <span class="file-tree__label">@item.NodeType · @item.Label</span>
+                            </button>
+                        </li>
                     }
                 </ul>
             }
@@ -85,14 +95,15 @@
         {
             <p class="tree-heading">CODELOGIC WORKSPACE</p>
             <ul class="file-tree">
-                <li class="file-tree__folder">⌄ Source</li>
-                <li class="file-tree__file file-tree__file--active"># Program.cs</li>
-                <li class="file-tree__folder">› Flow graph</li>
-                <li class="file-tree__folder">› Diagnostics</li>
+                <li class="file-tree__folder"><span class="file-tree__icon" aria-hidden="true">⌄</span><span class="file-tree__label">Source</span></li>
+                <li class="file-tree__file file-tree__file--active"><span class="file-tree__icon" aria-hidden="true">#</span><span class="file-tree__label">Program.cs</span></li>
+                <li class="file-tree__folder"><span class="file-tree__icon" aria-hidden="true">›</span><span class="file-tree__label">Flow graph</span></li>
+                <li class="file-tree__folder"><span class="file-tree__icon" aria-hidden="true">›</span><span class="file-tree__label">Diagnostics</span></li>
             </ul>
             <p class="explorer-note">Source text is the single source of truth. Diagram nodes are generated, not manually edited.</p>
         }
         <div class="resize-handle resize-handle--vertical" data-resize-panel="explorer" role="separator" tabindex="0" aria-label="Resize Explorer" aria-orientation="vertical" aria-valuemin="120" aria-valuemax="300" aria-valuenow="160" title="Drag or use arrow keys to resize. Double-click to reset."></div>
+        <button type="button" class="sidebar-collapse-button sidebar-collapse-button--explorer" aria-label="Collapse Explorer" title="Collapse Explorer" @onclick="ToggleExplorerAsync"><span aria-hidden="true">‹</span></button>
     </aside>
 
 <div class="playground-layout">
@@ -189,9 +200,15 @@
         }
     </section>
 
+    <aside class="workspace-sidebar-strip workspace-sidebar-strip--properties @(IsPropertiesOpen ? "workspace-sidebar-strip--hidden" : null)" aria-label="Collapsed Node Properties">
+        <button type="button" class="sidebar-expand-button" title="Expand Node Properties" aria-label="Expand Node Properties" @onclick="TogglePropertiesAsync">‹</button>
+        <span aria-hidden="true">Properties</span>
+    </aside>
+
     <aside class="playground-guide properties-panel" aria-labelledby="playground-guide-title">
         <div class="resize-handle resize-handle--vertical resize-handle--leading" data-resize-panel="properties" role="separator" tabindex="0" aria-label="Resize node properties" aria-orientation="vertical" aria-valuemin="220" aria-valuemax="420" aria-valuenow="240" title="Drag or use arrow keys to resize. Double-click to reset."></div>
-        <div class="panel-title"><h2 id="playground-guide-title">Node properties</h2><button type="button" class="panel-close" aria-label="Close node properties" @onclick="TogglePropertiesAsync">×</button></div>
+        <button type="button" class="sidebar-collapse-button sidebar-collapse-button--properties" aria-label="Collapse Node Properties" title="Collapse Node Properties" @onclick="TogglePropertiesAsync"><span aria-hidden="true">›</span></button>
+        <div class="panel-title"><h2 id="playground-guide-title">Node properties</h2><button type="button" class="panel-close" aria-label="Collapse Node Properties" title="Collapse Node Properties" @onclick="TogglePropertiesAsync">×</button></div>
         @if (SelectedNode is null)
         {
             <div class="properties-empty">

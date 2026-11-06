@@ -38,6 +38,7 @@ These checks cover the application shell, lesson reading, deterministic practice
 - Flowchart zoom and fit are native buttons with accessible names and a text zoom value.
 - Generated SVG nodes are focusable buttons with node type, label, and source-line names; Enter and Space perform the same synchronized selection as a pointer click.
 - Panel resize handles use separator roles, orientation and value metadata, keyboard arrows, visible focus, and double-click reset. Resizing is not pointer-only.
+- The Explorer's compact-width state hides visual labels without removing each control's accessible name or title; expanding restores visible text while icons remain stable throughout resizing.
 - The responsive node-properties panel is opened and closed by a native button with `aria-expanded`; no core graph detail exists only in the drawer.
 - In-progress analysis uses an indeterminate busy state and text rather than fabricated percentages. Completion notifications use status or alert semantics and can be dismissed.
 - Resetting the editor and deleting its browser-local draft requires explicit confirmation; cancelling preserves both source and saved data.
