@@ -32,6 +32,75 @@ public sealed class ExecutionTraceNavigatorTests
     }
 
     [Fact]
+    public void StepBackReturnsToPreviousSnapshotAndStopsAtStart()
+    {
+        var navigator = new ExecutionTraceNavigator(CompletedTrace());
+
+        Assert.False(navigator.CanStepBack);
+        navigator.StepBack();
+        Assert.Equal(1, navigator.StepNumber);
+
+        navigator.Step();
+        navigator.Step();
+        Assert.True(navigator.CanStepBack);
+
+        navigator.StepBack();
+        Assert.Equal(2, navigator.StepNumber);
+        Assert.Equal("action", navigator.Current.ActiveNodeId);
+    }
+
+    [Fact]
+    public void ChangedVariablesReportsNewAndUpdatedValuesOnly()
+    {
+        var navigator = new ExecutionTraceNavigator(new ExecutionTraceResult(
+            ExecutionTraceStatus.Completed,
+            maximumOperations: 100,
+            steps:
+            [
+                Step(0, "start", FlowNodeType.Start, []),
+                Step(1, "action", FlowNodeType.Action, [KeyValuePair.Create("score", "5")]),
+                Step(2, "action", FlowNodeType.Action,
+                [
+                    KeyValuePair.Create("score", "6"),
+                    KeyValuePair.Create("name", "Mina"),
+                ]),
+                Step(3, "end", FlowNodeType.End,
+                [
+                    KeyValuePair.Create("score", "6"),
+                    KeyValuePair.Create("name", "Mina"),
+                ]),
+            ]));
+
+        navigator.Step();
+        Assert.Equal(["score"], navigator.ChangedVariables);
+
+        navigator.Step();
+        Assert.Equal(["name", "score"], navigator.ChangedVariables.Order(StringComparer.Ordinal));
+
+        navigator.Step();
+        Assert.Empty(navigator.ChangedVariables);
+    }
+
+    [Fact]
+    public void CurrentNodeVisitCountTracksRepeatedLoopNode()
+    {
+        var navigator = new ExecutionTraceNavigator(new ExecutionTraceResult(
+            ExecutionTraceStatus.Completed,
+            maximumOperations: 100,
+            steps:
+            [
+                Step(0, "loop", FlowNodeType.Decision, []),
+                Step(1, "body", FlowNodeType.Action, []),
+                Step(2, "loop", FlowNodeType.Decision, []),
+            ]));
+
+        Assert.Equal(1, navigator.CurrentNodeVisitCount);
+        navigator.Step();
+        navigator.Step();
+        Assert.Equal(2, navigator.CurrentNodeVisitCount);
+    }
+
+    [Fact]
     public void FailureResultCannotCreateNavigator()
     {
         var result = new ExecutionTraceResult(
