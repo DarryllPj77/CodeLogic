@@ -7,7 +7,7 @@
 - Current task: Prompt 26 implementation is ready; acceptance awaits a green pushed pull-request pipeline
 - Exact next numbered task: Prompt 27, only after Prompt 26 external verification and owner acceptance
 - Source coverage: Prompts 00–26 have been supplied; Prompts 27–29 have not yet been added to the repository
-- Owner-directed work: an unnumbered IDE-style UI redesign is implemented on its own branch, including locally persisted panel resizing and source-to-flowchart synchronization; it does not change numbered-prompt acceptance status
+- Owner-directed work: an unnumbered IDE-style UI redesign is implemented on its own branch, including locally persisted panel resizing, source-to-flowchart synchronization, and canvas-local trace controls; it does not change numbered-prompt acceptance status
 
 ## How to Use This Roadmap
 

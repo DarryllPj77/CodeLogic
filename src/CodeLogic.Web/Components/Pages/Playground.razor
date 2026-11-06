@@ -357,17 +357,52 @@
 </section>
 
 <section class="flowchart-panel" aria-labelledby="flowchart-title" aria-live="polite">
-    <div class="panel-heading-row">
-        <div>
-            <p class="eyebrow">Deterministic visualization</p>
-            <h2 id="flowchart-title">Flowchart canvas</h2>
+    <div class="canvas-header-sticky">
+        <div class="panel-heading-row">
+            <div>
+                <p class="eyebrow">Deterministic visualization</p>
+                <h2 id="flowchart-title">Flowchart canvas</h2>
+            </div>
+            <div class="canvas-header-actions">
+                @if (TraceNavigator is not null)
+                {
+                    <div class="canvas-trace-controls" aria-label="Canvas trace controls">
+                        <button class="icon-button canvas-play-button" type="button" @onclick="ToggleTracePlaybackAsync" disabled="@(IsPredictionMode || (!TraceNavigator.CanStep && !IsTracePlaying))">@(IsTracePlaying ? "Pause" : "Play")</button>
+                        <button class="icon-button" type="button" @onclick="NextTraceStepAsync" disabled="@(!TraceNavigator.CanStep || IsTracePlaying || (IsPredictionMode && CurrentPrediction is not null))">Step</button>
+                        <button class="icon-button" type="button" @onclick="PreviousTraceStepAsync" disabled="@(!TraceNavigator.CanStepBack || IsTracePlaying)">Back</button>
+                        <button class="icon-button" type="button" @onclick="ResetTraceAsync">Reset</button>
+                        <label class="canvas-trace-speed" for="canvas-trace-speed">
+                            Speed
+                            <input id="canvas-trace-speed" type="range" min="200" max="1600" step="100" @bind="TracePlaybackDelayMilliseconds" @bind:event="oninput" aria-valuetext="@TraceSpeedDescription" />
+                        </label>
+                        <label class="canvas-prediction-toggle">
+                            <input type="checkbox" checked="@IsPredictionMode" @onchange="TogglePredictionModeAsync" />
+                            Predict
+                        </label>
+                    </div>
+                }
+                <div class="canvas-controls" aria-label="Flowchart zoom controls">
+                    <button type="button" class="icon-button" @onclick="() => AdjustFlowchartZoomAsync(-0.1)" aria-label="Zoom out">−</button>
+                    <output aria-label="Current zoom">@($"{FlowchartZoom:P0}")</output>
+                    <button type="button" class="icon-button" @onclick="() => AdjustFlowchartZoomAsync(0.1)" aria-label="Zoom in">+</button>
+                    <button type="button" class="icon-button" @onclick="FitFlowchartAsync">Fit</button>
+                </div>
+            </div>
         </div>
-        <div class="canvas-controls" aria-label="Flowchart zoom controls">
-            <button type="button" class="icon-button" @onclick="() => AdjustFlowchartZoomAsync(-0.1)" aria-label="Zoom out">−</button>
-            <output aria-label="Current zoom">@($"{FlowchartZoom:P0}")</output>
-            <button type="button" class="icon-button" @onclick="() => AdjustFlowchartZoomAsync(0.1)" aria-label="Zoom in">+</button>
-            <button type="button" class="icon-button" @onclick="FitFlowchartAsync">Fit</button>
-        </div>
+        <p class="canvas-step-summary" role="status">@TraceCanvasDescription</p>
+        @if (IsPredictionMode && CurrentPrediction is not null)
+        {
+            <form class="canvas-prediction" @onsubmit="SubmitPredictionAsync" @onsubmit:preventDefault>
+                <AntiforgeryToken />
+                <label for="canvas-trace-prediction-answer">@CurrentPrediction.Prompt</label>
+                <input id="canvas-trace-prediction-answer" type="text" @bind="PredictionAnswer" @bind:event="oninput" autocomplete="off" />
+                <button class="icon-button canvas-play-button" type="submit">Check and step</button>
+            </form>
+        }
+        @if (PredictionFeedback is not null && IsPredictionMode)
+        {
+            <p class="canvas-prediction-feedback" role="status">@PredictionFeedback</p>
+        }
     </div>
 
     @if (FlowchartResult is null)
@@ -696,6 +731,9 @@
         <= 800 => "Normal",
         _ => "Slow",
     };
+    private string TraceCanvasDescription => TraceNavigator is null
+        ? "Build a step trace to control the bounded simulation beside the flowchart."
+        : $"Step {TraceNavigator.StepNumber} of {TraceNavigator.StepCount}: {TraceNavigator.Current.Explanation}";
 
     protected override void OnInitialized()
     {

@@ -1643,6 +1643,7 @@ kbd {
 
 /* IDE workspace redesign */
 body { background: var(--color-background); }
+.main-content:has(.ide-workspace) { overflow: visible !important; }
 a { color: var(--color-information); }
 a:hover { color: #7dd3fc; }
 h1, h2, h3 { color: var(--color-text-primary); }
@@ -1692,7 +1693,7 @@ select, input, textarea { accent-color: var(--color-accent); }
 .icon-button:hover, .icon-button[aria-pressed="true"] { border-color: #3b5a7a; color: var(--color-text-primary); }
 .properties-drawer-trigger { display: none; }
 
-.ide-workspace { --explorer-size: 160px; --editor-size: 410px; --properties-size: 240px; --bottom-size: 280px; display: grid; grid-template-columns: 3rem var(--explorer-size) minmax(18rem, var(--editor-size)) minmax(24rem, 1fr) var(--properties-size); grid-template-rows: minmax(34rem, 78vh) auto var(--bottom-size); margin: 0 1.25rem 1rem; min-width: 0; position: relative; }
+.ide-workspace { --explorer-size: 160px; --editor-size: 410px; --properties-size: 240px; --bottom-size: 280px; display: grid; grid-template-columns: 3rem var(--explorer-size) minmax(18rem, var(--editor-size)) minmax(24rem, 1fr) var(--properties-size); grid-template-rows: minmax(44rem, 88vh) auto var(--bottom-size); margin: 0 1.25rem 1rem; min-width: 0; position: relative; }
 .workspace-rail { background: #0a1321; border: 1px solid var(--color-border); display: flex; flex-direction: column; grid-column: 1; grid-row: 1 / -1; padding: var(--space-2) 0; }
 .rail-button { align-items: center; background: transparent; border: 0; border-left: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; display: flex; font-family: var(--font-mono); font-size: 0.9rem; height: 2.65rem; justify-content: center; text-decoration: none; width: 100%; }
 .rail-button:hover, .rail-button--active { background: var(--color-elevated); color: var(--color-text-primary); }
@@ -1740,7 +1741,7 @@ select, input, textarea { accent-color: var(--color-accent); }
 .ide-workspace .playground-layout { display: contents; }
 .ide-workspace .editor-panel { border-radius: 0; box-shadow: none; grid-column: 3; grid-row: 1; margin: 0; min-height: 0; overflow: auto; padding: var(--space-4); position: relative; }
 .ide-workspace .playground-guide { border-radius: 0; box-shadow: none; grid-column: 5; grid-row: 1; margin: 0; min-height: 0; overflow: auto; padding: var(--space-3); position: relative; }
-.ide-workspace .flowchart-panel { border-radius: 0; box-shadow: none; display: flex; flex-direction: column; grid-column: 4; grid-row: 1; margin: 0; min-height: 0; overflow: hidden; padding: var(--space-3); }
+.ide-workspace .flowchart-panel { border-radius: 0; box-shadow: none; display: flex; flex-direction: column; grid-column: 4; grid-row: 1; margin: 0; min-height: 0; overflow: visible; padding: var(--space-3); }
 .ide-workspace .logic-feedback-panel { border-radius: 0; box-shadow: none; grid-column: 3 / 6; grid-row: 2; margin: 0; }
 .ide-workspace .trace-panel { border-radius: 0; box-shadow: none; grid-column: 3 / 6; grid-row: 3; margin: 0; }
 
@@ -1777,11 +1778,23 @@ select, input, textarea { accent-color: var(--color-accent); }
 .node-kind--decision { border-color: var(--color-decision); }
 .node-kind--input, .node-kind--output { border-color: var(--color-output); }
 
-.panel-heading-row { align-items: center; border-bottom: 1px solid var(--color-border); display: flex; justify-content: space-between; padding-bottom: var(--space-2); }
+.canvas-header-sticky { background: var(--color-background-secondary); border-bottom: 1px solid var(--color-border); margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) 0; padding: var(--space-3); position: sticky; top: 0; z-index: 6; }
+.panel-heading-row { align-items: center; display: flex; gap: var(--space-3); justify-content: space-between; }
 .panel-heading-row .eyebrow { font-size: 0.62rem; margin-bottom: 0.15rem; }
 .panel-heading-row h2 { font-size: 0.9rem; margin: 0; }
+.canvas-header-actions { align-items: center; display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; }
+.canvas-trace-controls { align-items: center; border-right: 1px solid var(--color-border); display: flex; flex-wrap: wrap; gap: var(--space-1); padding-right: var(--space-2); }
+.canvas-play-button { border-color: #23806a; color: #a7f3d0; }
+.canvas-trace-speed, .canvas-prediction-toggle { align-items: center; color: var(--color-text-secondary); display: inline-flex; font-size: 0.66rem; gap: var(--space-1); }
+.canvas-trace-speed input { inline-size: 5.5rem; }
+.canvas-step-summary { color: var(--color-text-secondary); font-family: var(--font-mono); font-size: 0.7rem; margin: var(--space-2) 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.canvas-prediction { align-items: center; display: grid; gap: var(--space-2); grid-template-columns: minmax(10rem, 1fr) minmax(7rem, 12rem) auto; margin-top: var(--space-2); }
+.canvas-prediction label, .canvas-prediction-feedback { color: var(--color-text-secondary); font-size: 0.68rem; margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.canvas-prediction input { min-width: 0; }
+.canvas-prediction-feedback { color: var(--color-warning); margin-top: var(--space-1); }
 .canvas-controls output { color: var(--color-text-secondary); font-family: var(--font-mono); font-size: 0.68rem; min-width: 2.8rem; text-align: center; }
-.flowchart-canvas { background-color: var(--color-canvas); background-image: radial-gradient(#24354c 1px, transparent 1px); background-size: 18px 18px; border: 0; border-radius: 0.25rem; flex: 1; margin-top: var(--space-3); min-height: 24rem; overflow: auto; padding: var(--space-6); }
+.flowchart-canvas { background-color: var(--color-canvas); background-image: radial-gradient(#24354c 1px, transparent 1px); background-size: 18px 18px; border: 0; border-radius: 0.25rem; flex: 1; margin-top: var(--space-3); min-height: clamp(32rem, 62vh, 48rem); overflow: auto; overscroll-behavior: contain; padding: var(--space-6); scrollbar-width: none; }
+.flowchart-canvas::-webkit-scrollbar { display: none; }
 .flowchart-canvas--interactive { cursor: grab; touch-action: none; }
 .flowchart-canvas--panning { cursor: grabbing; }
 .flowchart-svg { min-width: 0; transition: transform 150ms ease; width: 100%; }
@@ -1793,7 +1806,7 @@ select, input, textarea { accent-color: var(--color-accent); }
 @keyframes trace-node-pulse { to { filter: drop-shadow(0 0 0.8rem var(--color-accent)); } }
 @keyframes trace-edge-pulse { to { stroke-dashoffset: -13; } }
 .flowchart-node--selected rect, .flowchart-node--selected circle, .flowchart-node--selected ellipse, .flowchart-node--selected polygon, .flowchart-node--selected path { filter: drop-shadow(0 0 0.45rem var(--color-information)); stroke: var(--color-information) !important; }
-.flowchart-text-map { max-height: 11rem; overflow: auto; padding-top: var(--space-3); }
+.flowchart-text-map { max-height: 9rem; overflow: auto; padding-top: var(--space-3); }
 .flowchart-text-map h3 { font-size: 0.78rem; }
 .flowchart-text-map p, .flowchart-node-list, .flowchart-edge-list { font-size: 0.7rem; }
 .source-map-item--selected { background: var(--color-elevated); border-left: 2px solid var(--color-information); }
@@ -1872,6 +1885,8 @@ select, input, textarea { accent-color: var(--color-accent); }
     .ide-workspace .logic-feedback-panel, .ide-workspace .trace-panel { grid-column: 2 / 4; }
     .ide-workspace--focus { grid-template-columns: 3rem minmax(32rem, 1fr); }
     .ide-workspace--focus .flowchart-panel, .ide-workspace--focus .logic-feedback-panel, .ide-workspace--focus .trace-panel { grid-column: 2; }
+    .panel-heading-row { align-items: flex-start; flex-direction: column; }
+    .canvas-header-actions { justify-content: flex-start; width: 100%; }
 }
 
 @media (max-width: 52rem) {
@@ -1886,6 +1901,10 @@ select, input, textarea { accent-color: var(--color-accent); }
     .rail-button--active { border-bottom-color: var(--color-accent); }
     .workspace-explorer, .properties-panel, .workspace-sidebar-strip { display: none; }
     .ide-workspace .editor-panel, .ide-workspace .flowchart-panel, .ide-workspace .logic-feedback-panel, .ide-workspace .trace-panel { display: block; max-height: none; min-height: auto; }
+    .canvas-header-sticky { top: 2.65rem; }
+    .canvas-trace-controls { border-right: 0; padding-right: 0; }
+    .canvas-prediction { grid-template-columns: minmax(0, 1fr) auto; }
+    .canvas-prediction label { grid-column: 1 / -1; }
     .flowchart-canvas { min-height: 28rem; }
     .bottom-tabs { gap: var(--space-3); overflow-x: auto; }
 }

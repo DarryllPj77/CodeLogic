@@ -74,6 +74,7 @@ export async function renderMermaid(container, definition, renderId, sourceMap, 
     bindDiagramNodes(container, sourceMap, dotNetReference);
     initializeSourceSynchronization(document.getElementById("code-editor"), container, sourceMap, dotNetReference);
     initializeCanvasInteractions(container, dotNetReference);
+    fitFlowchart(container, false);
 }
 
 export function selectSource(editor, container, mermaidId, startOffset, length) {
@@ -103,7 +104,7 @@ export function setFlowchartZoom(container, scale) {
     container.dataset.zoom = String(scale);
 }
 
-export function fitFlowchart(container) {
+export function fitFlowchart(container, smooth = true) {
     const svg = container.querySelector(".flowchart-svg");
     if (svg === null) {
         return;
@@ -113,7 +114,7 @@ export function fitFlowchart(container) {
     svg.style.transform = "none";
     svg.style.width = "100%";
     container.dataset.zoom = "1";
-    container.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    container.scrollTo({ top: 0, left: 0, behavior: smooth ? "smooth" : "auto" });
 }
 
 export function showTraceStep(editor, container, currentMermaidId, startOffset, length, previousMermaidId, skippedMermaidIds) {
@@ -313,7 +314,11 @@ async function loadMermaid() {
                 },
                 flowchart: {
                     curve: "linear",
-                    useMaxWidth: true
+                    useMaxWidth: true,
+                    wrappingWidth: 400,
+                    minNodeWidth: 220,
+                    nodeSpacing: 64,
+                    rankSpacing: 64
                 }
             });
             return mermaid;

@@ -35,7 +35,10 @@ public sealed class MermaidFlowchartSerializerTests
               n004 --> n005
             """;
 
-        Assert.Equal(expected.ReplaceLineEndings("\n"), document.Definition);
+        var expectedWithWrapOpportunities = expected
+            .Replace("Console.", "Console.\u200B", StringComparison.Ordinal)
+            .Replace("WriteLine(", "WriteLine(\u200B", StringComparison.Ordinal);
+        Assert.Equal(expectedWithWrapOpportunities.ReplaceLineEndings("\n"), document.Definition);
     }
 
     [Fact]
@@ -92,6 +95,17 @@ public sealed class MermaidFlowchartSerializerTests
 
         Assert.Equal(first.Definition, second.Definition);
         Assert.Equal(first.SourceMap, second.SourceMap);
+    }
+
+    [Fact]
+    public void NodeLabelsWrapAtPunctuationWithoutChangingSourceMapText()
+    {
+        var graph = BranchGraph();
+
+        var document = serializer.Serialize(graph);
+
+        Assert.Contains("Console.\u200BWriteLine(\u200B″Pass″);", document.Definition, StringComparison.Ordinal);
+        Assert.Equal("Console.WriteLine(\"Pass\");", document.SourceMap[3].Label);
     }
 
     [Fact]

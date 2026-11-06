@@ -43,6 +43,8 @@ These checks cover the application shell, lesson reading, deterministic practice
 - In-progress analysis uses an indeterminate busy state and text rather than fabricated percentages. Completion notifications use status or alert semantics and can be dismissed.
 - Resetting the editor and deleting its browser-local draft requires explicit confirmation; cancelling preserves both source and saved data.
 - Trace Play, Pause, Step, Back, Reset, and speed controls are native keyboard-operable controls. Current node, changed variable values, loop visits, and progressive console output all have text equivalents in addition to animation.
+- The canvas-local trace controls and lower trace panel share one state; both expose native controls, while the sticky canvas summary announces the current step without requiring repeated movement to the lower panel.
+- Flowchart rendering auto-fits without a visible inner scrollbar, active trace nodes pan into view, and every shortened visual label retains the complete source statement in its accessible name and SVG title.
 - The SVG is labeled as an image, remains inside a horizontally scrollable panel, and renderer failures retain the text equivalent.
 - Motion is non-essential and reduced when `prefers-reduced-motion` is enabled.
 - Forced-colors mode receives an explicit focus outline color.

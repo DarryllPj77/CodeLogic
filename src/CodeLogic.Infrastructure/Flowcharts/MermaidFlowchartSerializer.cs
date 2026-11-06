@@ -32,7 +32,7 @@ public sealed class MermaidFlowchartSerializer : IMermaidFlowchartSerializer
             definition
                 .Append("  ")
                 .Append(mermaidIds[node.Id])
-                .Append(NodeShape(node.Type, EscapeLabel(node.Label)))
+                .Append(NodeShape(node.Type, EscapeNodeLabel(node.Label)))
                 .Append('\n');
         }
 
@@ -70,6 +70,25 @@ public sealed class MermaidFlowchartSerializer : IMermaidFlowchartSerializer
         FlowNodeType.Action => $"[\"{label}\"]",
         _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown flow node type."),
     };
+
+    private static string EscapeNodeLabel(string label)
+    {
+        var escaped = EscapeLabel(label);
+        var wrapped = new StringBuilder(escaped.Length + 8);
+        for (var index = 0; index < escaped.Length; index++)
+        {
+            var character = escaped[index];
+            wrapped.Append(character);
+            if (character is '.' or '(' or ',' or ':'
+                && index + 1 < escaped.Length
+                && !char.IsWhiteSpace(escaped[index + 1]))
+            {
+                wrapped.Append('\u200B');
+            }
+        }
+
+        return wrapped.ToString();
+    }
 
     private static string EscapeLabel(string label)
     {
