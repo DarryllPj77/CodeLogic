@@ -14,6 +14,8 @@ Prompt 14 adds **Check syntax**. Prompts 15–17 add **Preview flowchart**. Prom
 
 The trace can be played automatically or moved one snapshot at a time with **Step**, **Back**, and **Reset**. Its speed control changes only the delay between already-bounded snapshots; it never changes interpreter behavior. Every move synchronizes the active source range and flowchart node, identifies changed watch values, progressively reveals captured `Console.WriteLine` output, and shows repeated visits to loop conditions.
 
+Editor changes schedule a flowchart translation after 400 milliseconds without compiling or running the source. A valid result replaces the preview; invalid or unsupported text leaves the last valid chart visible and presents the new diagnostics. **Preview flowchart** remains available as a manual retry and uses the same fail-closed translator.
+
 ## Why a Textarea First
 
 The native textarea provides labels, selection, editing, screen-reader support, browser text navigation, zoom behavior, and familiar keyboard interaction without a large JavaScript editor dependency. Monaco remains a possible later enhancement only if syntax highlighting or language-service features justify its integration and accessibility cost. Any later Monaco dependency must use a reviewed, pinned version and preserve an accessible plain-text experience.

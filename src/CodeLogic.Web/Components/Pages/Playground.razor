@@ -392,6 +392,20 @@
     }
     else if (FlowchartDocument is not null)
     {
+        @if (LiveFlowchartFailure is not null)
+        {
+            <div class="analysis-feedback live-flowchart-diagnostics" role="status">
+                <h3>Keeping the last valid flowchart</h3>
+                <p>The latest editor text could not produce a supported graph. Fix these items or use Preview flowchart to retry:</p>
+                <ol class="analysis-diagnostic-list">
+                    @foreach (var diagnostic in LiveFlowchartFailure.Diagnostics)
+                    {
+                        <li><strong>@diagnostic.Code</strong> @diagnostic.Message</li>
+                    }
+                </ol>
+            </div>
+        }
+
         @if (RendererError is not null)
         {
             <div class="notice notice--warning" role="alert">
@@ -606,6 +620,7 @@
     private bool RenderPending { get; set; }
     private CodeAnalysisResult? AnalysisResult { get; set; }
     private FlowchartTranslationResult? FlowchartResult { get; set; }
+    private FlowchartTranslationResult? LiveFlowchartFailure { get; set; }
     private MermaidFlowchartDocument? FlowchartDocument { get; set; }
     private string? RendererError { get; set; }
     private ExecutionTraceResult? TraceResult { get; set; }
@@ -633,6 +648,7 @@
     private IJSObjectReference? WorkspaceModule { get; set; }
     private DotNetObjectReference<Playground>? ComponentReference { get; set; }
     private CancellationTokenSource? TracePlaybackCancellation { get; set; }
+    private PlaygroundFlowchartDebouncer FlowchartDebouncer { get; } = new(TimeSpan.FromMilliseconds(400));
     private bool IsBusy => IsAnalyzing || IsRendering || IsTracing || IsCheckingLogic;
     private bool SelectedNodeIsLoop => SelectedNode is not null
         && FlowchartResult?.Graph?.Edges.Any(edge => edge.Type == FlowEdgeType.LoopBack && edge.ToNodeId == SelectedNode.NodeId) == true;
@@ -750,11 +766,17 @@
     private void UpdateCode(ChangeEventArgs eventArgs)
     {
         AnalysisResult = null;
-        ClearFlowchart();
+        ClearTraceAndFeedback();
         var code = eventArgs.Value?.ToString() ?? string.Empty;
-        StatusMessage = EditorState.TryUpdateCode(code)
-            ? "Unsaved changes."
-            : $"The editor limit is {EditorState.MaximumCharacters:N0} characters.";
+        if (EditorState.TryUpdateCode(code))
+        {
+            StatusMessage = "Unsaved changes. Flowchart update scheduled.";
+            _ = FlowchartDebouncer.ScheduleAsync(code, UpdateLiveFlowchartAsync);
+        }
+        else
+        {
+            StatusMessage = $"The editor limit is {EditorState.MaximumCharacters:N0} characters.";
+        }
     }
 
     private void LoadSelectedSnippet()
@@ -763,6 +785,7 @@
         ClearFlowchart();
         EditorState.LoadSnippet(SelectedSnippetId);
         StatusMessage = $"Loaded {EditorState.ActiveSnippet.Title}. Save to keep it as your browser draft.";
+        _ = FlowchartDebouncer.ScheduleAsync(EditorState.CurrentCode, UpdateLiveFlowchartAsync);
     }
 
     private async Task SaveDraftAsync()
@@ -840,24 +863,71 @@
 
     private async Task PreviewFlowchartAsync()
     {
+        FlowchartDebouncer.Cancel();
         IsRendering = true;
         RendererError = null;
-        FlowchartDocument = null;
         StatusMessage = "Building a deterministic flowchart from supported syntax.";
 
-        FlowchartResult = await FlowchartTranslator.TranslateAsync(EditorState.CurrentCode);
-        if (!FlowchartResult.IsSuccess)
+        var result = await FlowchartTranslator.TranslateAsync(EditorState.CurrentCode);
+        if (!result.IsSuccess)
         {
+            LiveFlowchartFailure = result;
             IsRendering = false;
-            StatusMessage = $"Flowchart translation found {FlowchartResult.Diagnostics.Count} item(s) to review.";
+            StatusMessage = $"Flowchart translation found {result.Diagnostics.Count} item(s). The last valid chart was kept.";
             return;
         }
 
-        FlowchartDocument = MermaidSerializer.Serialize(FlowchartResult.Graph!);
+        ApplyValidFlowchart(result, "The graph is ready; rendering the browser preview.");
+    }
+
+    private async Task UpdateLiveFlowchartAsync(string source, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await FlowchartTranslator.TranslateAsync(source, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            await InvokeAsync(() =>
+            {
+                if (result.IsSuccess)
+                {
+                    ApplyValidFlowchart(result, "Flowchart updated from the editor. Nothing was compiled or executed.");
+                }
+                else
+                {
+                    LiveFlowchartFailure = result;
+                    IsRendering = false;
+                    StatusMessage = $"Live flowchart update found {result.Diagnostics.Count} item(s); the last valid chart remains visible.";
+                }
+
+                StateHasChanged();
+            });
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // A newer editor change superseded this translation.
+        }
+        catch (Exception)
+        {
+            await InvokeAsync(() =>
+            {
+                IsRendering = false;
+                StatusMessage = "Live flowchart update failed safely; the last valid chart remains visible.";
+                ShowToast("Live flowchart update failed safely.", "error");
+                StateHasChanged();
+            });
+        }
+    }
+
+    private void ApplyValidFlowchart(FlowchartTranslationResult result, string statusMessage)
+    {
+        FlowchartResult = result;
+        FlowchartDocument = MermaidSerializer.Serialize(result.Graph!);
+        LiveFlowchartFailure = null;
         SelectedNode = FlowchartDocument.SourceMap.FirstOrDefault();
         FlowchartZoom = 1;
+        IsRendering = true;
         RenderPending = true;
-        StatusMessage = "The graph is ready; rendering the browser preview.";
+        StatusMessage = statusMessage;
     }
 
     private async Task BuildTraceAsync()
@@ -1203,14 +1273,26 @@
 
     private void ClearFlowchart()
     {
+        FlowchartDebouncer.Cancel();
         StopTracePlayback();
         FlowchartResult = null;
         FlowchartDocument = null;
+        LiveFlowchartFailure = null;
         SelectedNode = null;
         FlowchartZoom = 1;
         RendererError = null;
         RenderPending = false;
         IsRendering = false;
+        TraceResult = null;
+        TraceNavigator = null;
+        IsTracing = false;
+        LogicalFeedbackResult = null;
+        IsCheckingLogic = false;
+    }
+
+    private void ClearTraceAndFeedback()
+    {
+        StopTracePlayback();
         TraceResult = null;
         TraceNavigator = null;
         IsTracing = false;
@@ -1281,6 +1363,7 @@
     {
         IsDisposed = true;
         StopTracePlayback();
+        FlowchartDebouncer.Dispose();
         if (JavaScriptModule is not null)
         {
             try
