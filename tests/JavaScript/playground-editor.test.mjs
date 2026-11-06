@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
     createIndentEdit,
+    braceFoldRanges,
+    normalizeFoldRanges,
     resolveEditorTabKey,
     saveDraft
 } from "../../src/CodeLogic.Web/wwwroot/js/playground.js";
@@ -75,4 +77,20 @@ test("browser draft storage accepts 10,000 characters and rejects 10,001", () =>
         () => saveDraft("draft", "b".repeat(10_001), 10_000),
         error => error instanceof RangeError && error.message.includes("10,000-character limit"));
     assert.equal(stored.get("draft").length, 10_000);
+});
+
+test("brace fallback finds multiline blocks and ignores braces in strings and comments", () => {
+    const source = "if (ready)\n{\n  string text = \"{ignored}\";\n  // } ignored\n}\n";
+
+    assert.deepEqual(braceFoldRanges(source), [
+        { startLine: 2, endLine: 5, kind: "block" }
+    ]);
+});
+
+test("Roslyn fold ranges win over the brace fallback", () => {
+    const ranges = normalizeFoldRanges(
+        [{ startLine: 1, endLine: 4, kind: "method" }],
+        "{\nvalue;\n}");
+
+    assert.deepEqual(ranges, [{ startLine: 1, endLine: 4, kind: "method" }]);
 });

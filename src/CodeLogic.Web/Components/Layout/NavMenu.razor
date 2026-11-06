@@ -1,6 +1,12 @@
 <nav class="menu-bar" aria-label="Application menu">
     <a href="/playground#code-editor">File</a>
-    <a href="/playground#editor-actions">Edit</a>
+    <details class="menu-dropdown">
+        <summary>Edit</summary>
+        <div class="menu-dropdown__content">
+            <button type="button" data-editor-command="foldAll">Fold All</button>
+            <button type="button" data-editor-command="unfoldAll">Unfold All</button>
+        </div>
+    </details>
     <a href="/playground#flowchart-title">View</a>
     <a href="/playground#analysis-output">Analysis</a>
     <a href="/playground#workspace-settings">Settings</a>

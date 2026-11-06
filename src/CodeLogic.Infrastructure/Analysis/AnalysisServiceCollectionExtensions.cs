@@ -16,6 +16,7 @@ public static class AnalysisServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         services.AddSingleton<ICodeAnalysisService, RoslynCodeAnalysisService>();
+        services.AddSingleton<IEditorStructureService, RoslynEditorStructureService>();
         services.AddSingleton<IFlowchartTranslator, RoslynFlowchartTranslator>();
         services.AddSingleton<IMermaidFlowchartSerializer, MermaidFlowchartSerializer>();
         services.AddSingleton<IPedagogicalInterpreter, RoslynPedagogicalInterpreter>();

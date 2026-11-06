@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @implements IAsyncDisposable
 @inject ICodeAnalysisService CodeAnalysisService
+@inject IEditorStructureService EditorStructureService
 @inject ICurriculumCatalog CurriculumCatalog
 @inject IFlowchartTranslator FlowchartTranslator
 @inject IMermaidFlowchartSerializer MermaidSerializer
@@ -25,7 +26,7 @@
     <summary id="editor-limitations-title">Safety model and current limitations</summary>
     <h2>Visible limitations</h2>
     <ul>
-        <li>This is an accessible plain-text editor, not Visual Studio or Monaco.</li>
+        <li>The editor uses Monaco for highlighting and code folding, without IntelliSense or compilation. If Monaco cannot load, a plain-text editor is used instead.</li>
         <li>Code is parsed and may be interpreted by CodeLogic's small teaching model. It is never compiled or executed as a .NET program.</li>
         <li>Flowcharts support sequence, nested <code>if/else</code>, <code>while</code>, <code>for</code>, and <code>do-while</code> within the stated nesting limit.</li>
         <li><code>break</code> and <code>continue</code> are not supported yet and produce an explanation.</li>
@@ -53,7 +54,7 @@
     </div>
 </div>
 
-<div @ref="WorkspaceRoot" class="ide-workspace ide-workspace--@WorkspaceMode @(IsExplorerCollapsed ? "ide-workspace--explorer-collapsed" : null) @(IsPropertiesOpen ? "ide-workspace--properties-open" : null)">
+<div @ref="WorkspaceRoot" class="ide-workspace ide-workspace--@WorkspaceMode @(IsExplorerCollapsed ? "ide-workspace--explorer-collapsed" : null) @(IsPropertiesOpen ? "ide-workspace--properties-open" : null) @(MaximizedPanel is null ? null : $"ide-workspace--max-{MaximizedPanel}") @(IsEditorCollapsed ? "ide-workspace--editor-collapsed" : null) @(IsFlowchartCollapsed ? "ide-workspace--flowchart-collapsed" : null)">
     <nav class="workspace-rail" aria-label="Workspace panels">
         <button type="button" class="rail-button @(ActiveSidebarPanel == "explorer" ? "rail-button--active" : null)" title="File Explorer" aria-label="File Explorer" aria-pressed="@(ActiveSidebarPanel == "explorer" && !IsExplorerCollapsed ? "true" : "false")" @onclick='() => ActivateSidebarAsync("explorer")'>▱</button>
         <button type="button" class="rail-button @(ActiveSidebarPanel == "structure" ? "rail-button--active" : null)" title="Code Structure" aria-label="Code Structure" aria-pressed="@(ActiveSidebarPanel == "structure" && !IsExplorerCollapsed ? "true" : "false")" @onclick='() => ActivateSidebarAsync("structure")'>{ }</button>
@@ -107,12 +108,18 @@
     </aside>
 
 <div class="playground-layout">
-    <section class="editor-panel" aria-labelledby="editor-title">
-        <div class="resize-handle resize-handle--vertical" data-resize-panel="editor" role="separator" tabindex="0" aria-label="Resize source editor" aria-orientation="vertical" aria-valuemin="288" aria-valuemax="720" aria-valuenow="410" title="Drag or use arrow keys to resize. Double-click to reset."></div>
-        <div class="section-heading">
-            <p class="eyebrow">Plain-text editor</p>
-            <h2 id="editor-title">Edit a supported learning example</h2>
-            <p>Tab and Shift+Tab indent code. Press Esc, then Tab to move to the next control.</p>
+    <section class="editor-panel workspace-panel @(IsEditorCollapsed ? "workspace-panel--collapsed" : null)" aria-labelledby="editor-title">
+        <div class="resize-handle resize-handle--vertical" data-resize-panel="editor" role="separator" tabindex="0" aria-label="Resize editor and analysis panels" aria-orientation="vertical" aria-valuemin="288" aria-valuemax="720" aria-valuenow="410" title="Drag or use arrow keys to resize. Double-click to reset."></div>
+        <div class="section-heading panel-heading-row">
+            <div>
+                <p class="eyebrow">Monaco C# editor</p>
+                <h2 id="editor-title">Edit a supported learning example</h2>
+                <p>Tab and Shift+Tab indent code. Press Esc, then Tab to move to the next control.</p>
+            </div>
+            <div class="panel-window-actions">
+                <button type="button" class="icon-button" aria-expanded="@(!IsEditorCollapsed)" aria-label="@(IsEditorCollapsed ? "Expand editor" : "Collapse editor")" @onclick='() => TogglePanel("editor")'>@(IsEditorCollapsed ? "›" : "‹")</button>
+                <button type="button" class="icon-button" aria-pressed="@(MaximizedPanel == "editor")" @onclick='() => TogglePanelMaximized("editor")'>FULL</button>
+            </div>
         </div>
 
         <div class="snippet-picker">
@@ -130,20 +137,14 @@
 
         <p class="snippet-description">@EditorState.ActiveSnippet.Description</p>
 
-        <label class="editor-label" for="code-editor">C# source text</label>
-        <textarea id="code-editor"
-                  @ref="EditorElement"
-                  class="code-editor"
-                  value="@EditorState.CurrentCode"
-                  @oninput="UpdateCode"
-                  @onkeydown="HandleEditorKeyDown"
-                  maxlength="@EditorState.MaximumCharacters"
-                  rows="18"
-                  spellcheck="false"
-                  autocomplete="off"
-                  autocapitalize="off"
-                  disabled="@(!BrowserReady)"
-                  aria-describedby="editor-tab-help editor-help editor-character-count editor-status"></textarea>
+        <label class="editor-label" id="code-editor-label">C# source text</label>
+        <div id="code-editor"
+             @ref="EditorElement"
+             class="code-editor"
+             role="region"
+             aria-labelledby="code-editor-label"
+             aria-describedby="editor-tab-help editor-help editor-character-count editor-status"
+             aria-busy="@(BrowserReady ? "false" : "true")"></div>
 
         <div class="editor-meta">
             <p id="editor-tab-help">Tab indents. Press Esc, then Tab to leave the editor.</p>
@@ -357,7 +358,7 @@
     }
 </section>
 
-<section class="flowchart-panel" aria-labelledby="flowchart-title" aria-live="polite">
+<section class="flowchart-panel workspace-panel @(IsFlowchartCollapsed ? "workspace-panel--collapsed" : null)" aria-labelledby="flowchart-title" aria-live="polite">
     <div class="canvas-header-sticky">
         <div class="panel-heading-row">
             <div>
@@ -365,6 +366,10 @@
                 <h2 id="flowchart-title">Flowchart canvas</h2>
             </div>
             <div class="canvas-header-actions">
+                <div class="panel-window-actions">
+                    <button type="button" class="icon-button" aria-expanded="@(!IsFlowchartCollapsed)" aria-label="@(IsFlowchartCollapsed ? "Expand flowchart" : "Collapse flowchart")" @onclick='() => TogglePanel("flowchart")'>@(IsFlowchartCollapsed ? "‹" : "›")</button>
+                    <button type="button" class="icon-button" aria-pressed="@(MaximizedPanel == "flowchart")" @onclick='() => TogglePanelMaximized("flowchart")'>FULL</button>
+                </div>
                 @if (TraceNavigator is not null)
                 {
                     <div class="canvas-trace-controls" aria-label="Canvas trace controls">
@@ -388,9 +393,19 @@
                     <button type="button" class="icon-button" @onclick="() => AdjustFlowchartZoomAsync(0.1)" aria-label="Zoom in">+</button>
                     <button type="button" class="icon-button" @onclick="FitFlowchartAsync">Fit</button>
                 </div>
+                <details class="flowchart-legend">
+                    <summary>Legend</summary>
+                    <ul>
+                        <li><span class="legend-swatch legend-swatch--selected"></span>Selected</li>
+                        <li><span class="legend-swatch legend-swatch--decision"></span>Decision</li>
+                        <li><span class="legend-swatch legend-swatch--error"></span>Diagnostic</li>
+                        <li><span class="legend-line legend-line--loop"></span>Loop</li>
+                        <li><span class="legend-line legend-line--exit"></span>Exit</li>
+                    </ul>
+                </details>
             </div>
         </div>
-        <p class="canvas-step-summary" role="status">@TraceCanvasDescription</p>
+        <p class="canvas-step-summary" role="status">@TraceCanvasDescription · Explored @ExploredNodeIds.Count/@(FlowchartDocument?.SourceMap.Count ?? 0) nodes</p>
         @if (IsPredictionMode && CurrentPrediction is not null)
         {
             <form class="canvas-prediction" @onsubmit="SubmitPredictionAsync" @onsubmit:preventDefault>
@@ -498,7 +513,8 @@
         <button type="button" class="bottom-tab @(ActiveBottomTab == "analysis" ? "bottom-tab--active" : null)" role="tab" aria-selected="@(ActiveBottomTab == "analysis")" @onclick='() => ActiveBottomTab = "analysis"'>Analysis output</button>
         <button type="button" class="bottom-tab @(ActiveBottomTab == "trace" ? "bottom-tab--active" : null)" role="tab" aria-selected="@(ActiveBottomTab == "trace")" @onclick='() => ActiveBottomTab = "trace"'>Execution trace</button>
         <button type="button" class="bottom-tab @(ActiveBottomTab == "terminal" ? "bottom-tab--active" : null)" role="tab" aria-selected="@(ActiveBottomTab == "terminal")" @onclick='() => ActiveBottomTab = "terminal"'>Terminal</button>
-        <button type="button" class="bottom-panel-toggle" aria-expanded="@(!IsBottomPanelCollapsed)" @onclick="() => IsBottomPanelCollapsed = !IsBottomPanelCollapsed">@(IsBottomPanelCollapsed ? "Expand" : "Collapse")</button>
+        <button type="button" class="bottom-panel-toggle" aria-expanded="@(!IsBottomPanelCollapsed)" aria-label="@(IsBottomPanelCollapsed ? "Expand bottom panel" : "Collapse bottom panel")" @onclick="() => IsBottomPanelCollapsed = !IsBottomPanelCollapsed">@(IsBottomPanelCollapsed ? "⌃" : "⌄")</button>
+        <button type="button" class="bottom-panel-toggle" aria-pressed="@(MaximizedPanel == "bottom")" @onclick='() => TogglePanelMaximized("bottom")'>FULL</button>
     </div>
 
     @if (ActiveBottomTab == "diagnostics")
@@ -698,6 +714,9 @@
     private bool IsBottomPanelCollapsed { get; set; }
     private bool IsExplorerCollapsed { get; set; }
     private bool IsPropertiesOpen { get; set; } = true;
+    private bool IsEditorCollapsed { get; set; }
+    private bool IsFlowchartCollapsed { get; set; }
+    private string? MaximizedPanel { get; set; }
     private bool IsTracePlaying { get; set; }
     private bool IsPredictionMode { get; set; }
     private int TracePlaybackDelayMilliseconds { get; set; } = 700;
@@ -712,6 +731,8 @@
     private int ToastVersion { get; set; }
     private bool IsDisposed { get; set; }
     private FlowNodeSourceMap? SelectedNode { get; set; }
+    private HashSet<string> ExploredNodeIds { get; } = new(StringComparer.Ordinal);
+    private IReadOnlyList<EditorFoldRegion> EditorFoldRegions { get; set; } = [];
     private ElementReference WorkspaceRoot { get; set; }
     private ElementReference EditorElement { get; set; }
     private ElementReference FlowchartContainer { get; set; }
@@ -720,6 +741,7 @@
     private DotNetObjectReference<Playground>? ComponentReference { get; set; }
     private CancellationTokenSource? TracePlaybackCancellation { get; set; }
     private PlaygroundFlowchartDebouncer FlowchartDebouncer { get; } = new(TimeSpan.FromMilliseconds(400));
+    private PlaygroundFlowchartDebouncer StructureDebouncer { get; } = new(TimeSpan.FromMilliseconds(150));
     private bool IsBusy => IsAnalyzing || IsRendering || IsTracing || IsCheckingLogic;
     private bool SelectedNodeIsLoop => SelectedNode is not null
         && FlowchartResult?.Graph?.Edges.Any(edge => edge.Type == FlowEdgeType.LoopBack && edge.ToNodeId == SelectedNode.NodeId) == true;
@@ -761,7 +783,7 @@
             {
                 JavaScriptModule = await JavaScript.InvokeAsync<IJSObjectReference>(
                     "import",
-                    "./js/playground.js?v=2");
+                    "./js/playground.js?v=3");
                 WorkspaceModule = await JavaScript.InvokeAsync<IJSObjectReference>(
                     "import",
                     "./js/workspace.js?v=2");
@@ -770,9 +792,6 @@
                     "initializeWorkspace",
                     WorkspaceRoot,
                     WorkspaceStorageKey);
-                await JavaScriptModule.InvokeVoidAsync(
-                    "initializeEditorShortcuts",
-                    EditorElement);
                 var savedDraft = await JavaScriptModule.InvokeAsync<string?>(
                     "loadDraft",
                     DraftStorageKey);
@@ -795,6 +814,19 @@
                     StatusMessage = layoutRestored
                         ? "Workspace layout restored. The current snippet has not been saved in this browser."
                         : "The current snippet has not been saved in this browser.";
+                }
+
+                EditorFoldRegions = await EditorStructureService.GetFoldRegionsAsync(EditorState.CurrentCode);
+                var editorKind = await JavaScriptModule.InvokeAsync<string>(
+                    "initializeCodeEditor",
+                    EditorElement,
+                    EditorState.CurrentCode,
+                    EditorState.MaximumCharacters,
+                    ComponentReference,
+                    EditorFoldRegions);
+                if (editorKind == "plain")
+                {
+                    StatusMessage = "The Monaco editor could not load, so a plain-text editor is in use. Editing, Tab indentation, analysis, and saving still work; code folding is unavailable.";
                 }
             }
             catch (JSException)
@@ -820,6 +852,7 @@
                     $"codelogic-flowchart-{++RenderSequence}",
                     FlowchartDocument.SourceMap,
                     ComponentReference);
+                await MarkFlowchartDiagnosticsAsync();
                 StatusMessage = "Flowchart preview rendered. Nothing was compiled or executed.";
                 ShowToast("Flowchart preview is ready.");
             }
@@ -837,15 +870,15 @@
         }
     }
 
-    private void UpdateCode(ChangeEventArgs eventArgs)
+    private void UpdateCode(string code)
     {
         AnalysisResult = null;
         ClearTraceAndFeedback();
-        var code = eventArgs.Value?.ToString() ?? string.Empty;
         if (EditorState.TryUpdateCode(code))
         {
             StatusMessage = "Unsaved changes. Flowchart update scheduled.";
             _ = FlowchartDebouncer.ScheduleAsync(code, UpdateLiveFlowchartAsync);
+            _ = StructureDebouncer.ScheduleAsync(code, UpdateEditorStructureAsync);
         }
         else
         {
@@ -853,12 +886,26 @@
         }
     }
 
-    private void LoadSelectedSnippet()
+    [JSInvokable]
+    public Task UpdateCodeFromBrowser(string code)
+    {
+        UpdateCode(code);
+        return InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public Task SaveEditorDraftFromBrowser() => SaveDraftAsync();
+
+    [JSInvokable]
+    public Task ResetEditorDraftFromBrowser() => ResetDraftAsync();
+
+    private async Task LoadSelectedSnippet()
     {
         AnalysisResult = null;
         ClearFlowchart();
         EditorState.LoadSnippet(SelectedSnippetId);
         StatusMessage = $"Loaded {EditorState.ActiveSnippet.Title}. Save to keep it as your browser draft.";
+        await SynchronizeEditorValueAsync();
         _ = FlowchartDebouncer.ScheduleAsync(EditorState.CurrentCode, UpdateLiveFlowchartAsync);
     }
 
@@ -900,6 +947,7 @@
         AnalysisResult = null;
         ClearFlowchart();
         EditorState.Reset();
+        await SynchronizeEditorValueAsync();
         if (JavaScriptModule is not null)
         {
             try
@@ -929,6 +977,7 @@
             ShowToast(
                 AnalysisResult.IsValid ? "Syntax check passed." : $"Review {AnalysisResult.Diagnostics.Count} analysis item(s).",
                 AnalysisResult.IsValid ? "success" : "warning");
+            await MarkFlowchartDiagnosticsAsync();
         }
         finally
         {
@@ -999,6 +1048,11 @@
         FlowchartDocument = MermaidSerializer.Serialize(result.Graph!);
         LiveFlowchartFailure = null;
         SelectedNode = FlowchartDocument.SourceMap.FirstOrDefault();
+        ExploredNodeIds.Clear();
+        if (SelectedNode is not null)
+        {
+            ExploredNodeIds.Add(SelectedNode.NodeId);
+        }
         FlowchartZoom = 1;
         IsRendering = true;
         RenderPending = true;
@@ -1034,7 +1088,7 @@
         }
     }
 
-    private void LoadLogicalExercise()
+    private async Task LoadLogicalExercise()
     {
         AnalysisResult = null;
         ClearFlowchart();
@@ -1044,6 +1098,7 @@
             return;
         }
 
+        await SynchronizeEditorValueAsync();
         StatusMessage = "Loaded the Adult age boundary exercise. Change its comparison, then check the known cases.";
     }
 
@@ -1239,6 +1294,7 @@
         }
 
         SelectedNode = current;
+        ExploredNodeIds.Add(current.NodeId);
         var previousNodeId = TraceNavigator.CurrentIndex > 0
             ? TraceResult?.Steps[TraceNavigator.CurrentIndex - 1].ActiveNodeId
             : null;
@@ -1283,6 +1339,7 @@
     private async Task SelectNodeAsync(FlowNodeSourceMap item)
     {
         SelectedNode = item;
+        ExploredNodeIds.Add(item.NodeId);
         NodeEditText = item.Label;
         NodeEditMessage = null;
         IsPropertiesOpen = true;
@@ -1358,6 +1415,7 @@
         }
 
         ApplyValidFlowchart(result, "Node edit applied to the mapped source statement.");
+        await SynchronizeEditorValueAsync();
         NodeEditMessage = "Edit accepted. The editor and flowchart now use the updated statement.";
         ShowToast("Node edit applied safely.");
     }
@@ -1391,6 +1449,35 @@
     {
         WorkspaceMode = mode == "focus" ? "focus" : "split";
         await SaveWorkspacePreferenceAsync("mode", WorkspaceMode);
+    }
+
+    private void TogglePanel(string panel)
+    {
+        if (panel == "editor")
+        {
+            IsEditorCollapsed = !IsEditorCollapsed;
+        }
+        else if (panel == "flowchart")
+        {
+            IsFlowchartCollapsed = !IsFlowchartCollapsed;
+        }
+    }
+
+    private void TogglePanelMaximized(string panel)
+    {
+        MaximizedPanel = MaximizedPanel == panel ? null : panel;
+        if (panel == "editor")
+        {
+            IsEditorCollapsed = false;
+        }
+        else if (panel == "flowchart")
+        {
+            IsFlowchartCollapsed = false;
+        }
+        else if (panel == "bottom")
+        {
+            IsBottomPanelCollapsed = false;
+        }
     }
 
     private async Task ActivateSidebarAsync(string panel)
@@ -1488,6 +1575,7 @@
         FlowchartDocument = null;
         LiveFlowchartFailure = null;
         SelectedNode = null;
+        ExploredNodeIds.Clear();
         FlowchartZoom = 1;
         RendererError = null;
         RenderPending = false;
@@ -1543,43 +1631,87 @@
     {
         var from = graph.Nodes.Single(node => node.Id == edge.FromNodeId);
         var to = graph.Nodes.Single(node => node.Id == edge.ToNodeId);
+        var loopDecision = graph.Edges.Any(candidate =>
+            candidate.Type == FlowEdgeType.LoopBack && candidate.ToNodeId == edge.FromNodeId);
         var path = edge.Type switch
         {
+            FlowEdgeType.True when loopDecision => "Loop path",
+            FlowEdgeType.False when loopDecision => "Exit path",
             FlowEdgeType.True => "True path",
             FlowEdgeType.False => "False path",
-            FlowEdgeType.LoopBack => edge.Label ?? "Repeat path",
+            FlowEdgeType.LoopBack => edge.Label ?? "Loop path",
             _ => "Next",
         };
         return $"{path}: {from.Label} → {to.Label}";
     }
 
-    private Task HandleEditorKeyDown(KeyboardEventArgs eventArgs)
+    private async Task UpdateEditorStructureAsync(string source, CancellationToken cancellationToken)
     {
-        if (eventArgs.CtrlKey && !eventArgs.AltKey && !eventArgs.ShiftKey
-            && string.Equals(eventArgs.Key, "s", StringComparison.OrdinalIgnoreCase))
+        var regions = await EditorStructureService.GetFoldRegionsAsync(source, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        EditorFoldRegions = regions;
+        if (JavaScriptModule is null)
         {
-            return SaveDraftAsync();
+            return;
         }
 
-        if (eventArgs.CtrlKey && eventArgs.AltKey && !eventArgs.ShiftKey
-            && string.Equals(eventArgs.Key, "r", StringComparison.OrdinalIgnoreCase))
+        try
         {
-            return ResetDraftAsync();
+            await JavaScriptModule.InvokeVoidAsync(
+                "updateFoldRegions",
+                cancellationToken,
+                EditorElement,
+                regions);
         }
-
-        return Task.CompletedTask;
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException)
+        {
+            // Folding is a convenience; the editor keeps its previous fold ranges.
+        }
     }
+
+    // Outlines flowchart nodes whose source lines have analysis diagnostics. The JS call clears
+    // stale outlines, so passing an empty list is how markers are removed.
+    private async Task MarkFlowchartDiagnosticsAsync()
+    {
+        if (JavaScriptModule is null || FlowchartDocument is null)
+        {
+            return;
+        }
+
+        var lines = AnalysisResult?.Diagnostics
+            .Where(diagnostic => diagnostic.Line is not null)
+            .Select(diagnostic => diagnostic.Line!.Value)
+            .Distinct()
+            .ToArray() ?? [];
+        try
+        {
+            await JavaScriptModule.InvokeVoidAsync(
+                "markFlowchartErrors",
+                FlowchartContainer,
+                FlowchartDocument.SourceMap,
+                lines);
+        }
+        catch (JSException)
+        {
+            // Markers are supplementary; the Diagnostics tab still lists every item as text.
+        }
+    }
+
+    private Task SynchronizeEditorValueAsync() => JavaScriptModule is null
+        ? Task.CompletedTask
+        : JavaScriptModule.InvokeVoidAsync("setEditorValue", EditorElement, EditorState.CurrentCode).AsTask();
 
     public async ValueTask DisposeAsync()
     {
         IsDisposed = true;
         StopTracePlayback();
         FlowchartDebouncer.Dispose();
+        StructureDebouncer.Dispose();
         if (JavaScriptModule is not null)
         {
             try
             {
-                await JavaScriptModule.InvokeVoidAsync("disposeEditorShortcuts", EditorElement);
+                await JavaScriptModule.InvokeVoidAsync("disposeCodeEditor", EditorElement);
                 await JavaScriptModule.DisposeAsync();
             }
             catch (JSDisconnectedException)

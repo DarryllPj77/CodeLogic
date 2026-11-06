@@ -1,11 +1,205 @@
 const shortcutHandlers = new WeakMap();
 const editorTabModes = new WeakMap();
+const codeEditors = new WeakMap();
+const plainEditors = new WeakMap();
 const sourceControllers = new WeakMap();
 const canvasControllers = new WeakMap();
 const suppressedSelections = new WeakSet();
 const nodeTypeNames = Object.freeze({ 1: "Start", 2: "End", 3: "Action", 4: "Decision", 5: "Input", 6: "Output" });
 const mermaidModuleUrl = "https://cdn.jsdelivr.net/npm/mermaid@12.2.0/dist/mermaid.esm.min.mjs";
+const monacoBaseUrl = "https://cdn.jsdelivr.net/npm/monaco-editor@0.57.0/min/vs";
 let mermaidPromise = null;
+let monacoPromise = null;
+
+// Returns "monaco" when the rich editor loaded, or "plain" when the accessible textarea fallback is used.
+export async function initializeCodeEditor(host, initialValue, maximumCharacters, dotNetReference, foldRanges) {
+    disposeCodeEditor(host);
+    let monaco;
+    try {
+        monaco = await loadMonaco();
+    } catch {
+        monacoPromise = null;
+        initializePlainEditor(host, initialValue, maximumCharacters, dotNetReference);
+        return "plain";
+    }
+    const model = monaco.editor.createModel(initialValue, "csharp");
+    model.updateOptions({ tabSize: 4, insertSpaces: true });
+    const editor = monaco.editor.create(host, {
+        model,
+        ariaLabel: "C# source text. Tab indents. Press Escape, then Tab to leave the editor.",
+        accessibilitySupport: "auto",
+        automaticLayout: true,
+        bracketPairColorization: { enabled: true },
+        folding: true,
+        foldingHighlight: true,
+        foldingStrategy: "auto",
+        fontFamily: "Cascadia Code, Consolas, monospace",
+        fontSize: 13,
+        lineHeight: 21,
+        lineNumbers: "on",
+        lineNumbersMinChars: 3,
+        minimap: { enabled: false },
+        padding: { top: 16, bottom: 16 },
+        renderLineHighlight: "all",
+        scrollBeyondLastLine: false,
+        selectOnLineNumbers: true,
+        showFoldingControls: "mouseover",
+        tabFocusMode: false,
+        wordWrap: "off"
+    });
+
+    const state = {
+        editor,
+        model,
+        dotNetReference,
+        maximumCharacters,
+        revertingLimit: false,
+        sourceSelectionDisposable: null,
+        foldRanges: normalizeFoldRanges(foldRanges, initialValue),
+        foldListeners: new Set(),
+        foldingProvider: null,
+        markerObserver: null,
+        disposables: []
+    };
+    codeEditors.set(host, state);
+    state.foldingProvider = monaco.languages.registerFoldingRangeProvider("csharp", {
+        onDidChange(listener) {
+            state.foldListeners.add(listener);
+            return { dispose: () => state.foldListeners.delete(listener) };
+        },
+        provideFoldingRanges() {
+            return state.foldRanges.map(region => ({
+                start: region.startLine,
+                end: region.endLine,
+                collapsedText: `{ ... } ${region.endLine - region.startLine} hidden line${region.endLine - region.startLine === 1 ? "" : "s"}`
+            }));
+        }
+    });
+    state.disposables.push(state.foldingProvider);
+    state.disposables.push(model.onDidChangeContent(() => {
+        if (state.revertingLimit) {
+            return;
+        }
+        const value = model.getValue();
+        if (value.length > maximumCharacters) {
+            state.revertingLimit = true;
+            editor.trigger("codelogic", "undo", null);
+            state.revertingLimit = false;
+            return;
+        }
+        dotNetReference?.invokeMethodAsync("UpdateCodeFromBrowser", value);
+    }));
+    state.disposables.push(editor.onDidBlurEditorWidget(() => editor.updateOptions({ tabFocusMode: false })));
+    editor.addCommand(monaco.KeyCode.Escape, () => editor.updateOptions({ tabFocusMode: true }));
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+        () => dotNetReference?.invokeMethodAsync("SaveEditorDraftFromBrowser"));
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyR,
+        () => dotNetReference?.invokeMethodAsync("ResetEditorDraftFromBrowser"));
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.BracketLeft,
+        () => editor.getAction("editor.fold")?.run());
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.BracketRight,
+        () => editor.getAction("editor.unfold")?.run());
+
+    const menuHandler = event => {
+        const command = event.target.closest?.("[data-editor-command]")?.dataset.editorCommand;
+        if (command === "foldAll" || command === "unfoldAll") {
+            event.preventDefault();
+            foldEditor(host, command);
+        }
+    };
+    document.addEventListener("click", menuHandler);
+    state.disposables.push({ dispose: () => document.removeEventListener("click", menuHandler) });
+    state.markerObserver = new MutationObserver(() => makeFoldMarkersAccessible(host, editor));
+    state.markerObserver.observe(host, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+    state.disposables.push({ dispose: () => state.markerObserver.disconnect() });
+    makeFoldMarkersAccessible(host, editor);
+    return "monaco";
+}
+
+function initializePlainEditor(host, initialValue, maximumCharacters, dotNetReference) {
+    const textarea = document.createElement("textarea");
+    textarea.className = "code-editor__fallback";
+    textarea.value = initialValue;
+    textarea.maxLength = maximumCharacters;
+    textarea.spellcheck = false;
+    textarea.setAttribute("autocomplete", "off");
+    textarea.setAttribute("autocapitalize", "off");
+    textarea.setAttribute("aria-label", "C# source text (plain-text editor)");
+    const describedBy = host.getAttribute("aria-describedby");
+    if (describedBy) {
+        textarea.setAttribute("aria-describedby", describedBy);
+    }
+    host.replaceChildren(textarea);
+    plainEditors.set(host, textarea);
+
+    textarea.addEventListener("input", () => dotNetReference?.invokeMethodAsync("UpdateCodeFromBrowser", textarea.value));
+    textarea.addEventListener("keydown", event => {
+        const key = event.key.toLowerCase();
+        if (event.ctrlKey && !event.altKey && !event.shiftKey && key === "s") {
+            dotNetReference?.invokeMethodAsync("SaveEditorDraftFromBrowser");
+        } else if (event.ctrlKey && event.altKey && !event.shiftKey && key === "r") {
+            dotNetReference?.invokeMethodAsync("ResetEditorDraftFromBrowser");
+        }
+    });
+    initializeEditorShortcuts(textarea);
+}
+
+// The element that owns text selection: the fallback textarea when present, otherwise the host itself.
+function plainEditorFor(host) {
+    return plainEditors.get(host) ?? host;
+}
+
+export function disposeCodeEditor(host) {
+    const textarea = plainEditors.get(host);
+    if (textarea !== undefined) {
+        disposeEditorShortcuts(textarea);
+        textarea.remove();
+        plainEditors.delete(host);
+    }
+    const state = codeEditors.get(host);
+    if (state === undefined) {
+        return;
+    }
+    state.sourceSelectionDisposable?.dispose();
+    for (const disposable of state.disposables) {
+        disposable.dispose();
+    }
+    state.editor.dispose();
+    state.model.dispose();
+    codeEditors.delete(host);
+}
+
+export function setEditorValue(host, value) {
+    const textarea = plainEditors.get(host);
+    if (textarea !== undefined) {
+        if (textarea.value !== value) {
+            textarea.value = value;
+        }
+        return;
+    }
+    const state = codeEditors.get(host);
+    if (state === undefined || state.model.getValue() === value) {
+        return;
+    }
+    state.model.setValue(value);
+}
+
+export function updateFoldRegions(host, foldRanges) {
+    const state = codeEditors.get(host);
+    if (state === undefined) {
+        return;
+    }
+    state.foldRanges = normalizeFoldRanges(foldRanges, state.model.getValue());
+    for (const listener of state.foldListeners) {
+        listener(undefined);
+    }
+}
+
+export function foldEditor(host, command) {
+    const state = codeEditors.get(host);
+    const actionId = command === "foldAll" ? "editor.foldAll" : "editor.unfoldAll";
+    return state?.editor.getAction(actionId)?.run();
+}
 
 export function initializeEditorShortcuts(editor) {
     editorTabModes.set(editor, true);
@@ -230,8 +424,7 @@ export async function renderMermaid(container, definition, renderId, sourceMap, 
 
 export function selectSource(editor, container, mermaidId, startOffset, length) {
     suppressedSelections.add(editor);
-    editor.focus();
-    editor.setSelectionRange(startOffset, startOffset + length);
+    selectEditorRange(editor, startOffset, length);
     window.setTimeout(() => suppressedSelections.delete(editor), 0);
 
     container.querySelectorAll(".flowchart-node--selected")
@@ -288,7 +481,7 @@ export function showTraceStep(editor, container, currentMermaidId, startOffset, 
 
     if (Number.isInteger(startOffset) && Number.isInteger(length)) {
         suppressedSelections.add(editor);
-        editor.setSelectionRange(startOffset, startOffset + length);
+        selectEditorRange(editor, startOffset, length, false);
         window.setTimeout(() => suppressedSelections.delete(editor), 0);
     }
 
@@ -298,7 +491,12 @@ export function showTraceStep(editor, container, currentMermaidId, startOffset, 
 }
 
 export function focusElement(element) {
-    element?.focus();
+    const state = codeEditors.get(element);
+    if (state !== undefined) {
+        state.editor.focus();
+    } else if (element) {
+        plainEditorFor(element).focus();
+    }
 }
 
 export function scrollToElement(elementId) {
@@ -313,11 +511,15 @@ function bindDiagramNodes(container, sourceMap, dotNetReference) {
             continue;
         }
 
+        const typeName = nodeTypeNames[item.nodeType];
+        const nodeType = typeName ?? "Flowchart node";
         node.classList.add("flowchart-node--interactive");
+        if (typeName !== undefined) {
+            node.classList.add(`flowchart-node--${typeName.toLowerCase()}`);
+        }
         node.setAttribute("role", "button");
         node.setAttribute("tabindex", "0");
         const line = item.sourceSpan?.startLine;
-        const nodeType = nodeTypeNames[item.nodeType] ?? "Flowchart node";
         node.setAttribute("aria-label", `${nodeType}: ${item.label}${line ? `, source line ${line}` : ""}`);
         const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
         title.textContent = `${nodeType}: ${item.label}${line ? ` (line ${line})` : ""}`;
@@ -345,11 +547,51 @@ function bindDiagramNodes(container, sourceMap, dotNetReference) {
     }
 }
 
+export function markFlowchartErrors(container, sourceMap, diagnosticLines) {
+    container.querySelectorAll(".flowchart-node--error")
+        .forEach(node => node.classList.remove("flowchart-node--error"));
+    const lines = new Set((diagnosticLines ?? []).filter(Number.isInteger));
+    for (const item of sourceMap ?? []) {
+        const span = item.sourceSpan;
+        if (span === null || span === undefined) {
+            continue;
+        }
+        const matches = [...lines].some(line => line >= span.startLine && line <= span.endLine);
+        if (matches) {
+            findDiagramNode(container, item.mermaidId)?.classList.add("flowchart-node--error");
+        }
+    }
+}
+
 function initializeSourceSynchronization(editor, container, sourceMap, dotNetReference) {
     if (editor === null) {
         return;
     }
 
+    const monacoState = codeEditors.get(editor);
+    if (monacoState !== undefined) {
+        monacoState.sourceSelectionDisposable?.dispose();
+        let lastNodeId = null;
+        monacoState.sourceSelectionDisposable = monacoState.editor.onDidChangeCursorSelection(() => {
+            if (suppressedSelections.has(editor)) {
+                return;
+            }
+            const position = monacoState.editor.getPosition();
+            if (position === null) {
+                return;
+            }
+            const caret = monacoState.model.getOffsetAt(position);
+            const item = findSourceMapItem(sourceMap, caret);
+            if (item !== undefined && item.nodeId !== lastNodeId) {
+                lastNodeId = item.nodeId;
+                highlightNode(container, item.mermaidId);
+                dotNetReference?.invokeMethodAsync("SelectNodeFromBrowser", item.nodeId);
+            }
+        });
+        return;
+    }
+
+    const textarea = plainEditorFor(editor);
     sourceControllers.get(editor)?.abort();
     const controller = new AbortController();
     sourceControllers.set(editor, controller);
@@ -359,13 +601,8 @@ function initializeSourceSynchronization(editor, container, sourceMap, dotNetRef
             return;
         }
 
-        const caret = editor.selectionStart;
-        const item = (sourceMap ?? []).find(candidate => {
-            const span = candidate.sourceSpan;
-            return span !== null && span !== undefined
-                && caret >= span.startOffset
-                && caret <= span.startOffset + Math.max(span.length, 1);
-        });
+        const caret = textarea.selectionStart;
+        const item = findSourceMapItem(sourceMap, caret);
         if (item !== undefined && item.nodeId !== lastNodeId) {
             lastNodeId = item.nodeId;
             highlightNode(container, item.mermaidId);
@@ -374,7 +611,157 @@ function initializeSourceSynchronization(editor, container, sourceMap, dotNetRef
     };
 
     for (const eventName of ["click", "keyup", "select"]) {
-        editor.addEventListener(eventName, synchronize, { signal: controller.signal });
+        textarea.addEventListener(eventName, synchronize, { signal: controller.signal });
+    }
+}
+
+function findSourceMapItem(sourceMap, caret) {
+    return (sourceMap ?? []).find(candidate => {
+        const span = candidate.sourceSpan;
+        return span !== null && span !== undefined
+            && caret >= span.startOffset
+            && caret <= span.startOffset + Math.max(span.length, 1);
+    });
+}
+
+function selectEditorRange(host, startOffset, length, focus = true) {
+    const state = codeEditors.get(host);
+    if (state === undefined) {
+        const textarea = host ? plainEditorFor(host) : null;
+        if (focus) {
+            textarea?.focus();
+        }
+        textarea?.setSelectionRange?.(startOffset, startOffset + length);
+        return;
+    }
+    const start = state.model.getPositionAt(startOffset);
+    const end = state.model.getPositionAt(startOffset + length);
+    const range = {
+        startLineNumber: start.lineNumber,
+        startColumn: start.column,
+        endLineNumber: end.lineNumber,
+        endColumn: end.column
+    };
+    state.editor.setSelection(range);
+    state.editor.getAction("editor.unfold")?.run();
+    state.editor.revealRangeInCenterIfOutsideViewport(range);
+    if (focus) {
+        state.editor.focus();
+    }
+}
+
+export function normalizeFoldRanges(ranges, source) {
+    const supplied = (ranges ?? [])
+        .map(region => ({
+            startLine: Number(region.startLine),
+            endLine: Number(region.endLine),
+            kind: region.kind ?? "block"
+        }))
+        .filter(region => Number.isInteger(region.startLine)
+            && Number.isInteger(region.endLine)
+            && region.startLine > 0
+            && region.endLine > region.startLine);
+    return supplied.length > 0 ? supplied : braceFoldRanges(source);
+}
+
+export function braceFoldRanges(source) {
+    const regions = [];
+    const stack = [];
+    let line = 1;
+    let quote = null;
+    let escaped = false;
+    let lineComment = false;
+    let blockComment = false;
+
+    for (let index = 0; index < source.length; index++) {
+        const character = source[index];
+        const next = source[index + 1];
+        if (character === "\n") {
+            line++;
+            lineComment = false;
+            continue;
+        }
+        if (lineComment) {
+            continue;
+        }
+        if (blockComment) {
+            if (character === "*" && next === "/") {
+                blockComment = false;
+                index++;
+            }
+            continue;
+        }
+        if (quote !== null) {
+            if (escaped) {
+                escaped = false;
+            } else if (character === "\\") {
+                escaped = true;
+            } else if (character === quote) {
+                quote = null;
+            }
+            continue;
+        }
+        if (character === "/" && next === "/") {
+            lineComment = true;
+            index++;
+        } else if (character === "/" && next === "*") {
+            blockComment = true;
+            index++;
+        } else if (character === "\"" || character === "'") {
+            quote = character;
+        } else if (character === "{") {
+            stack.push(line);
+        } else if (character === "}") {
+            const startLine = stack.pop();
+            if (startLine !== undefined && line > startLine) {
+                regions.push({ startLine, endLine: line, kind: "block" });
+            }
+        }
+    }
+    return regions.sort((left, right) => left.startLine - right.startLine || right.endLine - left.endLine);
+}
+
+const foldMarkerSelector = ".margin-view-overlays .codicon-folding-expanded, .margin-view-overlays .codicon-folding-collapsed";
+
+// Monaco folds on mouse-down in the gutter, so a synthetic click does nothing. Keyboard activation
+// instead finds the marker's line and runs Monaco's own toggle-fold action there. Each gutter row is
+// positioned at the same `top` Monaco reports for its line, which is steadier than pixel hit-testing.
+function foldMarkerLine(marker, editor) {
+    const top = parseFloat(marker.parentElement?.style.top ?? "");
+    if (!Number.isFinite(top)) {
+        return undefined;
+    }
+    const lineCount = editor.getModel()?.getLineCount() ?? 0;
+    for (let lineNumber = 1; lineNumber <= lineCount; lineNumber++) {
+        if (Math.abs(editor.getTopForLineNumber(lineNumber) - top) < 1) {
+            return lineNumber;
+        }
+    }
+    return undefined;
+}
+
+function makeFoldMarkersAccessible(host, editor) {
+    for (const marker of host.querySelectorAll(foldMarkerSelector)) {
+        const collapsed = marker.classList.contains("codicon-folding-collapsed");
+        marker.setAttribute("role", "button");
+        marker.setAttribute("tabindex", "0");
+        marker.setAttribute("aria-expanded", String(!collapsed));
+        marker.setAttribute("aria-label", collapsed ? "Unfold code block" : "Fold code block");
+        if (marker.dataset.keyboardFoldBound === "true") {
+            continue;
+        }
+        marker.dataset.keyboardFoldBound = "true";
+        marker.addEventListener("keydown", event => {
+            if (event.key !== "Enter" && event.key !== " ") {
+                return;
+            }
+            event.preventDefault();
+            const lineNumber = foldMarkerLine(marker, editor);
+            if (lineNumber !== undefined) {
+                editor.setPosition({ lineNumber, column: 1 });
+                editor.getAction("editor.toggleFold")?.run();
+            }
+        });
     }
 }
 
@@ -477,6 +864,28 @@ async function loadMermaid() {
     }
 
     return mermaidPromise;
+}
+
+async function loadMonaco() {
+    if (monacoPromise !== null) {
+        return monacoPromise;
+    }
+    monacoPromise = new Promise((resolve, reject) => {
+        const start = () => {
+            window.require.config({ paths: { vs: monacoBaseUrl } });
+            window.require(["vs/editor/editor.main"], () => resolve(window.monaco), reject);
+        };
+        if (typeof window.require === "function" && typeof window.require.config === "function") {
+            start();
+            return;
+        }
+        const script = document.createElement("script");
+        script.src = `${monacoBaseUrl}/loader.js`;
+        script.addEventListener("load", start, { once: true });
+        script.addEventListener("error", () => reject(new Error("Monaco Editor could not be loaded.")), { once: true });
+        document.head.append(script);
+    });
+    return monacoPromise;
 }
 
 function sanitizeSvg(svg) {

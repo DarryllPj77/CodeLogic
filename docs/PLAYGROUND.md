@@ -3,8 +3,8 @@
 ## Document Status
 
 - Tasks: Prompts 13–19 plus the owner-directed IDE workspace redesign
-- Last updated: 2026-11-06
-- Editor: accessible HTML textarea with interactive server UI
+- Last updated: 2026-11-07
+- Editor: Monaco Editor 0.57.0 (pinned CDN) with Roslyn-driven code folding, falling back to an accessible HTML textarea when Monaco cannot load
 
 ## Scope
 
@@ -16,9 +16,15 @@ The trace can be played automatically or moved one snapshot at a time with **Ste
 
 Editor changes schedule a flowchart translation after 400 milliseconds without compiling or running the source. A valid result replaces the preview; invalid or unsupported text leaves the last valid chart visible and presents the new diagnostics. **Preview flowchart** remains available as a manual retry and uses the same fail-closed translator.
 
-## Why a Textarea First
+## Editor: Monaco with a Plain-Text Fallback
 
-The native textarea provides labels, selection, editing, screen-reader support, browser text navigation, zoom behavior, and familiar keyboard interaction without a large JavaScript editor dependency. Monaco remains a possible later enhancement only if syntax highlighting or language-service features justify its integration and accessibility cost. Any later Monaco dependency must use a reviewed, pinned version and preserve an accessible plain-text experience.
+The playground began with a native textarea for its labels, selection, screen-reader support, and familiar keyboard interaction. The owner-directed IDE redesign now uses Monaco for syntax highlighting, a line-number gutter, and code folding. It meets the earlier conditions for adding Monaco:
+
+- **Pinned version:** Monaco loads from `cdn.jsdelivr.net/npm/monaco-editor@0.57.0`, like the pinned Mermaid URL.
+- **Accessible plain-text fallback:** if the Monaco loader fails (offline, CDN blocked), `initializeCodeEditor` creates a labelled `<textarea>` in the same host. Editing, the 10,000-character limit, Tab/Shift+Tab indentation, Esc-then-Tab focus release, Ctrl+S, Ctrl+Alt+R, and source-to-node synchronization still work there. The status bar says that the fallback is active. Folding is unavailable in the fallback.
+- **Keyboard parity in Monaco:** Tab indents. Esc switches Monaco to tab-focus mode, so the next Tab leaves the editor. Ctrl+Shift+[ and Ctrl+Shift+] fold and unfold. **Edit → Fold All / Unfold All** fold every block. Fold markers in the gutter are focusable buttons that respond to Enter and Space.
+
+Fold regions come from `IEditorStructureService` (Application), implemented by `RoslynEditorStructureService` (Infrastructure). It only *parses* the source with Roslyn, never compiles it. It returns multi-line brace regions for namespaces, types, methods, `if`/`else`, loops, `switch`, and `try`/`catch`/`finally`. Updates are debounced by 150 ms. If Roslyn returns no regions, the browser falls back to a string- and comment-aware brace matcher (`braceFoldRanges`).
 
 ## IDE Workspace Layout
 
@@ -32,7 +38,7 @@ The redesign uses centralized dark design tokens and keeps the source editor as 
 - zoom-in, zoom-out, fit, Ctrl+wheel zoom, and background drag-to-pan controls for the rendered SVG;
 - an output area for diagnostics, analysis, bounded trace, and the explicitly non-executing terminal state.
 
-Selecting a node in the diagram or text map updates the property panel, highlights the generated Mermaid node, focuses the textarea, and selects the exact source span. Moving the caret into a mapped source span selects the corresponding node. Decision properties show only real graph edges, including their True/False destinations and whether a loop-back edge targets that decision. Smaller widths turn properties into an explicit drawer and stack editor, canvas, feedback, and trace without removing their keyboard-accessible content. “Flowchart focus” hides the editor visually at desktop width but never changes source or graph data.
+Selecting a node in the diagram or text map updates the property panel, highlights the generated Mermaid node, focuses the editor (unfolding the target if needed), and selects the exact source span. Moving the caret into a mapped source span selects the corresponding node. Decision properties show only real graph edges, including their True/False destinations and whether a loop-back edge targets that decision. Smaller widths turn properties into an explicit drawer and stack editor, canvas, feedback, and trace without removing their keyboard-accessible content. “Flowchart focus” hides the editor visually at desktop width but never changes source or graph data.
 
 Source-backed nodes can be edited from the properties panel or by double-clicking the canvas node. The replacement applies only to the node's exact source span and is first translated as a complete candidate document. Empty, stale, oversized, invalid, or unsupported edits are rejected without changing the editor or last valid graph. **Reveal in source** remains as a secondary keyboard-accessible action.
 
@@ -95,10 +101,11 @@ Analysis is limited to 10,000 characters, three control-flow nesting levels, and
 
 ## Known Limitations
 
-- Plain text only; no syntax highlighting, autocomplete, semantic/type diagnostics, or formatting.
-- The split-pane host is ready for a future reviewed Monaco integration, but Monaco is not installed in this redesign.
-- The textarea has no line-number gutter, syntax highlighting, autocomplete, semantic/type diagnostics, or formatting. Source line and range remain visible in the synchronized node properties.
-- A native textarea cannot expose per-statement hover regions, so source-to-node synchronization follows caret and selection changes instead; diagram nodes do provide hover/focus highlights and source-backed tooltips.
+- Monaco provides highlighting and folding only. There is no IntelliSense, semantic/type diagnostics, or formatting, and no C# language server is connected.
+- Monaco loads from a pinned CDN URL, so the rich editor needs network access. Without it, the plain-text fallback has no highlighting, gutter, or folding.
+- Analysis diagnostics outline the matching flowchart nodes after **Check syntax**, but they are not yet shown as squiggles inside Monaco.
+- Source-to-node synchronization follows caret and selection changes rather than hover. Diagram nodes provide hover/focus highlights and source-backed tooltips.
+- Panel collapse and maximize states reset when the page is reloaded.
 - Node properties expose graph type, label, and exact source span. Rich semantic fields such as inferred variable type require a future semantic-analysis contract and are not fabricated.
 - Panel sizes persist locally, but the selected sidebar panel, open/closed panels, and split/focus mode reset when the page is reloaded.
 - One local draft only; loading another snippet does not create a separate saved file.
