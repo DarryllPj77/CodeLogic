@@ -238,7 +238,7 @@
             {
                 <div class="node-source-editor">
                     <label for="node-source-text">Mapped C# statement</label>
-                    <textarea id="node-source-text" @bind="NodeEditText" rows="4" maxlength="@EditorState.MaximumCharacters" spellcheck="false"></textarea>
+                    <textarea id="node-source-text" @bind="NodeEditText" @bind:event="oninput" rows="4" maxlength="@EditorState.MaximumCharacters" spellcheck="false"></textarea>
                     <button class="button button--primary" type="button" @onclick="ApplyNodeEditAsync">Apply safe edit</button>
                     @if (NodeEditMessage is not null)
                     {
