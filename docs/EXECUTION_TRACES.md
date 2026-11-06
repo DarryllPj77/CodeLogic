@@ -54,6 +54,8 @@ This makes `while (true)`, `for (;;)`, and other infinite-looking patterns safe 
 - **Reset trace** returns to the initial Start snapshot with empty variables and output.
 - Editing, loading, or resetting source discards the old trace so stale state is never shown as current.
 
+Prediction practice is optional and deterministic. For a decision step it asks which existing graph edge (True or False) the trace will take. For a step that changes a variable, it asks for the next recorded value. The comparison trims surrounding whitespace and ignores letter casing, then advances to the same precomputed snapshot whether the prediction is correct or incorrect. Empty answers do not advance. Play is disabled in prediction mode so every applicable step remains an intentional learner check.
+
 The trace panel uses native buttons, headings, definition lists, a variable table, text output, and live status messages. Its information does not depend on diagram color or animation.
 
 Prompt 19 reuses this interpreter for instructor-defined logical cases. Those results compare fixed expected and actual outputs; they do not expand the interpreter subset or turn traces into proof of general correctness. See [LOGICAL_FEEDBACK.md](LOGICAL_FEEDBACK.md).

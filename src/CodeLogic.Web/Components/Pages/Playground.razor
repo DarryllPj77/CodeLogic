@@ -537,8 +537,8 @@
             <p><strong>Trace step @TraceNavigator.StepNumber of @TraceNavigator.StepCount</strong></p>
             <div class="trace-playback-row">
                 <div class="button-row" aria-label="Trace playback controls">
-                    <button class="button button--primary" type="button" @onclick="ToggleTracePlaybackAsync" disabled="@(!TraceNavigator.CanStep && !IsTracePlaying)">@(IsTracePlaying ? "Pause" : "Play")</button>
-                    <button class="button button--secondary" type="button" @onclick="NextTraceStepAsync" disabled="@(!TraceNavigator.CanStep || IsTracePlaying)">Step</button>
+                    <button class="button button--primary" type="button" @onclick="ToggleTracePlaybackAsync" disabled="@(IsPredictionMode || (!TraceNavigator.CanStep && !IsTracePlaying))">@(IsTracePlaying ? "Pause" : "Play")</button>
+                    <button class="button button--secondary" type="button" @onclick="NextTraceStepAsync" disabled="@(!TraceNavigator.CanStep || IsTracePlaying || (IsPredictionMode && CurrentPrediction is not null))">Step</button>
                     <button class="button button--secondary" type="button" @onclick="PreviousTraceStepAsync" disabled="@(!TraceNavigator.CanStepBack || IsTracePlaying)">Back</button>
                     <button class="button button--secondary" type="button" @onclick="ResetTraceAsync">Reset</button>
                 </div>
@@ -548,6 +548,25 @@
                     <span>@TraceSpeedDescription</span>
                 </label>
             </div>
+            <label class="prediction-toggle">
+                <input type="checkbox" checked="@IsPredictionMode" @onchange="TogglePredictionModeAsync" />
+                Predict before each meaningful step
+            </label>
+            @if (IsPredictionMode && CurrentPrediction is not null)
+            {
+                <form class="trace-prediction" @onsubmit="SubmitPredictionAsync" @onsubmit:preventDefault>
+                    <AntiforgeryToken />
+                    <label for="trace-prediction-answer">@CurrentPrediction.Prompt</label>
+                    <div class="trace-prediction-row">
+                        <input id="trace-prediction-answer" type="text" @bind="PredictionAnswer" @bind:event="oninput" autocomplete="off" />
+                        <button class="button button--primary" type="submit">Check and step</button>
+                    </div>
+                </form>
+            }
+            @if (PredictionFeedback is not null)
+            {
+                <p class="prediction-feedback prediction-feedback--@(PredictionWasCorrect == true ? "correct" : "incorrect")" role="status">@PredictionFeedback</p>
+            }
         </div>
 
         <div class="trace-state">
@@ -644,7 +663,12 @@
     private bool IsExplorerCollapsed { get; set; }
     private bool IsPropertiesOpen { get; set; } = true;
     private bool IsTracePlaying { get; set; }
+    private bool IsPredictionMode { get; set; }
     private int TracePlaybackDelayMilliseconds { get; set; } = 700;
+    private TracePrediction? CurrentPrediction { get; set; }
+    private string PredictionAnswer { get; set; } = string.Empty;
+    private string? PredictionFeedback { get; set; }
+    private bool? PredictionWasCorrect { get; set; }
     private string? ToastMessage { get; set; }
     private string NodeEditText { get; set; } = string.Empty;
     private string? NodeEditMessage { get; set; }
@@ -952,6 +976,7 @@
             if (TraceResult.HasTrace)
             {
                 TraceNavigator = new ExecutionTraceNavigator(TraceResult);
+                PreparePrediction(clearFeedback: true);
                 StatusMessage = TraceResult.Status == ExecutionTraceStatus.StepLimitReached
                     ? $"Trace stopped safely at the {TraceResult.MaximumOperations}-operation limit."
                     : $"Trace built with {TraceResult.Steps.Count} snapshots. Use Next step to inspect it.";
@@ -1006,9 +1031,17 @@
 
     private async Task NextTraceStepAsync()
     {
+        if (IsPredictionMode && CurrentPrediction is not null)
+        {
+            PredictionFeedback = "Make a prediction below before advancing this step.";
+            PredictionWasCorrect = false;
+            return;
+        }
+
         TraceNavigator?.Step();
         if (TraceNavigator is not null)
         {
+            PreparePrediction(clearFeedback: true);
             StatusMessage = $"Trace step {TraceNavigator.StepNumber} of {TraceNavigator.StepCount}: {TraceNavigator.Current.ActiveNodeLabel}.";
             await SynchronizeTraceStepAsync();
         }
@@ -1019,6 +1052,7 @@
         TraceNavigator?.StepBack();
         if (TraceNavigator is not null)
         {
+            PreparePrediction(clearFeedback: true);
             StatusMessage = $"Returned to trace step {TraceNavigator.StepNumber} of {TraceNavigator.StepCount}.";
             await SynchronizeTraceStepAsync();
         }
@@ -1028,8 +1062,71 @@
     {
         StopTracePlayback();
         TraceNavigator?.Reset();
+        PreparePrediction(clearFeedback: true);
         StatusMessage = "Trace reset to its initial state.";
         await SynchronizeTraceStepAsync();
+    }
+
+    private Task TogglePredictionModeAsync(ChangeEventArgs eventArgs)
+    {
+        IsPredictionMode = eventArgs.Value is true
+            || string.Equals(eventArgs.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+        if (IsPredictionMode)
+        {
+            StopTracePlayback();
+        }
+
+        PreparePrediction(clearFeedback: true);
+        StatusMessage = IsPredictionMode
+            ? "Prediction practice enabled. Automatic playback is paused while you answer each prompt."
+            : "Prediction practice disabled.";
+        return Task.CompletedTask;
+    }
+
+    private async Task SubmitPredictionAsync()
+    {
+        if (TraceNavigator is null || CurrentPrediction is null)
+        {
+            return;
+        }
+
+        var result = TracePredictionEvaluator.Evaluate(CurrentPrediction, PredictionAnswer);
+        PredictionFeedback = result.Feedback;
+        PredictionWasCorrect = result.IsCorrect;
+        if (string.IsNullOrWhiteSpace(PredictionAnswer))
+        {
+            return;
+        }
+
+        TraceNavigator.Step();
+        PredictionAnswer = string.Empty;
+        CurrentPrediction = CreatePrediction();
+        StatusMessage = $"Prediction checked. Trace advanced to step {TraceNavigator.StepNumber} of {TraceNavigator.StepCount}.";
+        await SynchronizeTraceStepAsync();
+    }
+
+    private void PreparePrediction(bool clearFeedback)
+    {
+        PredictionAnswer = string.Empty;
+        CurrentPrediction = IsPredictionMode ? CreatePrediction() : null;
+        if (clearFeedback)
+        {
+            PredictionFeedback = null;
+            PredictionWasCorrect = null;
+        }
+    }
+
+    private TracePrediction? CreatePrediction()
+    {
+        if (TraceNavigator?.CanStep != true || TraceResult is null)
+        {
+            return null;
+        }
+
+        return TracePredictionEvaluator.Create(
+            TraceNavigator.Current,
+            TraceResult.Steps[TraceNavigator.CurrentIndex + 1],
+            FlowchartResult?.Graph);
     }
 
     private Task ToggleTracePlaybackAsync()
@@ -1357,6 +1454,7 @@
         IsRendering = false;
         TraceResult = null;
         TraceNavigator = null;
+        PreparePrediction(clearFeedback: true);
         IsTracing = false;
         LogicalFeedbackResult = null;
         IsCheckingLogic = false;
@@ -1367,6 +1465,7 @@
         StopTracePlayback();
         TraceResult = null;
         TraceNavigator = null;
+        PreparePrediction(clearFeedback: true);
         IsTracing = false;
         LogicalFeedbackResult = null;
         IsCheckingLogic = false;
