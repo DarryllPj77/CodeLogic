@@ -4,7 +4,7 @@
 
 - Tasks: Prompts 15 and 17 — graph IR, loops, and nested control flow
 - Last updated: 2026-11-07
-- Schema version: 1.2 (method scopes and calls)
+- Schema version: 1.3 (method scopes and calls; break/continue jumps; switch)
 - Scope: deterministic graph translation for sequence, nested `if/else`, `while`, `for`, and `do-while`
 
 ## Purpose and Boundary
@@ -13,11 +13,11 @@ The flowchart intermediate representation (IR) is the stable boundary between C#
 
 The translator does not run source, compile source, or infer runtime behavior.
 
-## Schema 1.2
+## Schema 1.3
 
 `FlowGraph` contains:
 
-- `SchemaVersion`: currently `1.2`;
+- `SchemaVersion`: currently `1.3`;
 - an ordered, read-only list of `FlowNode` values;
 - an ordered, read-only list of `FlowEdge` values.
 
@@ -46,6 +46,7 @@ Source-backed nodes contain a `SourceSpan` with zero-based character offset and 
 | `False` | `False` | The condition evaluated false. |
 | `LoopBack` | `Repeat` or `True · repeat` | Control returns to a loop condition or the start of a `do-while` body. |
 | `Call` | `calls Name` | From a calling node to the called method's Start node (drawn dotted). |
+| `Jump` | `break` or `continue` | From a `break`/`continue` node to where control goes next (drawn thick). |
 
 Both branch exits connect to the next source statement. Loop decisions keep an explicit false exit even when the condition text looks permanently true, because the graph describes syntax rather than proving runtime termination.
 
@@ -70,11 +71,15 @@ The translator first reuses Prompt 14 analysis. It then parses the already-bound
 
 ## Supported Translation Slice
 
-Schema 1.2 translates:
+Schema 1.3 translates:
 
 - Main's body in classic programs (or the top-level statements) as the entry flow;
 - each static method as its own scoped sub-flowchart, `Start: Name(params)` to `Return from Name`, which Mermaid draws as a labelled subgraph;
-- `return` as an action node connected to its scope's End node;
+- `return` as an action node connected to its scope's End node, including from inside loops;
+- `break` as its own node with a `Jump` edge to the statement after the innermost loop or switch;
+- `continue` as its own node with a `Jump` edge to the loop's condition (`while`, `do-while`) or to its iterator (`for`);
+- `foreach` as a decision `more items in scores?` whose True path goes through an action `int score = next item of scores` into the body, which loops back to the decision. The False path leaves the loop, and `continue` jumps back to the decision;
+- `switch` as an action node `switch (value)` followed by a chain of equality decisions (`day == 1`, `day == 2 || day == 3`) in source order. Each decision's True path runs its section; the last False path runs the `default` section, wherever it is written, or leaves the switch. A section's closing `break` is the normal exit and is not drawn;
 - declarations and expression statements as sequence;
 - `Console.ReadLine` statements as input;
 - direct `Console.WriteLine` statements as output;
@@ -84,12 +89,12 @@ Schema 1.2 translates:
 - simple sequence, branches, and supported loops inside one another;
 - source following a branch or loop, with deterministic merge and exit edges.
 
-`break` and `continue` are explicitly unsupported as `CL1006` and `CL1007`. Supporting them later requires tested jump targets, especially inside nested loops. Other constructs outside this translation slice return positioned diagnostics with no partial graph.
+`break` and `continue` always target the innermost enclosing loop (`continue`) or loop/switch (`break`); labels and `goto` are not supported. Other constructs outside this translation slice return positioned diagnostics with no partial graph.
 
 ## Known Limitations
 
 - Local functions are rejected by analysis (`FL1002`); `return` inside a loop is rejected (`CL1012`).
-- `break` and `continue` are not translated.
+- Switch expressions, pattern cases, and `goto case` are not translated.
 - Conditions are displayed but not semantically evaluated; `while (true)` and `for (;;)` therefore retain a structural false exit alongside the repeat edge.
 - Node labels describe syntax, not evaluated values or program output.
 - Input/output classification is deliberately limited to supported `Console` calls.

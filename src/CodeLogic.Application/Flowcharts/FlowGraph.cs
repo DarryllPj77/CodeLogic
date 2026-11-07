@@ -24,6 +24,9 @@ public enum FlowEdgeType
 
     /// <summary>From a statement that calls a method to that method's Start node (drawn dotted).</summary>
     Call = 5,
+
+    /// <summary>A break or continue leaving the normal sequence (labelled "break" or "continue").</summary>
+    Jump = 6,
 }
 
 public sealed record SourceSpan
@@ -138,7 +141,7 @@ public sealed record FlowEdge
 
 public sealed class FlowGraph
 {
-    public const string CurrentSchemaVersion = "1.2";
+    public const string CurrentSchemaVersion = "1.3";
 
     public FlowGraph(IEnumerable<FlowNode> nodes, IEnumerable<FlowEdge> edges)
     {

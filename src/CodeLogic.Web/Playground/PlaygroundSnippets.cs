@@ -95,6 +95,22 @@ public static class PlaygroundSnippets
                 while (attempts < 2);
                 """)),
         new(
+            "arrays-foreach",
+            "Arrays and foreach",
+            "Store several scores in one array, change an item by its index, then add them up with foreach.",
+            ProgramTemplates.Classic("""
+                int[] scores = { 90, 72, 85 };
+                scores[1] = 75;
+
+                int total = 0;
+                foreach (int score in scores)
+                {
+                    total += score;
+                }
+
+                Console.WriteLine($"{scores.Length} scores, total {total}");
+                """)),
+        new(
             "static-method",
             "A static method with parameters",
             "Main calls a static method, passes arguments, and uses the value it returns.",

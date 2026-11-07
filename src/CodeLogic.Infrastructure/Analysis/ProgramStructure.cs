@@ -91,6 +91,15 @@ internal sealed class ProgramStructure
     public static IReadOnlyList<StatementSyntax> BodyOf(MethodDeclarationSyntax method) =>
         method.Body is null ? [] : [.. method.Body.Statements];
 
+    /// <summary>
+    /// A switch section's statements without its closing break: that break is simply the way out of
+    /// the switch, so the flowchart does not draw it and the trace does not record it.
+    /// </summary>
+    public static IReadOnlyList<StatementSyntax> SwitchSectionBody(SwitchSectionSyntax section) =>
+        section.Statements.LastOrDefault() is BreakStatementSyntax
+            ? [.. section.Statements.Take(section.Statements.Count - 1)]
+            : [.. section.Statements];
+
     /// <summary>The name of a call to one of the program's own methods, or null for any other call.</summary>
     public string? CalledMethodName(InvocationExpressionSyntax invocation) =>
         invocation.Expression is IdentifierNameSyntax identifier

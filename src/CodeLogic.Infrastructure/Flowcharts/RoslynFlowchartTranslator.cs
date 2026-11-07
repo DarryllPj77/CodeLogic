@@ -61,6 +61,9 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
         private readonly List<(string FromNodeId, string Method)> calls = [];
         private readonly Dictionary<string, string> methodStarts = new(StringComparer.Ordinal);
         private List<string> returns = [];
+
+        // Innermost loop or switch last: break leaves the nearest one, continue repeats the nearest loop.
+        private readonly Stack<JumpScope> jumpScopes = new();
         private string? scope;
 
         public FlowGraph Build()
@@ -136,6 +139,10 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
                 WhileStatementSyntax loop => AddWhile(loop, incoming),
                 ForStatementSyntax loop => AddFor(loop, incoming),
                 DoStatementSyntax loop => AddDoWhile(loop, incoming),
+                SwitchStatementSyntax choice => AddSwitch(choice, incoming),
+                ForEachStatementSyntax loop => AddForEach(loop, incoming),
+                BreakStatementSyntax jump => AddJump(jump, "break", jumpScopes.First().Breaks, incoming),
+                ContinueStatementSyntax jump => AddJump(jump, "continue", jumpScopes.First(scope => scope.IsLoop).Continues, incoming),
                 ReturnStatementSyntax exit => AddReturn(exit, incoming),
                 _ => AddSimpleStatement(statement, incoming),
             };
@@ -163,6 +170,108 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
             return [];
         }
 
+        // break and continue get their own node so the trace can show the jump; the thick edge to
+        // their target is added when the enclosing loop or switch knows where that is.
+        private IReadOnlyList<PendingEdge> AddJump(
+            StatementSyntax jump,
+            string label,
+            List<PendingEdge> targets,
+            IReadOnlyList<PendingEdge> incoming)
+        {
+            var node = AddNode(FlowNodeType.Action, label, jump);
+            Connect(incoming, node.Id);
+            targets.Add(new PendingEdge(node.Id, FlowEdgeType.Jump, label));
+            return [];
+        }
+
+        private IReadOnlyList<PendingEdge> AddLoopBody(
+            StatementSyntax body,
+            IReadOnlyList<PendingEdge> incoming,
+            out JumpScope scope)
+        {
+            scope = new JumpScope(IsLoop: true);
+            jumpScopes.Push(scope);
+            try
+            {
+                return AddStatements(Unwrap(body), incoming);
+            }
+            finally
+            {
+                jumpScopes.Pop();
+            }
+        }
+
+        /// <summary>
+        /// A switch evaluates its value once, then checks each case in order as an equality decision.
+        /// default runs when nothing matched, wherever it is written. A section's closing break is the
+        /// normal way out and is not drawn; a break earlier in a section gets a thick break edge.
+        /// </summary>
+        private IReadOnlyList<PendingEdge> AddSwitch(
+            SwitchStatementSyntax choice,
+            IReadOnlyList<PendingEdge> incoming)
+        {
+            var evaluate = AddNode(FlowNodeType.Action, $"switch ({Text(choice.Expression)})", choice.Expression);
+            Connect(incoming, evaluate.Id);
+
+            var scope = new JumpScope(IsLoop: false);
+            var exits = new List<PendingEdge>();
+            IReadOnlyList<PendingEdge> next = [new PendingEdge(evaluate.Id, FlowEdgeType.Next)];
+            SwitchSectionSyntax? defaultSection = null;
+
+            jumpScopes.Push(scope);
+            try
+            {
+                foreach (var section in choice.Sections)
+                {
+                    // A section labelled default (even alongside cases) runs whenever no other case
+                    // matches, which already covers its own case values.
+                    if (section.Labels.Any(label => label is DefaultSwitchLabelSyntax))
+                    {
+                        defaultSection = section;
+                        continue;
+                    }
+
+                    var values = section.Labels.OfType<CaseSwitchLabelSyntax>().ToArray();
+
+                    var label = string.Join(" || ", values.Select(value => $"{Text(choice.Expression)} == {Text(value.Value)}"));
+                    var decision = AddNode(FlowNodeType.Decision, label, values[0]);
+                    Connect(next, decision.Id);
+                    exits.AddRange(AddStatements(ProgramStructure.SwitchSectionBody(section), [new PendingEdge(decision.Id, FlowEdgeType.True)]));
+                    next = [new PendingEdge(decision.Id, FlowEdgeType.False)];
+                }
+
+                exits.AddRange(defaultSection is null
+                    ? next
+                    : AddStatements(ProgramStructure.SwitchSectionBody(defaultSection), next));
+            }
+            finally
+            {
+                jumpScopes.Pop();
+            }
+
+            return [.. exits, .. scope.Breaks];
+        }
+
+        /// <summary>
+        /// foreach is drawn as a "more items?" decision followed by the step that copies the next item
+        /// into the loop variable. The body loops back to the decision; the False path leaves the loop.
+        /// </summary>
+        private IReadOnlyList<PendingEdge> AddForEach(
+            ForEachStatementSyntax loop,
+            IReadOnlyList<PendingEdge> incoming)
+        {
+            var collection = Text(loop.Expression);
+            var decision = AddNode(FlowNodeType.Decision, $"more items in {collection}?", loop.Expression);
+            Connect(incoming, decision.Id);
+            var next = AddAction(
+                $"{Text(loop.Type)} {loop.Identifier.ValueText} = next item of {collection}",
+                loop.Type,
+                [new PendingEdge(decision.Id, FlowEdgeType.True)]);
+            var bodyExits = AddLoopBody(loop.Statement, next, out var jumps);
+            ConnectLoopBack([.. bodyExits, .. jumps.Continues], decision.Id);
+            return [new PendingEdge(decision.Id, FlowEdgeType.False), .. jumps.Breaks];
+        }
+
         private IReadOnlyList<PendingEdge> AddBranch(
             IfStatementSyntax branch,
             IReadOnlyList<PendingEdge> incoming)
@@ -188,11 +297,12 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
         {
             var decision = AddNode(FlowNodeType.Decision, Text(loop.Condition), loop.Condition);
             Connect(incoming, decision.Id);
-            var bodyExits = AddStatements(
-                Unwrap(loop.Statement),
-                [new PendingEdge(decision.Id, FlowEdgeType.True)]);
-            ConnectLoopBack(bodyExits, decision.Id);
-            return [new PendingEdge(decision.Id, FlowEdgeType.False)];
+            var bodyExits = AddLoopBody(
+                loop.Statement,
+                [new PendingEdge(decision.Id, FlowEdgeType.True)],
+                out var jumps);
+            ConnectLoopBack([.. bodyExits, .. jumps.Continues], decision.Id);
+            return [new PendingEdge(decision.Id, FlowEdgeType.False), .. jumps.Breaks];
         }
 
         private IReadOnlyList<PendingEdge> AddFor(
@@ -216,9 +326,13 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
                 (SyntaxNode?)loop.Condition ?? loop);
             Connect(exits, condition.Id);
 
-            var bodyExits = AddStatements(
-                Unwrap(loop.Statement),
-                [new PendingEdge(condition.Id, FlowEdgeType.True)]);
+            IReadOnlyList<PendingEdge> bodyExits = AddLoopBody(
+                loop.Statement,
+                [new PendingEdge(condition.Id, FlowEdgeType.True)],
+                out var jumps);
+
+            // continue in a for loop still runs the iterator before the condition is checked again.
+            bodyExits = [.. bodyExits, .. jumps.Continues];
             foreach (var incrementor in loop.Incrementors)
             {
                 bodyExits = AddAction(
@@ -228,7 +342,7 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
             }
 
             ConnectLoopBack(bodyExits, condition.Id);
-            return [new PendingEdge(condition.Id, FlowEdgeType.False)];
+            return [new PendingEdge(condition.Id, FlowEdgeType.False), .. jumps.Breaks];
         }
 
         private IReadOnlyList<PendingEdge> AddDoWhile(
@@ -236,15 +350,15 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
             IReadOnlyList<PendingEdge> incoming)
         {
             var firstBodyNodeIndex = nodes.Count;
-            var bodyExits = AddStatements(Unwrap(loop.Statement), incoming);
+            var bodyExits = AddLoopBody(loop.Statement, incoming, out var jumps);
             var decision = AddNode(FlowNodeType.Decision, Text(loop.Condition), loop.Condition);
-            Connect(bodyExits, decision.Id);
+            Connect([.. bodyExits, .. jumps.Continues], decision.Id);
 
             var repeatTarget = firstBodyNodeIndex < nodes.Count - 1
                 ? nodes[firstBodyNodeIndex].Id
                 : decision.Id;
             AddEdge(decision.Id, repeatTarget, FlowEdgeType.LoopBack, "True · repeat");
-            return [new PendingEdge(decision.Id, FlowEdgeType.False)];
+            return [new PendingEdge(decision.Id, FlowEdgeType.False), .. jumps.Breaks];
         }
 
         private IReadOnlyList<PendingEdge> AddAction(
@@ -284,7 +398,7 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
         {
             foreach (var pending in incoming)
             {
-                AddEdge(pending.FromNodeId, toNodeId, pending.Type, EdgeLabel(pending.Type));
+                AddEdge(pending.FromNodeId, toNodeId, pending.Type, pending.Label ?? EdgeLabel(pending.Type));
             }
         }
 
@@ -292,6 +406,12 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
         {
             foreach (var pending in incoming)
             {
+                if (pending.Type == FlowEdgeType.Jump)
+                {
+                    AddEdge(pending.FromNodeId, toNodeId, FlowEdgeType.Jump, pending.Label);
+                    continue;
+                }
+
                 var label = pending.Type switch
                 {
                     FlowEdgeType.True => "True · repeat",
@@ -374,6 +494,13 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
                 lineSpan.EndLinePosition.Character + 1);
         }
 
-        private sealed record PendingEdge(string FromNodeId, FlowEdgeType Type);
+        private sealed record PendingEdge(string FromNodeId, FlowEdgeType Type, string? Label = null);
+
+        private sealed record JumpScope(bool IsLoop)
+        {
+            public List<PendingEdge> Breaks { get; } = [];
+
+            public List<PendingEdge> Continues { get; } = [];
+        }
     }
 }

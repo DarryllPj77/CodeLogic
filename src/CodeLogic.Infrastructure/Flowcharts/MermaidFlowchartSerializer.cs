@@ -64,7 +64,12 @@ public sealed class MermaidFlowchartSerializer : IMermaidFlowchartSerializer
             definition
                 .Append("  ")
                 .Append(mermaidIds[edge.FromNodeId])
-                .Append(edge.Type == FlowEdgeType.Call ? " -.->" : " -->");
+                .Append(edge.Type switch
+                {
+                    FlowEdgeType.Call => " -.->",
+                    FlowEdgeType.Jump => " ==>",
+                    _ => " -->",
+                });
             if (edge.Label is not null)
             {
                 definition

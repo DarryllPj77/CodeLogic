@@ -2086,3 +2086,5 @@ a.ws-account:hover { border-color: #3b5a7a; }
     .ws-form-badge ~ .ws-panel__actions .ws-chip-button span { font-size: 0.8rem; }
     .editor-panel .ws-file-tag { display: none; }
 }
+.legend-line--jump { border-color: #f472b6; border-top-width: 3px; }
+.flowchart-canvas .flowchart-link.thick, .flowchart-canvas path.edge-thickness-thick { stroke: #f472b6 !important; }

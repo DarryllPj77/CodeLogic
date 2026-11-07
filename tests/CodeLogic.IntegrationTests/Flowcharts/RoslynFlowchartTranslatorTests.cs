@@ -25,9 +25,9 @@ public sealed class RoslynFlowchartTranslatorTests
 
         Assert.Equal(FlowchartTranslationStatus.Success, result.Status);
         Assert.Empty(result.Diagnostics);
-        Assert.Equal(
+        AssertGolden(
             """
-            schema 1.2
+            schema 1.3
             node node-000 Start | Start
             node node-001 Input | string name = Console.ReadLine();
             node node-002 Action | string greeting = "Hello " + name;
@@ -67,9 +67,9 @@ public sealed class RoslynFlowchartTranslatorTests
         var result = await translator.TranslateAsync(source);
 
         Assert.Equal(FlowchartTranslationStatus.Success, result.Status);
-        Assert.Equal(
+        AssertGolden(
             """
-            schema 1.2
+            schema 1.3
             node node-000 Start | Start
             node node-001 Action | int score = 6;
             node node-002 Decision | score >= 5
@@ -124,9 +124,9 @@ public sealed class RoslynFlowchartTranslatorTests
         var result = await translator.TranslateAsync(source);
 
         Assert.Equal(FlowchartTranslationStatus.Success, result.Status);
-        Assert.Equal(
+        AssertGolden(
             """
-            schema 1.2
+            schema 1.3
             node node-000 Start | Start
             node node-001 Decision | score >= 5
             node node-002 Decision | hasBonus
@@ -164,9 +164,9 @@ public sealed class RoslynFlowchartTranslatorTests
         var result = await translator.TranslateAsync(source);
 
         Assert.Equal(FlowchartTranslationStatus.Success, result.Status);
-        Assert.Equal(
+        AssertGolden(
             """
-            schema 1.2
+            schema 1.3
             node node-000 Start | Start
             node node-001 Action | int count = 0;
             node node-002 Decision | count < 3
@@ -199,9 +199,9 @@ public sealed class RoslynFlowchartTranslatorTests
         var result = await translator.TranslateAsync(source);
 
         Assert.Equal(FlowchartTranslationStatus.Success, result.Status);
-        Assert.Equal(
+        AssertGolden(
             """
-            schema 1.2
+            schema 1.3
             node node-000 Start | Start
             node node-001 Action | for init: int index = 0
             node node-002 Decision | index < 3
@@ -237,9 +237,9 @@ public sealed class RoslynFlowchartTranslatorTests
         var result = await translator.TranslateAsync(source);
 
         Assert.Equal(FlowchartTranslationStatus.Success, result.Status);
-        Assert.Equal(
+        AssertGolden(
             """
-            schema 1.2
+            schema 1.3
             node node-000 Start | Start
             node node-001 Action | int count = 0;
             node node-002 Output | Console.WriteLine(count);
@@ -282,9 +282,9 @@ public sealed class RoslynFlowchartTranslatorTests
     }
 
     [Theory]
-    [InlineData("while (true) { break; }", "CL1006")]
-    [InlineData("for (;;) { continue; }", "CL1007")]
-    public async Task BreakAndContinueAreExplicitlyUnsupported(string source, string expectedCode)
+    [InlineData("int value = 1;\nbreak;", "CL1006")]
+    [InlineData("int value = 1;\nif (value > 0) { continue; }", "CL1007")]
+    public async Task BreakAndContinueOutsideALoopAreRejected(string source, string expectedCode)
     {
         var result = await translator.TranslateAsync(source);
 
@@ -335,6 +335,11 @@ public sealed class RoslynFlowchartTranslatorTests
         Assert.Equal(FlowchartTranslationStatus.Success, result.Status);
         Assert.NotNull(result.Graph);
     }
+
+    // Raw string literals take the file's line endings, which depend on the Git checkout
+    // (core.autocrlf); the graph text always uses '\n'.
+    private static void AssertGolden(string expected, string actual) =>
+        Assert.Equal(expected.ReplaceLineEndings("\n"), actual);
 
     private static string Golden(FlowGraph graph)
     {

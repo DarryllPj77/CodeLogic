@@ -482,6 +482,7 @@
                                 <li><span class="legend-line legend-line--loop"></span>Loop</li>
                                 <li><span class="legend-line legend-line--exit"></span>Exit</li>
                                 <li><span class="legend-line legend-line--call"></span>Calls a method</li>
+                                <li><span class="legend-line legend-line--jump"></span>break / continue</li>
                             </ul>
                         </details>
                     </div>
@@ -1832,6 +1833,7 @@
             FlowEdgeType.False => "False path",
             FlowEdgeType.LoopBack => edge.Label ?? "Loop path",
             FlowEdgeType.Call => "Calls",
+            FlowEdgeType.Jump => edge.Label == "continue" ? "continue jumps" : "break jumps",
             _ => "Next",
         };
         return $"{path}: {from.Label} → {to.Label}";

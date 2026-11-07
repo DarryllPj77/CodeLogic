@@ -28,23 +28,27 @@ The form is detected, not chosen. The Playground shows it as a badge. Zero Main 
 
 Accepted inside Main and static methods:
 
-- `int`, `double`, `bool`, `string`, `char`, and arrays of those types;
+- `int`, `double`, `bool`, `string`, `char`, and one-dimensional arrays of those types (`int[,]` and jagged `int[][]` are reported as not supported yet);
+- array creation (`{ 1, 2 }`, `new int[3]`, `new int[] { ... }`, `new[] { ... }`), indexing with one index, and `.Length` on arrays and strings;
+- `foreach` with an explicit item type (`var` asks for the type). Assigning the loop variable is reported as read-only (`CL1016`), as in C#;
 - initialized declarations, assignments, expression statements, `if` / `else if` / `else`, `for`, `while`, `do-while`;
-- `return` anywhere except inside a loop;
+- `switch` statements whose cases are literal values (several labels per section are allowed). Every section must end with `break` or `return`, because there is no fall-through. Pattern cases, `when` clauses, and named constants are rejected with an explanation;
+- `break` inside a loop or switch (`CL1006` otherwise) and `continue` inside a loop (`CL1007` otherwise). Neither can leave a method;
+- `return` anywhere, including inside loops;
 - number, string, character, and Boolean literals; arithmetic, comparison, Boolean, assignment, and increment/decrement operators; interpolated strings;
 - `Console.WriteLine`, `Console.Write`, `Console.ReadLine`, and calls to the program's own static methods (argument count is checked, `CL1015`; recursion is rejected, `CL1013`).
 
-An `else if` chain does not add nesting depth.
+An `else if` chain does not add nesting depth; a `switch` counts as one level.
 
 ## Diagnostic Format
 
 Every unsupported-feature diagnostic says **what** is wrong (`Message`), **why** (`Explanation`), and **what to do instead** (`Suggestion`). It also names a registry entry (`HelpTopicId`) that the Playground's **What's supported** button opens. Examples:
 
-- `CL1001` switch: "switch is not supported yet." Instead: "Use if/else if/else or a small method instead."
+- `CL1001` switch expression: "switch expressions are not supported yet." Instead: use a switch statement that assigns the variable in each case, or if/else if/else.
 - `CL1004` depth: "This code is nested 4 levels deep; the limit is 3." Instead: extract the innermost block into a static method.
 - `FL1002` local functions: suggests moving the function into the class. In classic programs the Playground offers **Rewrite as static method**, which `IProgramStructureService` performs syntactically. It refuses when the function uses the enclosing method's variables.
 
-Not supported yet (each with its own diagnostic): `switch`, `break`, `continue`, `return` inside loops, local functions, records, properties and fields, generics, `async`/`await`, LINQ, lambdas, object creation, `foreach`, exception handling, and framework APIs (arbitrary .NET execution). Preprocessor directives, `using static`, and alias directives are rejected too.
+Not supported yet (each with its own diagnostic): switch expressions, local functions, records, properties and fields, generics, `async`/`await`, LINQ, lambdas, object creation, `foreach`, exception handling, and framework APIs (arbitrary .NET execution). Preprocessor directives, `using static`, and alias directives are rejected too.
 
 ## Limits and Outcomes
 

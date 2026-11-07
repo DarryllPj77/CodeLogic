@@ -118,13 +118,6 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
                         "ET1001",
                         $"Variable '{declarator.Identifier.ValueText}' needs an initial value for tracing.",
                         "Give every traced variable an initial value so each state is deterministic.");
-                case ArrayTypeSyntax or ArrayCreationExpressionSyntax
-                    or ImplicitArrayCreationExpressionSyntax or ElementAccessExpressionSyntax:
-                    return Diagnostic(
-                        node,
-                        "ET1001",
-                        "Arrays are not supported by the current trace subset.",
-                        "Use scalar int, double, bool, string, or char variables for this trace.");
                 case InvocationExpressionSyntax invocation when IsConsoleReadLine(invocation):
                     return Diagnostic(
                         invocation,
@@ -132,12 +125,12 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
                         "Console.ReadLine is not supported by deterministic traces.",
                         "The trace has no live console input. Replace input with an authored literal value.");
                 case AssignmentExpressionSyntax assignment
-                    when assignment.Left is not IdentifierNameSyntax:
+                    when assignment.Left is not (IdentifierNameSyntax or ElementAccessExpressionSyntax):
                     return Diagnostic(
                         assignment.Left,
                         "ET1001",
-                        "Only direct variable assignment is supported by traces.",
-                        "Assign to a named scalar variable rather than an array element or other target.");
+                        "Only variables and array items can be assigned in traces.",
+                        "Assign to a named variable or to an item such as scores[0].");
             }
         }
 
@@ -185,6 +178,7 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
     private sealed class Interpreter
     {
         private const int MaximumCallDepth = 32;
+        private const int MaximumArrayLength = 50;
 
         private readonly FlowGraph graph;
         private readonly ProgramStructure structure;
@@ -213,13 +207,20 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
 
         private Dictionary<string, object> variables => frames.Peek().Variables;
 
-        private Dictionary<string, SyntaxKind> variableTypes => frames.Peek().Types;
+        private Dictionary<string, TraceType> variableTypes => frames.Peek().Types;
 
         public ExecutionTraceResult Run()
         {
             RecordSynthetic(FlowNodeType.Start, scope: null, structure.Main is null
                 ? "Trace ready. No learner code has been run."
                 : "Trace ready. The program starts at Main. No learner code has been run.");
+            if (structure.Main?.ParameterList.Parameters.FirstOrDefault() is { } argsParameter)
+            {
+                // args exists in the simulation but is always empty: there is no command line.
+                variables[argsParameter.Identifier.ValueText] = new ArrayValue(SyntaxKind.StringKeyword, []);
+                variableTypes[argsParameter.Identifier.ValueText] = new TraceType(SyntaxKind.StringKeyword, IsArray: true);
+            }
+
             object? exitValue = null;
             try
             {
@@ -262,12 +263,16 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
                     var value = Evaluate(expressionStatement.Expression);
                     var explanation = expressionStatement.Expression switch
                     {
-                        InvocationExpressionSyntax call when IsConsoleCall(call, "WriteLine") => $"Added {Format(value)} to output.",
-                        InvocationExpressionSyntax call when IsConsoleCall(call, "Write") => $"Wrote {Format(value)} without ending the line.",
+                        InvocationExpressionSyntax call when IsConsoleCall(call, "WriteLine") && value is ArrayValue =>
+                            $"Added {FormatForOutput(value)} to output. Printing an array shows its type, not its items; use foreach to print each one.",
+                        InvocationExpressionSyntax call when IsConsoleCall(call, "WriteLine") => $"Added {FormatForOutput(value)} to output.",
+                        InvocationExpressionSyntax call when IsConsoleCall(call, "Write") => $"Wrote {FormatForOutput(value)} without ending the line.",
                         InvocationExpressionSyntax call when structure.CalledMethodName(call) is { } name => value is VoidResult
                             ? $"Called {name}; it finished and control came back here."
                             : $"Called {name}; it returned {Format(value)}, which is not stored.",
-                        AssignmentExpressionSyntax or PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax => "Updated the variable state.",
+                        AssignmentExpressionSyntax assigned => $"Set {assigned.Left} to {Format(value)}.",
+                        PrefixUnaryExpressionSyntax { Operand: var target } => $"{target} is now {Format(Evaluate(target))}.",
+                        PostfixUnaryExpressionSyntax { Operand: var target } => $"{target} is now {Format(Evaluate(target))}.",
                         _ => $"Evaluated the statement; its value is {Format(value)}.",
                     };
                     RecordOperation(statement, explanation);
@@ -305,20 +310,34 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
                         RecordOperation(
                             loop.Condition,
                             $"The while condition is {Format(condition)}.");
-                        if (!condition)
+                        if (!condition || !RunLoopBody(loop.Statement))
                         {
                             return;
                         }
-
-                        ExecuteEmbedded(loop.Statement);
                     }
                 case ForStatementSyntax loop:
                     ExecuteFor(loop);
                     return;
+                case SwitchStatementSyntax choice:
+                    ExecuteSwitch(choice);
+                    return;
+                case ForEachStatementSyntax loop:
+                    ExecuteForEach(loop);
+                    return;
+                case BreakStatementSyntax:
+                    RecordOperation(statement, "break leaves the nearest loop or switch straight away.");
+                    throw new BreakSignal();
+                case ContinueStatementSyntax:
+                    RecordOperation(statement, "continue skips the rest of this repetition and goes to the next one.");
+                    throw new ContinueSignal();
                 case DoStatementSyntax loop:
                     do
                     {
-                        ExecuteEmbedded(loop.Statement);
+                        if (!RunLoopBody(loop.Statement))
+                        {
+                            return;
+                        }
+
                         var condition = RequireBoolean(Evaluate(loop.Condition), loop.Condition);
                         RecordOperation(
                             loop.Condition,
@@ -362,12 +381,82 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
                     return;
                 }
 
-                ExecuteEmbedded(loop.Statement);
+                if (!RunLoopBody(loop.Statement))
+                {
+                    return;
+                }
+
                 foreach (var incrementor in loop.Incrementors)
                 {
                     Evaluate(incrementor);
                     RecordOperation(incrementor, "Applied the for iterator and updated the variable state.");
                 }
+            }
+        }
+
+        /// <summary>Runs one repetition of a loop body. Returns false when a break ended the loop.</summary>
+        private bool RunLoopBody(StatementSyntax body)
+        {
+            try
+            {
+                ExecuteEmbedded(body);
+            }
+            catch (BreakSignal)
+            {
+                return false;
+            }
+            catch (ContinueSignal)
+            {
+                // The rest of the body is skipped; the loop goes on to its iterator or condition.
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Evaluates the switch value once, checks each case in order, and runs the first match, or the
+        /// default section when nothing matches. A break inside the section leaves only the switch;
+        /// continue passes through to the enclosing loop.
+        /// </summary>
+        private void ExecuteSwitch(SwitchStatementSyntax choice)
+        {
+            var value = Evaluate(choice.Expression);
+            RecordOperation(choice.Expression, $"The switch value is {Format(value)}.");
+
+            SwitchSectionSyntax? chosen = null;
+            foreach (var section in choice.Sections)
+            {
+                if (section.Labels.Any(label => label is DefaultSwitchLabelSyntax))
+                {
+                    continue;
+                }
+
+                var values = section.Labels.OfType<CaseSwitchLabelSyntax>().ToArray();
+                var matched = values.Any(label => AreEqual(value, Evaluate(label.Value)));
+                var text = string.Join(" or ", values.Select(label => label.Value.ToString()));
+                RecordOperation(values[0], matched
+                    ? $"{Format(value)} matches case {text}, so this case runs."
+                    : $"{Format(value)} does not match case {text}.");
+                if (matched)
+                {
+                    chosen = section;
+                    break;
+                }
+            }
+
+            chosen ??= choice.Sections.FirstOrDefault(section => section.Labels.Any(label => label is DefaultSwitchLabelSyntax));
+            if (chosen is null)
+            {
+                return;
+            }
+
+            try
+            {
+                ExecuteStatements(ProgramStructure.SwitchSectionBody(chosen));
+            }
+            catch (BreakSignal)
+            {
+                // break leaves the switch only.
             }
         }
 
@@ -384,16 +473,59 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
 
         private void ExecuteDeclaration(VariableDeclarationSyntax declaration)
         {
-            var type = declaration.Type is PredefinedTypeSyntax predefined
-                ? predefined.Keyword.Kind()
-                : throw new TraceUnsupportedException(
-                    declaration.Type,
-                    $"Type '{declaration.Type}' is not supported by traces.");
+            var type = TypeOf(declaration.Type);
             foreach (var declarator in declaration.Variables)
             {
                 var name = declarator.Identifier.ValueText;
-                variables[name] = Coerce(Evaluate(declarator.Initializer!.Value), type, declarator);
+                var initial = declarator.Initializer!.Value is InitializerExpressionSyntax items && type.IsArray
+                    ? CreateArray(type.Element, items)
+                    : Evaluate(declarator.Initializer.Value);
+                variables[name] = Coerce(initial, type, declarator);
                 variableTypes[name] = type;
+            }
+        }
+
+        /// <summary>
+        /// Runs foreach over an array (or the characters of a string). Each repetition records the
+        /// "more items?" decision and the step that copies the next item into the loop variable.
+        /// </summary>
+        private void ExecuteForEach(ForEachStatementSyntax loop)
+        {
+            var collection = Evaluate(loop.Expression);
+            var name = loop.Identifier.ValueText;
+            var type = TypeOf(loop.Type);
+            var collectionText = loop.Expression.ToString();
+            var count = collection switch
+            {
+                ArrayValue array => array.Items.Length,
+                string text => text.Length,
+                _ => throw new TraceUnsupportedException(loop.Expression, "foreach needs an array or a string to take items from."),
+            };
+
+            try
+            {
+                for (var index = 0; index < count; index++)
+                {
+                    RecordOperation(loop.Expression, $"{collectionText} has another item (item {index + 1} of {count}), so the loop continues.");
+                    var item = collection is ArrayValue array ? array.Items[index] : ((string)collection)[index];
+                    variables[name] = Coerce(item, type, loop.Type);
+                    variableTypes[name] = type;
+                    RecordOperation(loop.Type, $"Set {name} to {Format(variables[name])} (item {index + 1} of {count}).");
+                    if (!RunLoopBody(loop.Statement))
+                    {
+                        return;
+                    }
+                }
+
+                RecordOperation(loop.Expression, count == 0
+                    ? $"{collectionText} has no items, so the loop body never runs."
+                    : $"All {count} items of {collectionText} have been used, so the loop ends.");
+            }
+            finally
+            {
+                // The loop variable exists only inside the loop.
+                variables.Remove(name);
+                variableTypes.Remove(name);
             }
         }
 
@@ -415,10 +547,119 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
             PostfixUnaryExpressionSyntax postfix => EvaluatePostfix(postfix),
             InterpolatedStringExpressionSyntax interpolated => EvaluateInterpolatedString(interpolated),
             InvocationExpressionSyntax invocation => EvaluateInvocation(invocation),
+            ElementAccessExpressionSyntax access => ReadItem(access),
+            MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Length" } length => Evaluate(length.Expression) switch
+            {
+                ArrayValue array => array.Items.Length,
+                string text => text.Length,
+                _ => throw new TraceUnsupportedException(length, ".Length needs an array or a string."),
+            },
+            ArrayCreationExpressionSyntax creation => CreateArray(creation),
+            ImplicitArrayCreationExpressionSyntax creation => CreateImplicitArray(creation),
             _ => throw new TraceUnsupportedException(
                 expression,
                 $"{expression.Kind()} is not supported by traces."),
         };
+
+        private ArrayValue CreateArray(ArrayCreationExpressionSyntax creation)
+        {
+            var element = TypeOf(creation.Type.ElementType).Element;
+            if (creation.Initializer is not null)
+            {
+                return CreateArray(element, creation.Initializer);
+            }
+
+            var size = creation.Type.RankSpecifiers[0].Sizes[0];
+            if (Evaluate(size) is not int length || length < 0)
+            {
+                throw new TraceUnsupportedException(size, "An array size must be a whole number of 0 or more.");
+            }
+
+            CheckArrayLength(length, creation);
+            return new ArrayValue(element, [.. Enumerable.Repeat(DefaultValue(element), length)]);
+        }
+
+        private ArrayValue CreateArray(SyntaxKind element, InitializerExpressionSyntax initializer)
+        {
+            CheckArrayLength(initializer.Expressions.Count, initializer);
+            return new ArrayValue(
+                element,
+                [.. initializer.Expressions.Select(item => CoerceScalar(Evaluate(item), element, item))]);
+        }
+
+        // new[] { ... } takes its item type from the values: whole numbers mixed with decimals become double.
+        private ArrayValue CreateImplicitArray(ImplicitArrayCreationExpressionSyntax creation)
+        {
+            var values = creation.Initializer.Expressions.Select(Evaluate).ToArray();
+            CheckArrayLength(values.Length, creation);
+            var element = values switch
+            {
+                [] => throw new TraceUnsupportedException(creation, "new[] { } needs at least one item to know its type."),
+                _ when values.All(value => value is int) => SyntaxKind.IntKeyword,
+                _ when values.All(value => value is int or double) => SyntaxKind.DoubleKeyword,
+                _ when values.All(value => value is bool) => SyntaxKind.BoolKeyword,
+                _ when values.All(value => value is string) => SyntaxKind.StringKeyword,
+                _ when values.All(value => value is char) => SyntaxKind.CharKeyword,
+                _ => throw new TraceUnsupportedException(creation, "All items in new[] { } must have the same type."),
+            };
+            return new ArrayValue(element, [.. values.Select((value, index) => CoerceScalar(value, element, creation.Initializer.Expressions[index]))]);
+        }
+
+        private static void CheckArrayLength(int length, SyntaxNode source)
+        {
+            if (length > MaximumArrayLength)
+            {
+                throw new TraceUnsupportedException(source, $"Arrays in the trace are limited to {MaximumArrayLength} items so every item stays visible.");
+            }
+        }
+
+        private object ReadItem(ElementAccessExpressionSyntax access)
+        {
+            var target = Evaluate(access.Expression);
+            var index = IndexOf(access, target);
+            return target is ArrayValue array ? array.Items[index] : ((string)target)[index];
+        }
+
+        private int IndexOf(ElementAccessExpressionSyntax access, object target)
+        {
+            var length = target switch
+            {
+                ArrayValue array => array.Items.Length,
+                string text => text.Length,
+                _ => throw new TraceUnsupportedException(access.Expression, "Only arrays and strings can be indexed with [ ]."),
+            };
+            var argument = access.ArgumentList.Arguments[0].Expression;
+            if (Evaluate(argument) is not int index)
+            {
+                throw new TraceUnsupportedException(argument, "An index must be a whole number.");
+            }
+
+            if (index < 0 || index >= length)
+            {
+                throw new TraceUnsupportedException(
+                    access,
+                    length == 0
+                        ? $"Index {index} is outside {access.Expression}, which has no items. Real C# would stop here with an IndexOutOfRangeException."
+                        : $"Index {index} is outside {access.Expression} (valid indexes are 0 to {length - 1}). Real C# would stop here with an IndexOutOfRangeException.");
+            }
+
+            return index;
+        }
+
+        private object WriteItem(ElementAccessExpressionSyntax access, Func<object, object> update, SyntaxNode source)
+        {
+            var target = Evaluate(access.Expression);
+            if (target is string)
+            {
+                throw new TraceUnsupportedException(access, "Strings cannot be changed one character at a time; build a new string instead.");
+            }
+
+            var index = IndexOf(access, target);
+            var array = (ArrayValue)target;
+            var updated = CoerceScalar(update(array.Items[index]), array.Element, source);
+            array.Items[index] = updated;
+            return updated;
+        }
 
         private object EvaluateBinary(BinaryExpressionSyntax binary)
         {
@@ -455,6 +696,12 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
 
         private object EvaluateAssignment(AssignmentExpressionSyntax assignment)
         {
+            if (assignment.Left is ElementAccessExpressionSyntax item)
+            {
+                var right = Evaluate(assignment.Right);
+                return WriteItem(item, current => Combine(assignment, current, right), assignment);
+            }
+
             var identifier = (IdentifierNameSyntax)assignment.Left;
             var name = identifier.Identifier.ValueText;
             if (IsMainArgs(identifier))
@@ -469,27 +716,34 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
                     $"Variable '{name}' must be declared before assignment.");
             }
 
-            var right = Evaluate(assignment.Right);
-            var value = assignment.Kind() switch
-            {
-                SyntaxKind.SimpleAssignmentExpression => right,
-                SyntaxKind.AddAssignmentExpression => Add(GetVariable(identifier), right, assignment),
-                SyntaxKind.SubtractAssignmentExpression => Numeric(GetVariable(identifier), right, assignment, (a, b) => a - b),
-                SyntaxKind.MultiplyAssignmentExpression => Numeric(GetVariable(identifier), right, assignment, (a, b) => a * b),
-                SyntaxKind.DivideAssignmentExpression => Divide(GetVariable(identifier), right, assignment),
-                _ => throw new TraceUnsupportedException(assignment, $"Assignment '{assignment.OperatorToken.Text}' is not supported by traces."),
-            };
+            var rightValue = Evaluate(assignment.Right);
+            var value = Combine(assignment, assignment.IsKind(SyntaxKind.SimpleAssignmentExpression) ? null : GetVariable(identifier), rightValue);
             var coerced = Coerce(value, variableTypes[name], assignment);
             variables[name] = coerced;
             return coerced;
         }
 
+        private static object Combine(AssignmentExpressionSyntax assignment, object? current, object right) => assignment.Kind() switch
+        {
+            SyntaxKind.SimpleAssignmentExpression => right,
+            SyntaxKind.AddAssignmentExpression => Add(current!, right, assignment),
+            SyntaxKind.SubtractAssignmentExpression => Numeric(current!, right, assignment, (a, b) => a - b),
+            SyntaxKind.MultiplyAssignmentExpression => Numeric(current!, right, assignment, (a, b) => a * b),
+            SyntaxKind.DivideAssignmentExpression => Divide(current!, right, assignment),
+            _ => throw new TraceUnsupportedException(assignment, $"Assignment '{assignment.OperatorToken.Text}' is not supported by traces."),
+        };
+
         private object EvaluatePrefix(PrefixUnaryExpressionSyntax prefix)
         {
-            if (prefix.Operand is IdentifierNameSyntax identifier
-                && prefix.Kind() is SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression)
+            if (prefix.Kind() is SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression)
             {
-                return ChangeByOne(identifier, prefix.IsKind(SyntaxKind.PreIncrementExpression), prefix);
+                var increment = prefix.IsKind(SyntaxKind.PreIncrementExpression);
+                return prefix.Operand switch
+                {
+                    IdentifierNameSyntax identifier => ChangeByOne(identifier, increment, prefix),
+                    ElementAccessExpressionSyntax item => WriteItem(item, current => Numeric(current, 1, prefix, increment ? (a, b) => a + b : (a, b) => a - b), prefix),
+                    _ => throw new TraceUnsupportedException(prefix, "Increment and decrement need a variable or an array item."),
+                };
             }
 
             var operand = Evaluate(prefix.Operand);
@@ -504,9 +758,21 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
 
         private object EvaluatePostfix(PostfixUnaryExpressionSyntax postfix)
         {
+            var increment = postfix.IsKind(SyntaxKind.PostIncrementExpression);
+            if (postfix.Operand is ElementAccessExpressionSyntax item)
+            {
+                object? before = null;
+                WriteItem(item, current =>
+                {
+                    before = current;
+                    return Numeric(current, 1, postfix, increment ? (a, b) => a + b : (a, b) => a - b);
+                }, postfix);
+                return before!;
+            }
+
             if (postfix.Operand is not IdentifierNameSyntax identifier)
             {
-                throw new TraceUnsupportedException(postfix, "Increment and decrement require a named variable.");
+                throw new TraceUnsupportedException(postfix, "Increment and decrement need a variable or an array item.");
             }
 
             var original = GetVariable(identifier);
@@ -533,7 +799,7 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
                         builder.Append(text.TextToken.ValueText);
                         break;
                     case InterpolationSyntax interpolation:
-                        builder.Append(Format(Evaluate(interpolation.Expression)));
+                        builder.Append(FormatForOutput(Evaluate(interpolation.Expression)));
                         break;
                 }
             }
@@ -567,7 +833,7 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
                 throw new TraceUnsupportedException(invocation, "A void method has no value to print.");
             }
 
-            WriteOutput(Format(value), writesLine);
+            WriteOutput(FormatForOutput(value), writesLine);
             return value;
         }
 
@@ -648,22 +914,29 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
             }
         }
 
-        private static SyntaxKind TypeOf(TypeSyntax type) => type is PredefinedTypeSyntax predefined
-            ? predefined.Keyword.Kind()
-            : throw new TraceUnsupportedException(type, $"Type '{type}' is not supported by traces.");
+        private static TraceType TypeOf(TypeSyntax type) => type switch
+        {
+            PredefinedTypeSyntax predefined => new TraceType(predefined.Keyword.Kind(), IsArray: false),
+            ArrayTypeSyntax { ElementType: PredefinedTypeSyntax element } => new TraceType(element.Keyword.Kind(), IsArray: true),
+            _ => throw new TraceUnsupportedException(type, $"Type '{type}' is not supported by traces."),
+        };
+
+        private static object DefaultValue(SyntaxKind element) => element switch
+        {
+            SyntaxKind.IntKeyword => 0,
+            SyntaxKind.DoubleKeyword => 0.0,
+            SyntaxKind.BoolKeyword => false,
+            SyntaxKind.CharKeyword => '\0',
+            _ => NullValue.Instance,
+        };
 
         private object GetVariable(IdentifierNameSyntax identifier)
         {
             if (variables.TryGetValue(identifier.Identifier.ValueText, out var value))
             {
-                return value;
-            }
-
-            if (IsMainArgs(identifier))
-            {
-                throw new TraceUnsupportedException(
-                    identifier,
-                    "args is read-only and empty in the simulation, and arrays are not traced yet.");
+                return value is NullValue
+                    ? throw new TraceUnsupportedException(identifier, $"{identifier.Identifier.ValueText} is null. Give it a value before using it.")
+                    : value;
             }
 
             throw new TraceUnsupportedException(
@@ -731,7 +1004,7 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
         {
             if (left is string || right is string)
             {
-                return Format(left) + Format(right);
+                return FormatForOutput(left) + FormatForOutput(right);
             }
 
             return Numeric(left, right, source, (a, b) => a + b);
@@ -792,10 +1065,12 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
             "Performance",
             "CA1859:Use concrete types when possible",
             Justification = "The interpreter deliberately preserves either int or double values in its object value model.")]
+        // Each arm is boxed separately: a switch over int and double arms would otherwise widen
+        // the int result to double, turning -5 into -5.0.
         private static object Negate(object value, SyntaxNode source) => value switch
         {
-            int integer => -integer,
-            double number => -number,
+            int integer => (object)-integer,
+            double number => (object)-number,
             _ => throw new TraceUnsupportedException(source, "Unary minus requires a number."),
         };
 
@@ -827,8 +1102,21 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
                     .Equals(Convert.ToDouble(right, CultureInfo.InvariantCulture))
                 : Equals(left, right);
 
-        private static object Coerce(object value, SyntaxKind type, SyntaxNode source) => type switch
+        private static object Coerce(object value, TraceType type, SyntaxNode source)
         {
+            if (!type.IsArray)
+            {
+                return CoerceScalar(value, type.Element, source);
+            }
+
+            return value is ArrayValue array && array.Element == type.Element
+                ? array
+                : throw new TraceUnsupportedException(source, $"Value '{Format(value)}' is not compatible with the declared {type} type.");
+        }
+
+        private static object CoerceScalar(object value, SyntaxKind type, SyntaxNode source) => type switch
+        {
+            SyntaxKind.StringKeyword when value is NullValue => value,
             SyntaxKind.IntKeyword when value is int => value,
             SyntaxKind.DoubleKeyword when value is int integer => (double)integer,
             SyntaxKind.DoubleKeyword when value is double => value,
@@ -840,12 +1128,44 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
                 $"Value '{Format(value)}' is not compatible with the declared {type.ToString().Replace("Keyword", string.Empty, StringComparison.Ordinal).ToLowerInvariant()} type."),
         };
 
+        /// <summary>How a value appears in the variables panel: arrays list their items.</summary>
         private static string Format(object value) => value switch
         {
+            ArrayValue array => array.Items.Length == 0
+                ? "{ } (empty)"
+                : $"{{ {string.Join(", ", array.Items.Select(FormatItem))} }}",
+            NullValue => "null",
             bool boolean => boolean ? "true" : "false",
             double number => number.ToString("G", CultureInfo.InvariantCulture),
             IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
             _ => value.ToString() ?? string.Empty,
+        };
+
+        private static string FormatItem(object item) => item switch
+        {
+            string text => $"\"{text}\"",
+            char character => character == '\0' ? "'\\0'" : $"'{character}'",
+            _ => Format(item),
+        };
+
+        /// <summary>
+        /// What Console output and string building produce. Like real C#, an array prints its type name,
+        /// and null prints nothing.
+        /// </summary>
+        private static string FormatForOutput(object value) => value switch
+        {
+            ArrayValue array => $"System.{ClrName(array.Element)}[]",
+            NullValue => string.Empty,
+            _ => Format(value),
+        };
+
+        private static string ClrName(SyntaxKind element) => element switch
+        {
+            SyntaxKind.IntKeyword => "Int32",
+            SyntaxKind.DoubleKeyword => "Double",
+            SyntaxKind.BoolKeyword => "Boolean",
+            SyntaxKind.CharKeyword => "Char",
+            _ => "String",
         };
     }
 
@@ -853,7 +1173,34 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
     {
         public Dictionary<string, object> Variables { get; } = new(StringComparer.Ordinal);
 
-        public Dictionary<string, SyntaxKind> Types { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, TraceType> Types { get; } = new(StringComparer.Ordinal);
+    }
+
+    /// <summary>A declared type: a scalar keyword such as int, or a one-dimensional array of one.</summary>
+    private readonly record struct TraceType(SyntaxKind Element, bool IsArray)
+    {
+        public override string ToString()
+        {
+            var name = Element.ToString().Replace("Keyword", string.Empty, StringComparison.Ordinal).ToLowerInvariant();
+            return IsArray ? $"{name}[]" : name;
+        }
+    }
+
+    /// <summary>
+    /// An array is shared, not copied: assigning it to another variable or passing it to a method gives
+    /// both names the same items, exactly as in C#.
+    /// </summary>
+    private sealed class ArrayValue(SyntaxKind element, object[] items)
+    {
+        public SyntaxKind Element { get; } = element;
+
+        public object[] Items { get; } = items;
+    }
+
+    /// <summary>The default value of a string item in new string[n].</summary>
+    private sealed class NullValue
+    {
+        public static NullValue Instance { get; } = new();
     }
 
     /// <summary>The value of a call to a void method; it cannot be stored, printed, or compared.</summary>
@@ -863,6 +1210,12 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
 
         public override string ToString() => "(no value)";
     }
+
+    /// <summary>Unwinds to the nearest loop or switch when a break statement runs.</summary>
+    private sealed class BreakSignal : Exception;
+
+    /// <summary>Unwinds to the nearest loop when a continue statement runs.</summary>
+    private sealed class ContinueSignal : Exception;
 
     /// <summary>Unwinds a method body when a return statement runs.</summary>
     private sealed class ReturnSignal(object? value) : Exception

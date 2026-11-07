@@ -63,9 +63,11 @@ The Explorer is a size-aware container rather than a scaled desktop panel. At in
 
 New files, **Reset editor**, and the default snippet all use the classic template (`using System;`, `namespace MyProgram`, `class Program`, `static void Main(string[] args)`). **Edit → New classic program / New top-level program** start blank programs in either form. A badge next to the editor title shows the detected form: *Classic program*, *Top-level statements*, or *Mixed: two entry points*.
 
-The curated snippets live in `PlaygroundSnippets` (Web), separate from lesson content: Hello World, variables, if/else if/else, while, for, do/while, a static method with parameters, and one *(top-level mode)* example. Lesson pages keep their own samples.
+The curated snippets live in `PlaygroundSnippets` (Web), separate from lesson content: Hello World, variables, if/else if/else, while, for, do/while, arrays and foreach, a static method with parameters, and one *(top-level mode)* example. Lesson pages keep their own samples.
 
 **What's supported** (editor footer, Edit menu, Help dialog, and next to every diagnostic) opens a dialog generated from `SupportedFeatureRegistry`. It has three sections: Program structure, Statements, and Not supported yet. Each item has an example and a **Load example** button. Loading an unsupported example runs Check syntax so its diagnostic appears straight away. A diagnostic's button opens the dialog at its own entry.
+
+The flowchart legend shows dotted call edges (*Calls a method*) and thick *break / continue* jump edges.
 
 Diagnostics show the code and position, then **what** is wrong, **Why**, and **Instead**. For `FL1002` in a classic program, **Rewrite as static method** moves the local function into the class. Ctrl+Z undoes the rewrite.
 

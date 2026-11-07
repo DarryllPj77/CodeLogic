@@ -481,19 +481,33 @@ internal static class SupportedSyntaxValidator
             case LocalFunctionStatementSyntax:
                 report.Add(node, SupportedFeatureIds.LocalFunctions);
                 return;
-            case SwitchStatementSyntax or SwitchExpressionSyntax:
-                report.Add(node, SupportedFeatureIds.Switch);
+            case SwitchExpressionSyntax:
+                report.Add(node, SupportedFeatureIds.SwitchExpression);
                 return;
-            case BreakStatementSyntax:
-                report.Add(node, SupportedFeatureIds.Break);
+            case SwitchStatementSyntax switchStatement:
+                if (ValidateSwitch(switchStatement, report))
+                {
+                    ReportDepth(node, maximumNestingDepth, report);
+                }
+
                 return;
-            case ContinueStatementSyntax:
-                report.Add(node, SupportedFeatureIds.Continue);
+            case BreakStatementSyntax when !EnclosingJumpTargets(node).Any(target => IsLoop(target) || target is SwitchStatementSyntax):
+                report.Add(
+                    node,
+                    "CL1006",
+                    "break must be inside a loop or a switch.",
+                    "break leaves the nearest loop or switch; here there is nothing to leave.",
+                    "Remove the break, or move it inside the loop or switch it should end.",
+                    SupportedFeatureIds.Break);
                 return;
-            case ReturnStatementSyntax when node.Ancestors()
-                .TakeWhile(ancestor => ancestor is not (MethodDeclarationSyntax or CompilationUnitSyntax))
-                .Any(IsLoop):
-                report.Add(node, SupportedFeatureIds.ReturnInLoop);
+            case ContinueStatementSyntax when !EnclosingJumpTargets(node).Any(IsLoop):
+                report.Add(
+                    node,
+                    "CL1007",
+                    "continue must be inside a loop.",
+                    "continue skips to the next repetition of the nearest loop; here there is no loop.",
+                    "Remove the continue, or move it inside the loop it should repeat.",
+                    SupportedFeatureIds.Continue);
                 return;
             case AwaitExpressionSyntax:
                 report.Add(node, SupportedFeatureIds.Async);
@@ -512,6 +526,35 @@ internal static class SupportedSyntaxValidator
                     "Objects carry hidden state that the step trace does not model.",
                     "Use the built-in types int, double, bool, string, and char.",
                     SupportedFeatureIds.Declarations);
+                return;
+
+            case ForEachStatementSyntax loop when !IsAllowedType(loop.Type):
+                report.AddUnsupportedType(loop, loop.Type);
+                return;
+            case ForEachStatementSyntax:
+                ReportDepth(node, maximumNestingDepth, report);
+                return;
+
+            // Multi-dimensional and jagged arrays are reported before the general type rules.
+            case ArrayTypeSyntax arrayType when !IsSingleDimension(arrayType):
+                report.Add(arrayType, SupportedFeatureIds.MultiDimensionalArrays);
+                return;
+            case VariableDeclarationSyntax { Type: ArrayTypeSyntax arrayType } declaration when !IsSingleDimension(arrayType):
+                report.Add(declaration, SupportedFeatureIds.MultiDimensionalArrays);
+                return;
+            case ElementAccessExpressionSyntax access when access.ArgumentList.Arguments.Count != 1:
+                report.Add(access, SupportedFeatureIds.MultiDimensionalArrays);
+                return;
+
+            case AssignmentExpressionSyntax { Left: IdentifierNameSyntax target } when IsForEachVariable(target):
+                ReportForEachAssignment(node, target, report);
+                return;
+            case PrefixUnaryExpressionSyntax { Operand: IdentifierNameSyntax target } when IsForEachVariable(target)
+                && node.Kind() is SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression:
+                ReportForEachAssignment(node, target, report);
+                return;
+            case PostfixUnaryExpressionSyntax { Operand: IdentifierNameSyntax target } when IsForEachVariable(target):
+                ReportForEachAssignment(node, target, report);
                 return;
 
             case StatementSyntax statement when !IsAllowedStatement(statement):
@@ -577,26 +620,90 @@ internal static class SupportedSyntaxValidator
                 ValidateInvocation(invocation, structure, localFunctionNames, report);
                 return;
 
-            case MemberAccessExpressionSyntax memberAccess when !IsAllowedConsoleMember(memberAccess):
+            case MemberAccessExpressionSyntax memberAccess when !IsAllowedConsoleMember(memberAccess) && !IsLengthAccess(memberAccess):
                 ReportLibraryUse(memberAccess, memberAccess.Name.Identifier.ValueText, report);
                 return;
 
             case IfStatementSyntax or ForStatementSyntax or WhileStatementSyntax or DoStatementSyntax:
-                var depth = NestingDepth(node);
-                if (depth > maximumNestingDepth)
-                {
-                    report.Add(
-                        node,
-                        "CL1004",
-                        $"This code is nested {depth} levels deep; the limit is {maximumNestingDepth}.",
-                        "Every extra level of ifs and loops makes the flowchart and the step trace harder to follow.",
-                        "Extract the innermost block into a static method and call it from here.",
-                        SupportedFeatureIds.Nesting);
-                }
-
+                ReportDepth(node, maximumNestingDepth, report);
                 return;
         }
     }
+
+    private static void ReportDepth(SyntaxNode node, int maximumNestingDepth, Reporter report)
+    {
+        var depth = NestingDepth(node);
+        if (depth > maximumNestingDepth)
+        {
+            report.Add(
+                node,
+                "CL1004",
+                $"This code is nested {depth} levels deep; the limit is {maximumNestingDepth}.",
+                "Every extra level of ifs, switches, and loops makes the flowchart and the step trace harder to follow.",
+                "Extract the innermost block into a static method and call it from here.",
+                SupportedFeatureIds.Nesting);
+        }
+    }
+
+    /// <summary>
+    /// A switch is drawn as a chain of equality decisions, so its cases must be literal values and every
+    /// section must end by leaving the switch (no fall-through). Returns false when it was rejected.
+    /// </summary>
+    private static bool ValidateSwitch(SwitchStatementSyntax switchStatement, Reporter report)
+    {
+        foreach (var section in switchStatement.Sections)
+        {
+            foreach (var label in section.Labels)
+            {
+                if (label is CaseSwitchLabelSyntax { Value: var value } && IsLiteralValue(value))
+                {
+                    continue;
+                }
+
+                if (label is DefaultSwitchLabelSyntax)
+                {
+                    continue;
+                }
+
+                report.Add(
+                    label,
+                    switchStatement,
+                    "CL1001",
+                    "Only case labels with a literal value (such as case 1: or case \"yes\":) are supported.",
+                    "Each case becomes one equality check in the flowchart; patterns, when clauses, and named constants are not modelled.",
+                    "Use a literal value in each case, or rewrite the check with if/else if/else.",
+                    SupportedFeatureIds.Switch);
+                return false;
+            }
+
+            if (section.Statements.LastOrDefault() is not (BreakStatementSyntax or ReturnStatementSyntax or ContinueStatementSyntax))
+            {
+                report.Add(
+                    section.Labels[^1],
+                    switchStatement,
+                    "CL1001",
+                    "Each switch section must end with break (or return).",
+                    "C# does not let one case fall through into the next, and CodeLogic draws each case as a separate path.",
+                    "Add break; as the last statement of this case.",
+                    SupportedFeatureIds.Switch);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsLiteralValue(ExpressionSyntax value) => value switch
+    {
+        LiteralExpressionSyntax literal => AllowedLiteralExpressions.Contains(literal.Kind()),
+        PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.UnaryMinusExpression, Operand: LiteralExpressionSyntax operand } =>
+            operand.IsKind(SyntaxKind.NumericLiteralExpression),
+        _ => false,
+    };
+
+    /// <summary>Loops and switches enclosing a node inside its own method (a break cannot leave a method).</summary>
+    private static IEnumerable<SyntaxNode> EnclosingJumpTargets(SyntaxNode node) => node.Ancestors()
+        .TakeWhile(ancestor => ancestor is not (MethodDeclarationSyntax or LocalFunctionStatementSyntax or CompilationUnitSyntax));
 
     private static void ValidateInvocation(
         InvocationExpressionSyntax invocation,
@@ -639,10 +746,12 @@ internal static class SupportedSyntaxValidator
     private static void ReportLibraryUse(SyntaxNode node, string memberName, Reporter report) =>
         report.Add(node, LinqMethodNames.Contains(memberName) ? SupportedFeatureIds.Linq : SupportedFeatureIds.DotNetExecution);
 
-    /// <summary>Counts enclosing ifs and loops. An else-if continues its chain rather than nesting deeper.</summary>
+    /// <summary>Counts enclosing ifs, switches, and loops. An else-if continues its chain rather than nesting deeper.</summary>
     private static int NestingDepth(SyntaxNode node) => node.AncestorsAndSelf()
         .TakeWhile(ancestor => ancestor is not (MethodDeclarationSyntax or CompilationUnitSyntax))
-        .Count(ancestor => IsLoop(ancestor) || (ancestor is IfStatementSyntax && ancestor.Parent is not ElseClauseSyntax));
+        .Count(ancestor => IsLoop(ancestor)
+            || ancestor is SwitchStatementSyntax
+            || (ancestor is IfStatementSyntax && ancestor.Parent is not ElseClauseSyntax));
 
     private static bool IsLoop(SyntaxNode node) =>
         node is ForStatementSyntax or WhileStatementSyntax or DoStatementSyntax or ForEachStatementSyntax;
@@ -655,7 +764,11 @@ internal static class SupportedSyntaxValidator
         or ForStatementSyntax
         or WhileStatementSyntax
         or DoStatementSyntax
+        or ForEachStatementSyntax
         or ReturnStatementSyntax
+        or SwitchStatementSyntax
+        or BreakStatementSyntax
+        or ContinueStatementSyntax
         or EmptyStatementSyntax;
 
     private static bool IsAllowedExpression(ExpressionSyntax expression) => expression is
@@ -679,14 +792,36 @@ internal static class SupportedSyntaxValidator
     private static bool IsAllowedType(TypeSyntax type) => type switch
     {
         PredefinedTypeSyntax predefined => AllowedPredefinedTypes.Contains(predefined.Keyword.Kind()),
-        ArrayTypeSyntax array => IsAllowedType(array.ElementType),
+        ArrayTypeSyntax array => IsSingleDimension(array) && array.ElementType is PredefinedTypeSyntax && IsAllowedType(array.ElementType),
         _ => false,
     };
 
+    /// <summary>One row of items: int[] is fine; int[,] and int[][] are not traced yet.</summary>
+    private static bool IsSingleDimension(ArrayTypeSyntax array) =>
+        array.RankSpecifiers.Count == 1 && array.RankSpecifiers[0].Sizes.Count == 1;
+
     private static bool IsAllowedReturnType(TypeSyntax type) =>
-        type is PredefinedTypeSyntax predefined
-        && (predefined.Keyword.IsKind(SyntaxKind.VoidKeyword)
-            || AllowedPredefinedTypes.Contains(predefined.Keyword.Kind()));
+        type is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.VoidKeyword)
+        || IsAllowedType(type);
+
+    /// <summary>scores.Length or name.Length as a value (not called like a method).</summary>
+    private static bool IsLengthAccess(MemberAccessExpressionSyntax memberAccess) =>
+        memberAccess.Name.Identifier.ValueText == "Length"
+        && !(memberAccess.Parent is InvocationExpressionSyntax invocation && invocation.Expression == memberAccess);
+
+    // C# makes the foreach iteration variable read-only; CodeLogic explains that instead of tracing it.
+    private static bool IsForEachVariable(IdentifierNameSyntax identifier) => identifier.Ancestors()
+        .TakeWhile(ancestor => ancestor is not (MethodDeclarationSyntax or CompilationUnitSyntax))
+        .OfType<ForEachStatementSyntax>()
+        .Any(loop => loop.Identifier.ValueText == identifier.Identifier.ValueText && loop.Statement.Span.Contains(identifier.Span));
+
+    private static void ReportForEachAssignment(SyntaxNode node, IdentifierNameSyntax target, Reporter report) => report.Add(
+        node,
+        "CL1016",
+        $"The foreach variable {target.Identifier.ValueText} is read-only.",
+        "foreach hands you each item in turn; changing the copy would not change the array, so C# does not allow it.",
+        "Use a for loop with an index (items[i] = ...) to change the array, or copy the item into a new variable.",
+        SupportedFeatureIds.ForEach);
 
     private static bool IsAllowedConsoleMember(MemberAccessExpressionSyntax memberAccess) =>
         memberAccess.Expression is IdentifierNameSyntax expression
@@ -751,6 +886,9 @@ internal static class SupportedSyntaxValidator
         public void Add(SyntaxToken anchor, SyntaxNode rejected, string code, string message, string why, string instead, string? helpTopicId = null) =>
             Add(anchor.GetLocation(), rejected, code, message, why, instead, helpTopicId);
 
+        public void Add(SyntaxNode anchor, SyntaxNode rejected, string code, string message, string why, string instead, string? helpTopicId = null) =>
+            Add(anchor.GetLocation(), rejected, code, message, why, instead, helpTopicId);
+
         public void AddUnsupportedType(SyntaxNode node, TypeSyntax? type)
         {
             if (type?.DescendantNodesAndSelf().Any(part => part is GenericNameSyntax) == true)
@@ -759,15 +897,21 @@ internal static class SupportedSyntaxValidator
                 return;
             }
 
+            if (type is ArrayTypeSyntax array && !IsSingleDimension(array))
+            {
+                Add(node, SupportedFeatureIds.MultiDimensionalArrays);
+                return;
+            }
+
             var name = type?.ToString() ?? "missing";
             Add(
                 node,
                 "CL1003",
                 name == "var" ? "var is not supported yet." : $"The type '{name}' is not supported yet.",
-                "The trace models only int, double, bool, string, and char values.",
+                "The trace models only int, double, bool, string, and char values, and one-dimensional arrays of them.",
                 name == "var"
-                    ? "Write the type explicitly, for example int count = 0;."
-                    : "Use int, double, bool, string, or char instead.",
+                    ? "Write the type explicitly, for example int count = 0; or int[] scores = { 1, 2 };."
+                    : "Use int, double, bool, string, or char, or an array such as int[].",
                 SupportedFeatureIds.Declarations);
         }
 

@@ -35,7 +35,7 @@ public sealed class ClassicProgramTests
             [FlowNodeType.Start, FlowNodeType.Output, FlowNodeType.End],
             translation.Graph!.Nodes.Select(node => node.Type));
         Assert.Equal("Console.WriteLine(\"Hello World!\");", translation.Graph.Nodes[1].Label);
-        Assert.Equal("1.2", translation.Graph.SchemaVersion);
+        Assert.Equal("1.3", translation.Graph.SchemaVersion);
         Assert.Equal(ExecutionTraceStatus.Completed, trace.Status);
         Assert.Equal(["Hello World!"], trace.Steps[^1].Output);
     }
@@ -106,18 +106,18 @@ public sealed class ClassicProgramTests
     }
 
     [Fact]
-    public async Task SwitchDiagnosticSaysWhatWhyAndWhatToDoInstead()
+    public async Task SwitchExpressionDiagnosticSaysWhatWhyAndWhatToDoInstead()
     {
-        var source = ProgramTemplates.Classic("int day = 1;\nswitch (day)\n{\n    default:\n        break;\n}");
+        var source = ProgramTemplates.Classic("int day = 1;\nstring name = day switch\n{\n    1 => \"Monday\",\n    _ => \"Other\",\n};\nConsole.WriteLine(name);");
 
         var result = await analysis.AnalyzeAsync(source);
 
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal("CL1001", diagnostic.Code);
-        Assert.Equal("switch is not supported yet.", diagnostic.Message);
-        Assert.Equal("Use if/else if/else or a small method instead.", diagnostic.Suggestion);
+        Assert.Equal("switch expressions are not supported yet.", diagnostic.Message);
+        Assert.Contains("switch statement", diagnostic.Suggestion, StringComparison.Ordinal);
         Assert.False(string.IsNullOrWhiteSpace(diagnostic.Explanation));
-        Assert.Equal(SupportedFeatureIds.Switch, diagnostic.HelpTopicId);
+        Assert.Equal(SupportedFeatureIds.SwitchExpression, diagnostic.HelpTopicId);
     }
 
     [Fact]
@@ -202,19 +202,20 @@ public sealed class ClassicProgramTests
     }
 
     [Fact]
-    public async Task ReturnInsideAnIfLeavesTheMethodWhileReturnInsideALoopIsRejected()
+    public async Task ReturnLeavesTheMethodFromInsideAnIfOrALoop()
     {
         var allowed = ProgramTemplates.Classic(
             "Console.WriteLine(Classify(20));",
             "static string Classify(int age)\n{\n    if (age >= 18)\n    {\n        return \"Adult\";\n    }\n\n    return \"Minor\";\n}");
-        var rejected = SupportedFeatureRegistry.Get(SupportedFeatureIds.ReturnInLoop).Example;
+        var fromLoop = SupportedFeatureRegistry.Get(SupportedFeatureIds.ReturnInLoop).Example;
 
         var trace = await interpreter.TraceAsync(allowed);
-        var result = await analysis.AnalyzeAsync(rejected);
+        var loopTrace = await interpreter.TraceAsync(fromLoop);
 
         Assert.Equal(ExecutionTraceStatus.Completed, trace.Status);
         Assert.Equal(["Adult"], trace.Steps[^1].Output);
-        Assert.Contains(result.Diagnostics, item => item.Code == "CL1012");
+        Assert.Equal(ExecutionTraceStatus.Completed, loopTrace.Status);
+        Assert.Equal(["2"], loopTrace.Steps[^1].Output);
     }
 
     [Fact]
@@ -241,14 +242,19 @@ public sealed class ClassicProgramTests
     }
 
     [Fact]
-    public async Task ArgsIsReadOnlyAndEmptyInTheSimulation()
+    public async Task ArgsIsAnEmptyReadOnlyStringArrayInTheSimulation()
     {
-        var source = ProgramTemplates.Classic("string first = args;\nConsole.WriteLine(first);");
+        var reads = ProgramTemplates.Classic("Console.WriteLine(args.Length);\nforeach (string argument in args)\n{\n    Console.WriteLine(argument);\n}");
+        var replaces = ProgramTemplates.Classic("string[] other = { \"x\" };\nargs = other;");
 
-        var trace = await interpreter.TraceAsync(source);
+        var trace = await interpreter.TraceAsync(reads);
+        var rejected = await interpreter.TraceAsync(replaces);
 
-        Assert.Equal(ExecutionTraceStatus.Unsupported, trace.Status);
-        Assert.Contains("args is read-only and empty", Assert.Single(trace.Diagnostics).Message, StringComparison.Ordinal);
+        Assert.Equal(ExecutionTraceStatus.Completed, trace.Status);
+        Assert.Equal(["0"], trace.Steps[^1].Output);
+        Assert.Contains(trace.Steps[1].Variables, variable => variable.Key == "args" && variable.Value == "{ } (empty)");
+        Assert.Equal(ExecutionTraceStatus.Unsupported, rejected.Status);
+        Assert.Contains("args is read-only", Assert.Single(rejected.Diagnostics).Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -317,6 +323,6 @@ public sealed class ClassicProgramTests
 
         var topLevel = Assert.Single(PlaygroundSnippets.All, snippet => structure.DetectForm(snippet.Code) == ProgramForm.TopLevel);
         Assert.EndsWith("(top-level mode)", topLevel.Title, StringComparison.Ordinal);
-        Assert.Equal(7, PlaygroundSnippets.All.Count(snippet => structure.DetectForm(snippet.Code) == ProgramForm.Classic));
+        Assert.Equal(8, PlaygroundSnippets.All.Count(snippet => structure.DetectForm(snippet.Code) == ProgramForm.Classic));
     }
 }

@@ -121,7 +121,7 @@ public sealed class RoslynCodeAnalysisServiceTests
     [Theory]
     [InlineData("using static System.Console;\nint value = 1;", "plain using directives")]
     [InlineData("class Program { }", "No Main method")]
-    [InlineData("foreach (int value in values) { Console.WriteLine(value); }", "foreach loop")]
+    [InlineData("try { Console.WriteLine(1); } catch { }", "Try/catch")]
     [InlineData("string value = new string('a', 2);", "Creating objects")]
     [InlineData("string value = File.ReadAllText(\"secret.txt\");", "not supported")]
     [InlineData("File.WriteAllText(\"payload.txt\", \"data\");", "not supported")]
@@ -129,8 +129,8 @@ public sealed class RoslynCodeAnalysisServiceTests
     [InlineData("System.Reflection.Assembly.Load(\"payload\");", "not supported")]
     [InlineData("HttpClient client = new HttpClient();", "not supported")]
     [InlineData("int transform = values.Select(value => value + 1);", "not supported")]
-    [InlineData("while (true) { break; }", "break is not supported")]
-    [InlineData("for (;;) { continue; }", "continue is not supported")]
+    [InlineData("int value = 1;\nbreak;", "break must be inside a loop or a switch")]
+    [InlineData("int value = 1;\ncontinue;", "continue must be inside a loop")]
     public async Task UnsupportedFeaturesReturnActionableDiagnostics(
         string source,
         string expectedMessagePart)

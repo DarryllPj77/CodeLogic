@@ -44,7 +44,11 @@ public static class SupportedFeatureIds
     public const string DoWhile = "do-while";
     public const string Nesting = "nesting";
     public const string StaticMethods = "static-methods";
+    public const string Arrays = "arrays";
+    public const string ForEach = "foreach";
+    public const string MultiDimensionalArrays = "multi-dimensional-arrays";
     public const string Switch = "switch";
+    public const string SwitchExpression = "switch-expression";
     public const string Break = "break";
     public const string Continue = "continue";
     public const string ReturnInLoop = "return-in-loop";
@@ -270,12 +274,44 @@ public static class SupportedFeatureRegistry
                 }
                 """)),
 
-        // Not supported yet
+        new(
+            SupportedFeatureIds.Arrays,
+            SupportedFeatureSection.Statements,
+            "Arrays",
+            "One-dimensional arrays of int, double, bool, string, or char: create them, read and change items by index (starting at 0), and use .Length. The trace shows every item.",
+            ProgramTemplates.Classic("""
+                int[] scores = { 90, 72, 85 };
+                scores[1] = 75;
+                scores[2] += 5;
+
+                Console.WriteLine($"First score: {scores[0]}");
+                Console.WriteLine($"Number of scores: {scores.Length}");
+
+                string[] names = new string[2];
+                names[0] = "Ada";
+                Console.WriteLine(names[0]);
+                """)),
+        new(
+            SupportedFeatureIds.ForEach,
+            SupportedFeatureSection.Statements,
+            "foreach",
+            "Takes each item of an array (or each character of a string) in order. The loop variable is read-only; use a for loop with an index to change items.",
+            ProgramTemplates.Classic("""
+                int[] scores = { 90, 72, 85 };
+                int total = 0;
+
+                foreach (int score in scores)
+                {
+                    total += score;
+                }
+
+                Console.WriteLine($"Total: {total}");
+                """)),
         new(
             SupportedFeatureIds.Switch,
-            SupportedFeatureSection.NotSupportedYet,
+            SupportedFeatureSection.Statements,
             "switch",
-            "switch is not supported yet.",
+            "Each case with a literal value becomes one equality decision; default runs when no case matches. Every case ends with break (or return).",
             ProgramTemplates.Classic("""
                 int day = 2;
 
@@ -284,19 +320,20 @@ public static class SupportedFeatureRegistry
                     case 1:
                         Console.WriteLine("Monday");
                         break;
+                    case 2:
+                    case 3:
+                        Console.WriteLine("Midweek");
+                        break;
                     default:
                         Console.WriteLine("Another day");
                         break;
                 }
-                """),
-            "CL1001",
-            "CodeLogic's flowcharts branch only on true/false decisions, so each case would need a hidden chain of comparisons.",
-            "Use if/else if/else or a small method instead."),
+                """)),
         new(
             SupportedFeatureIds.Break,
-            SupportedFeatureSection.NotSupportedYet,
+            SupportedFeatureSection.Statements,
             "break",
-            "break is not supported yet.",
+            "Leaves the nearest loop or switch straight away. The flowchart draws a thick break arrow to where the program continues.",
             ProgramTemplates.Classic("""
                 int count = 0;
 
@@ -308,15 +345,14 @@ public static class SupportedFeatureRegistry
                         break;
                     }
                 }
-                """),
-            "CL1006",
-            "Leaving a loop from the middle adds an exit the flowchart cannot show next to the loop condition.",
-            "Exit through the loop condition, for example by updating a bool variable that the condition checks."),
+
+                Console.WriteLine($"Stopped at {count}");
+                """)),
         new(
             SupportedFeatureIds.Continue,
-            SupportedFeatureSection.NotSupportedYet,
+            SupportedFeatureSection.Statements,
             "continue",
-            "continue is not supported yet.",
+            "Skips the rest of the loop body and goes to the next repetition (through the iterator in a for loop).",
             ProgramTemplates.Classic("""
                 for (int number = 0; number < 5; number++)
                 {
@@ -327,15 +363,12 @@ public static class SupportedFeatureRegistry
 
                     Console.WriteLine(number);
                 }
-                """),
-            "CL1007",
-            "Skipping the rest of the body jumps past statements the flowchart draws as always running.",
-            "Wrap the rest of the loop body in an if statement with the opposite condition."),
+                """)),
         new(
             SupportedFeatureIds.ReturnInLoop,
-            SupportedFeatureSection.NotSupportedYet,
+            SupportedFeatureSection.Statements,
             "return inside loops",
-            "return inside a loop is not supported yet.",
+            "A return can leave a method from inside a loop; the flowchart connects it straight to the method's Return node.",
             ProgramTemplates.Classic(
                 """
                 Console.WriteLine(FirstEven(7));
@@ -353,10 +386,38 @@ public static class SupportedFeatureRegistry
 
                     return -1;
                 }
+                """)),
+
+        // Not supported yet
+        new(
+            SupportedFeatureIds.SwitchExpression,
+            SupportedFeatureSection.NotSupportedYet,
+            "switch expressions",
+            "switch expressions are not supported yet.",
+            ProgramTemplates.Classic("""
+                int day = 2;
+                string name = day switch
+                {
+                    1 => "Monday",
+                    _ => "Another day",
+                };
+                Console.WriteLine(name);
                 """),
-            "CL1012",
-            "Returning from inside a loop adds a second, hidden way out of the loop.",
-            "Store the answer in a variable, let the loop end through its condition, and return after the loop."),
+            "CL1001",
+            "A switch expression hides several decisions inside one value, so there is no single statement to draw each path from.",
+            "Use a switch statement that assigns the variable in each case, or if/else if/else."),
+        new(
+            SupportedFeatureIds.MultiDimensionalArrays,
+            SupportedFeatureSection.NotSupportedYet,
+            "Multi-dimensional and jagged arrays",
+            "Multi-dimensional and jagged arrays are not supported yet.",
+            ProgramTemplates.Classic("""
+                int[,] grid = new int[2, 2];
+                Console.WriteLine("A grid of numbers");
+                """),
+            "CL1003",
+            "The trace shows each array as one row of items, so grids and arrays of arrays have no clear picture yet.",
+            "Use a one-dimensional array, or one array per row."),
         new(
             SupportedFeatureIds.LocalFunctions,
             SupportedFeatureSection.NotSupportedYet,
@@ -428,8 +489,8 @@ public static class SupportedFeatureRegistry
                 Console.WriteLine("A generic list");
                 """),
             "CL1003",
-            "The trace models only int, double, bool, string, and char values.",
-            "Use one of those types directly, for example several int variables instead of a List<int>."),
+            "The trace models only int, double, bool, string, and char values and one-dimensional arrays of them.",
+            "Use an array such as int[] instead of a List<int>."),
         new(
             SupportedFeatureIds.Async,
             SupportedFeatureSection.NotSupportedYet,
@@ -461,7 +522,7 @@ public static class SupportedFeatureRegistry
                 """),
             "CL1002",
             "LINQ hides its loop inside a library call, so there is no flow to draw or step through.",
-            "Write the loop yourself with for or while and a counter variable."),
+            "Write the loop yourself with foreach or for and a counter variable."),
         new(
             SupportedFeatureIds.Lambdas,
             SupportedFeatureSection.NotSupportedYet,

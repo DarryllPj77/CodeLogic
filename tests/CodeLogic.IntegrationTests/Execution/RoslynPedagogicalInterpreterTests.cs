@@ -151,7 +151,6 @@ public sealed class RoslynPedagogicalInterpreterTests
 
     [Theory]
     [InlineData("string value = Console.ReadLine();", "ET1001")]
-    [InlineData("int[] values = new int[] { 1, 2 };", "ET1001")]
     [InlineData("int value;", "ET1001")]
     public async Task TraceSpecificUnsupportedInputReturnsNoPartialTrace(
         string source,
