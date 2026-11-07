@@ -138,7 +138,7 @@
                 <section class="ws-panel editor-panel @(Layout.IsEditorCollapsed ? "ws-panel--collapsed" : null)" aria-labelledby="editor-title">
                     <div class="ws-panel__header">
                         <div class="ws-panel__title-row">
-                            <h2 id="editor-title" class="ws-panel__title"><span class="ws-panel__marker" aria-hidden="true"></span>Monaco C# editor</h2>
+                            <h2 id="editor-title" class="ws-panel__title"><span class="ws-panel__marker" aria-hidden="true"></span>Monaco C# Editor</h2>
                             <span class="ws-file-tag" title="One browser-local draft">Program.cs</span>
                             <span class="ws-form-badge ws-form-badge--@DetectedForm.ToString().ToLowerInvariant()" role="status" title="Detected automatically from your code">@FormLabel</span>
                             <div class="ws-panel__actions">
@@ -929,7 +929,7 @@
             {
                 JavaScriptModule = await JavaScript.InvokeAsync<IJSObjectReference>(
                     "import",
-                    "./js/playground.js?v=10");
+                    "./js/playground.js?v=11");
                 WorkspaceModule = await JavaScript.InvokeAsync<IJSObjectReference>(
                     "import",
                     "./js/workspace.js?v=6");
@@ -1012,6 +1012,13 @@
             {
                 // Focus movement is a convenience; the control remains reachable with Tab.
             }
+        }
+
+        // A closed or collapsed editor is hidden until this render, so it is focused only now.
+        if (IsEditorFocusPending && JavaScriptModule is not null)
+        {
+            IsEditorFocusPending = false;
+            await JavaScriptModule.InvokeVoidAsync("focusElement", EditorElement);
         }
 
         if (RenderPending && JavaScriptModule is not null && FlowchartDocument is not null)
@@ -1854,10 +1861,11 @@
         }
 
         Layout.SetCompactView(CompactView.Editor);
-        return JavaScriptModule is null
-            ? Task.CompletedTask
-            : JavaScriptModule.InvokeVoidAsync("focusElement", EditorElement).AsTask();
+        IsEditorFocusPending = true;
+        return Task.CompletedTask;
     }
+
+    private bool IsEditorFocusPending { get; set; }
 
     private void OpenDiagnostics() => Layout.ShowTab(WorkspaceTab.Diagnostics);
 

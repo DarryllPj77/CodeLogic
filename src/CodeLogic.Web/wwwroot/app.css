@@ -2139,3 +2139,19 @@ a.ws-account:hover { border-color: #3b5a7a; }
 .ws .code-editor .trace-current-line { background: rgb(52 211 153 / 0.16); }
 .ws .code-editor .trace-current-gutter { background: var(--color-accent); margin-left: 3px; width: 4px !important; }
 .ws .code-editor .trace-skipped-line { opacity: 0.38; }
+
+/* Code view with the editor closed: the flowchart takes the whole work area. The editor stays
+   loaded (only hidden), so its code and cursor are unchanged when it is reopened. */
+.ws--codeview.ws--editor-hidden .ws-main { grid-template-columns: minmax(0, 1fr); }
+.ws--codeview.ws--editor-hidden .ws-left,
+.ws--codeview.ws--editor-hidden .ws-column-splitter { display: none; }
+.ws--codeview.ws--editor-hidden .flowchart-panel { grid-column: 1; }
+.rail-button--editor-toggle { font-size: 1.15rem; }
+.rail-button--attention { color: var(--color-accent); }
+
+/* The editor title never truncates; in the narrower code view the file tag hides and the
+   light-mode chip shows only its icon. */
+.editor-panel .ws-panel__title { flex: none; }
+.ws--codeview .editor-panel .ws-file-tag { display: none; }
+.ws--codeview .editor-panel .ws-chip-button { font-size: 0; padding-inline: 0.45rem; }
+.ws--codeview .editor-panel .ws-chip-button span { font-size: 0.8rem; }

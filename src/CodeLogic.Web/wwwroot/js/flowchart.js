@@ -129,6 +129,44 @@ export function labelAnchor(points) {
     return { x: best.x, y: best.y };
 }
 
+/** Space kept between a moved node or connector and the edge of the canvas. */
+export const canvasPadding = 32;
+
+/**
+ * The canvas area (an SVG viewBox) that contains the computed layout and everything drawn now.
+ * It only ever grows past the computed layout on a side the content actually crosses, so dragging
+ * a node left or up gives negative coordinates: the origin shifts and nodes keep their spacing.
+ */
+export function growBounds(base, content, padding = canvasPadding) {
+    if (content === null || content === undefined || !(content.width >= 0) || !(content.height >= 0)) {
+        return { ...base };
+    }
+    const tolerance = 0.5;
+    const left = content.x < base.x - tolerance ? content.x - padding : base.x;
+    const top = content.y < base.y - tolerance ? content.y - padding : base.y;
+    const baseRight = base.x + base.width;
+    const baseBottom = base.y + base.height;
+    const contentRight = content.x + content.width;
+    const contentBottom = content.y + content.height;
+    const right = contentRight > baseRight + tolerance ? contentRight + padding : baseRight;
+    const bottom = contentBottom > baseBottom + tolerance ? contentBottom + padding : baseBottom;
+    return { x: round(left), y: round(top), width: round(right - left), height: round(bottom - top) };
+}
+
+/**
+ * Auto-scroll speed (pixels per frame) while a dragged node's pointer is near or past a canvas
+ * edge, so a node can be dragged as far as the learner likes in any direction.
+ */
+export function edgeScrollSpeed(pointer, low, high, zone = 40, maximum = 18) {
+    if (pointer < low + zone) {
+        return -Math.round(Math.min(1, (low + zone - pointer) / zone) * maximum);
+    }
+    if (pointer > high - zone) {
+        return Math.round(Math.min(1, (pointer - (high - zone)) / zone) * maximum);
+    }
+    return 0;
+}
+
 /** Parses Mermaid's connector id ("L_n003_n006_0") into its node ids. */
 export function edgeEnds(dataId) {
     const match = /^L_(.+?)_(.+)_\d+$/.exec(dataId ?? "");
@@ -151,10 +189,13 @@ const layouts = new WeakMap();
  */
 export function prepareLayout(container, definition) {
     const previous = layouts.get(container);
+    const svg = container.querySelector(".flowchart-svg");
+    const box = svg?.viewBox?.baseVal;
     const state = {
         definition,
         offsets: previous?.definition === definition ? previous.offsets : new Map(),
-        originals: new Map()
+        originals: new Map(),
+        base: box && box.width > 0 ? { x: box.x, y: box.y, width: box.width, height: box.height } : null
     };
     layouts.set(container, state);
     for (const mermaidId of state.offsets.keys()) {
@@ -162,6 +203,7 @@ export function prepareLayout(container, definition) {
     }
     if (state.offsets.size > 0) {
         rerouteEdges(container, state, new Set(state.offsets.keys()));
+        fitCanvas(container, state);
     }
 }
 
@@ -182,6 +224,7 @@ export function resetLayout(container) {
     }
     state.originals.clear();
     state.offsets.clear();
+    fitCanvas(container, state);
     return moved;
 }
 
@@ -191,14 +234,71 @@ export function movedNodeCount(container) {
 
 /** Moves a node by (dx, dy) in its own coordinate space and re-routes its connectors. */
 export function moveNodeBy(container, mermaidId, dx, dy) {
+    const offset = layouts.get(container)?.offsets.get(mermaidId) ?? { dx: 0, dy: 0 };
+    setNodeOffset(container, mermaidId, { dx: offset.dx + dx, dy: offset.dy + dy });
+}
+
+function setNodeOffset(container, mermaidId, offset) {
     const state = layouts.get(container);
     if (state === undefined) {
         return;
     }
-    const offset = state.offsets.get(mermaidId) ?? { dx: 0, dy: 0 };
-    state.offsets.set(mermaidId, { dx: offset.dx + dx, dy: offset.dy + dy });
+    state.offsets.set(mermaidId, offset);
     placeNode(container, state, mermaidId);
     rerouteEdges(container, state, new Set([mermaidId]));
+    fitCanvas(container, state);
+}
+
+/**
+ * Grows (or shrinks back) the SVG so every node, connector, and label is inside it: nothing is
+ * clipped and the scroll bars reach everything. When the origin shifts, the scroll position is
+ * corrected so the chart does not jump on screen.
+ */
+function fitCanvas(container, state) {
+    const svg = container.querySelector(".flowchart-svg");
+    if (svg === null || state.base === null) {
+        return;
+    }
+    const next = state.offsets.size === 0 ? state.base : growBounds(state.base, svg.getBBox());
+    const current = svg.viewBox.baseVal;
+    if (current.x === next.x && current.y === next.y && current.width === next.width && current.height === next.height) {
+        return;
+    }
+    const before = svg.getScreenCTM();
+    const zoom = Number.parseFloat(container.dataset.zoom || "1");
+    svg.setAttribute("viewBox", `${next.x} ${next.y} ${next.width} ${next.height}`);
+    svg.style.width = `${Math.round(next.width * zoom)}px`;
+    svg.style.height = `${Math.round(next.height * zoom)}px`;
+    const after = svg.getScreenCTM();
+    if (before !== null && after !== null) {
+        container.scrollLeft += after.e - before.e;
+        container.scrollTop += after.f - before.f;
+    }
+}
+
+// The pointer's position in the coordinate space nodes are placed in. Recomputed on every move, so
+// scrolling, zooming, and origin shifts during a drag never make the node drift from the pointer.
+function pointerIn(space, clientX, clientY) {
+    const matrix = space.getScreenCTM();
+    if (matrix === null) {
+        return null;
+    }
+    const point = space.ownerSVGElement.createSVGPoint();
+    point.x = clientX;
+    point.y = clientY;
+    return point.matrixTransform(matrix.inverse());
+}
+
+// Keyboard moves scroll just enough to keep the moved node in view.
+function keepInView(container, node) {
+    const margin = 24;
+    const view = container.getBoundingClientRect();
+    const box = node.getBoundingClientRect();
+    const left = box.left < view.left + margin ? box.left - view.left - margin : box.right > view.right - margin ? box.right - view.right + margin : 0;
+    const top = box.top < view.top + margin ? box.top - view.top - margin : box.bottom > view.bottom - margin ? box.bottom - view.bottom + margin : 0;
+    if (left !== 0 || top !== 0) {
+        container.scrollBy({ left, top, behavior: "instant" });
+    }
 }
 
 /**
@@ -209,38 +309,66 @@ export function enableNodeDragging(container, signal, onMoved) {
     let drag = null;
     let suppressClick = false;
 
+    // The node goes where the pointer is now, measured from where the press started.
+    const follow = () => {
+        const point = pointerIn(drag.node.parentNode, drag.client.x, drag.client.y);
+        if (point !== null) {
+            setNodeOffset(container, drag.mermaidId, {
+                dx: drag.offset.dx + point.x - drag.start.x,
+                dy: drag.offset.dy + point.y - drag.start.y
+            });
+        }
+    };
+
+    // Near or past an edge the canvas keeps scrolling (and growing), so the drag never hits a wall.
+    const autoScroll = () => {
+        if (drag?.moving !== true) {
+            return;
+        }
+        const view = container.getBoundingClientRect();
+        const left = edgeScrollSpeed(drag.client.x, view.left, view.right);
+        const top = edgeScrollSpeed(drag.client.y, view.top, view.bottom);
+        if (left !== 0 || top !== 0) {
+            container.scrollBy({ left, top, behavior: "instant" });
+            follow();
+        }
+        drag.frame = window.requestAnimationFrame(autoScroll);
+    };
+
     container.addEventListener("pointerdown", event => {
         const node = event.target.closest?.(".node");
         const mermaidId = node === null || node === undefined ? null : mermaidIdOf(node);
-        if (event.button !== 0 || mermaidId === null) {
+        const start = mermaidId === null ? null : pointerIn(node.parentNode, event.clientX, event.clientY);
+        if (event.button !== 0 || start === null) {
             return;
         }
-        const scale = node.parentNode.getScreenCTM()?.a || 1;
-        drag = { node, mermaidId, x: event.clientX, y: event.clientY, scale, last: { x: 0, y: 0 }, moving: false, pointerId: event.pointerId };
+        const offset = layouts.get(container)?.offsets.get(mermaidId) ?? { dx: 0, dy: 0 };
+        drag = { node, mermaidId, x: event.clientX, y: event.clientY, start, offset: { ...offset }, client: { x: event.clientX, y: event.clientY }, moving: false, pointerId: event.pointerId, frame: 0 };
     }, { signal });
 
     container.addEventListener("pointermove", event => {
         if (drag === null) {
             return;
         }
-        const dx = event.clientX - drag.x;
-        const dy = event.clientY - drag.y;
         if (!drag.moving) {
-            if (!isDrag(dx, dy)) {
+            if (!isDrag(event.clientX - drag.x, event.clientY - drag.y)) {
                 return;
             }
             drag.moving = true;
             drag.node.setPointerCapture?.(drag.pointerId);
             drag.node.classList.add("flowchart-node--dragging");
             container.classList.add("flowchart-canvas--dragging-node");
+            drag.frame = window.requestAnimationFrame(autoScroll);
         }
         event.preventDefault();
-        const next = { x: dx / drag.scale, y: dy / drag.scale };
-        moveNodeBy(container, drag.mermaidId, next.x - drag.last.x, next.y - drag.last.y);
-        drag.last = next;
+        drag.client = { x: event.clientX, y: event.clientY };
+        follow();
     }, { signal });
 
     const finish = () => {
+        if (drag !== null) {
+            window.cancelAnimationFrame(drag.frame);
+        }
         if (drag?.moving) {
             suppressClick = true;
             window.setTimeout(() => { suppressClick = false; }, 0);
@@ -274,6 +402,7 @@ export function enableNodeDragging(container, signal, onMoved) {
         const step = event.shiftKey ? 50 : 10;
         const [x, y] = directions[event.key];
         moveNodeBy(container, mermaidId, x * step, y * step);
+        keepInView(container, node);
         onMoved?.(mermaidId);
     }, { capture: true, signal });
 }

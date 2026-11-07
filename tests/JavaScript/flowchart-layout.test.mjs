@@ -3,8 +3,11 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+    canvasPadding,
     chooseSides,
     edgeEnds,
+    edgeScrollSpeed,
+    growBounds,
     isDrag,
     labelAnchor,
     pathData,
@@ -111,4 +114,41 @@ test("the vertical editor toolbar shows only in the code view and never scrolls 
     assert.match(css, /\.editor-rail \{ display: none; \}/);
     assert.match(css, /\.ws--codeview \.editor-rail \{[^}]*display: flex;[^}]*flex-direction: column;/);
     assert.match(css, /\.ws--codeview \.editor-panel \.ws-primary-action,/);
+});
+
+test("closing the editor in the code view gives the flowchart the full width", () => {
+    assert.match(css, /\.ws--codeview\.ws--editor-hidden \.ws-main \{ grid-template-columns: minmax\(0, 1fr\); \}/);
+    assert.match(css, /\.ws--codeview\.ws--editor-hidden \.ws-left,\s*\.ws--codeview\.ws--editor-hidden \.ws-column-splitter \{ display: none; \}/);
+    assert.match(css, /\.ws--codeview\.ws--editor-hidden \.flowchart-panel \{ grid-column: 1; \}/);
+    assert.match(css, /\.editor-panel \.ws-panel__title \{ flex: none; \}/);
+});
+
+const base = { x: 0, y: 0, width: 400, height: 600 };
+
+test("the canvas keeps the computed size while every node is inside it", () => {
+    assert.deepEqual(growBounds(base, { x: 8, y: 8, width: 384, height: 584 }), base);
+    assert.deepEqual(growBounds(base, null), base);
+});
+
+test("a node dragged far past the left and top edges gets negative coordinates and stays inside the canvas", () => {
+    const content = { x: -900, y: -1200, width: 1300, height: 1800 };
+    const grown = growBounds(base, content);
+    assert.deepEqual(grown, { x: -900 - canvasPadding, y: -1200 - canvasPadding, width: 900 + canvasPadding + 400, height: 1200 + canvasPadding + 600 });
+    // The origin shifts, but the right and bottom edges stay where the computed layout put them.
+    assert.equal(grown.x + grown.width, 400);
+    assert.equal(grown.y + grown.height, 600);
+    assert.ok(grown.x < content.x && grown.y < content.y, "nothing is clipped on the left or top");
+});
+
+test("a node dragged past the right and bottom edges grows the canvas only on those sides", () => {
+    const grown = growBounds(base, { x: 8, y: 8, width: 3000, height: 5000 });
+    assert.deepEqual(grown, { x: 0, y: 0, width: 3008 + canvasPadding, height: 5008 + canvasPadding });
+});
+
+test("dragging near or past a canvas edge scrolls that way; the middle does not scroll", () => {
+    assert.equal(edgeScrollSpeed(500, 0, 1000), 0);
+    assert.ok(edgeScrollSpeed(10, 0, 1000) < 0);
+    assert.ok(edgeScrollSpeed(990, 0, 1000) > 0);
+    assert.equal(edgeScrollSpeed(-300, 0, 1000), -18, "past the edge scrolls at full speed");
+    assert.equal(edgeScrollSpeed(1300, 0, 1000), 18);
 });

@@ -1,4 +1,4 @@
-import { enableNodeDragging, prepareLayout, resetLayout } from "./flowchart.js?v=1";
+import { enableNodeDragging, prepareLayout, resetLayout } from "./flowchart.js?v=2";
 
 const shortcutHandlers = new WeakMap();
 const editorTabModes = new WeakMap();
@@ -556,7 +556,10 @@ export function fitFlowchart(container, mode = "all") {
 
 /** Auto layout: puts every dragged node and its connectors back where Mermaid placed them. */
 export function resetFlowchartLayout(container) {
-    return resetLayout(container);
+    const moved = resetLayout(container);
+    // The canvas returns to the computed size; keep the current zoom.
+    applyZoom(container, Number.parseFloat(container.dataset.zoom || "1"));
+    return moved;
 }
 
 /** Scrolls to the program's Start or End node and focuses it, so keyboard users land on it too. */
