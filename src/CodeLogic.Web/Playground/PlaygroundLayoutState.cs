@@ -71,12 +71,33 @@ public sealed class PlaygroundLayoutState
 
     public bool IsMaximized(WorkspacePanel panel) => MaximizedPanel == panel;
 
+    /// <summary>
+    /// The code view puts the editor (with its vertical toolbar) beside the flowchart. It is used by
+    /// Flowchart focus and by FULL on the flowchart, so the syntax and the chart can be followed together.
+    /// </summary>
+    public bool IsCodeView => Mode == WorkspaceMode.FlowchartFocus || MaximizedPanel == WorkspacePanel.Flowchart;
+
+    /// <summary>
+    /// In the code view the editor pane can be closed so the flowchart takes the full width. The editor
+    /// stays loaded while hidden, so its code, cursor, and the trace are untouched.
+    /// </summary>
+    public bool IsEditorHidden { get; private set; }
+
+    /// <summary>True when the code view is showing the flowchart alone.</summary>
+    public bool IsEditorClosedInCodeView => IsCodeView && IsEditorHidden;
+
+    public void ToggleEditorHidden() => IsEditorHidden = !IsEditorHidden;
+
+    public void ShowEditor() => IsEditorHidden = false;
+
     public void SetMode(WorkspaceMode mode)
     {
         Mode = mode;
         if (mode == WorkspaceMode.FlowchartFocus)
         {
             CompactView = CompactView.Flowchart;
+            IsEditorCollapsed = false;
+            IsEditorHidden = false;
             if (MaximizedPanel is WorkspacePanel.Editor or WorkspacePanel.Analysis)
             {
                 MaximizedPanel = null;
@@ -142,6 +163,11 @@ public sealed class PlaygroundLayoutState
     public void SetCompactView(CompactView view)
     {
         CompactView = view;
+        if (view == CompactView.Editor)
+        {
+            IsEditorHidden = false;
+        }
+
         if (view == CompactView.Editor && Mode == WorkspaceMode.FlowchartFocus)
         {
             Mode = WorkspaceMode.Analyze;
@@ -170,6 +196,8 @@ public sealed class PlaygroundLayoutState
                 break;
             case WorkspacePanel.Flowchart:
                 CompactView = CompactView.Flowchart;
+                IsEditorCollapsed = false; // the code view shows the editor beside the chart
+                IsEditorHidden = false;
                 break;
         }
     }

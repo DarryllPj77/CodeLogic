@@ -95,7 +95,8 @@ Perform these checks in Microsoft Edge or Chrome before accepting Prompt 10:
 16. Follow `docs/END_TO_END_TEST.md`. Confirm an incorrect answer adds an attempt without completion and a correct answer updates the lesson and dashboard.
 17. Review the dashboard at 200% zoom and 320 CSS pixels. Confirm summary cards, lesson cards, attempt history, and the recommended-next action remain readable.
 18. Open a separate InPrivate window. Confirm progress requires sign-in and a second account cannot see the first learner's data.
-18a. Open a large program (40+ nodes). Tab to the flowchart canvas and confirm arrow keys pan, `+`/`-` zoom, Home focuses Start, and End focuses the End node, all with a visible focus outline. Confirm the step line is announced as the canvas description.
+18a. Tab to a flowchart node and move it with the arrow keys (Shift for larger steps); press Enter to select it. Use Auto layout to restore positions.
+18b. Open a large program (40+ nodes). Tab to the flowchart canvas and confirm arrow keys pan, `+`/`-` zoom, Home focuses Start, and End focuses the End node, all with a visible focus outline. Confirm the step line is announced as the canvas description.
 19. Open Playground and reach the snippet selector, load button, editor, Analyze code, save button, and reset button using only `Tab` and `Shift+Tab`.
 20. Confirm Tab leaves the textarea instead of inserting indentation or trapping focus.
 21. With focus in the editor, confirm `Ctrl+S` saves and `Ctrl+Alt+R` resets; verify the live status text announces each result.

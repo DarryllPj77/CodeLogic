@@ -12,8 +12,22 @@ export const panelLimits = Object.freeze({
     explorer: [120, 300],
     editor: [320, 900],
     properties: [220, 420],
-    analysis: [140, 640]
+    analysis: [140, 640],
+    // Flowchart focus code column; it has no fixed default (CSS uses 40% until it is dragged).
+    focus: [320, 1400]
 });
+
+/**
+ * In Flowchart focus the editor/flowchart splitter sizes the focus code column instead, so each
+ * layout keeps its own width.
+ */
+export function resolvePanel(root, panel) {
+    return panel === "editor" && root.classList.contains("ws--codeview") ? "focus" : panel;
+}
+
+function isKnownPanel(panel) {
+    return panel in panelLimits;
+}
 
 // Handles where dragging toward the start (left/up) makes the panel larger.
 const reversedPanels = new Set(["properties", "analysis"]);
@@ -30,7 +44,7 @@ export function initializeWorkspace(root, storageKey, dotNetReference) {
     try {
         const saved = JSON.parse(window.localStorage.getItem(storageKey) ?? "null");
         if (saved !== null && typeof saved === "object") {
-            for (const key of Object.keys(panelDefaults)) {
+            for (const key of Object.keys(panelLimits)) {
                 if (Number.isFinite(saved[key])) {
                     state.values[key] = clampPanel(key, saved[key]);
                     restored = true;
@@ -48,19 +62,19 @@ export function initializeWorkspace(root, storageKey, dotNetReference) {
     root.addEventListener("pointerdown", event => {
         const handle = handleFrom(event);
         if (handle !== null && handle !== undefined) {
-            beginResize(event, root, state, handle, handle.dataset.resizePanel);
+            beginResize(event, root, state, handle, resolvePanel(root, handle.dataset.resizePanel));
         }
     }, { signal: controller.signal });
     root.addEventListener("dblclick", event => {
         const handle = handleFrom(event);
         if (handle !== null && handle !== undefined) {
-            resetPanel(root, state, handle.dataset.resizePanel);
+            resetPanel(root, state, resolvePanel(root, handle.dataset.resizePanel));
         }
     }, { signal: controller.signal });
     root.addEventListener("keydown", event => {
         const handle = handleFrom(event);
         if (handle !== null && handle !== undefined && event.target === handle) {
-            resizeWithKeyboard(event, root, state, handle.dataset.resizePanel);
+            resizeWithKeyboard(event, root, state, resolvePanel(root, handle.dataset.resizePanel));
         }
     }, { signal: controller.signal });
 
@@ -129,8 +143,9 @@ export function resetPanelSizes(root) {
         return;
     }
     state.values = { ...panelDefaults };
+    root.style.removeProperty("--focus-size");
     applyAll(root, state.values);
-    persist(state);
+    persist(state, ["focus"]);
 }
 
 export function clampPanel(panel, value) {
@@ -139,7 +154,7 @@ export function clampPanel(panel, value) {
 }
 
 function beginResize(event, root, state, handle, panel) {
-    if (event.button !== 0 || !(panel in panelDefaults)) {
+    if (event.button !== 0 || !isKnownPanel(panel)) {
         return;
     }
 
@@ -155,7 +170,7 @@ function beginResize(event, root, state, handle, panel) {
 
     const startX = event.clientX;
     const startY = event.clientY;
-    const startValue = state.values[panel];
+    const startValue = currentSize(root, state, panel);
     const direction = reversedPanels.has(panel) ? -1 : 1;
 
     const move = moveEvent => {
@@ -180,7 +195,7 @@ function beginResize(event, root, state, handle, panel) {
 }
 
 function resizeWithKeyboard(event, root, state, panel) {
-    if (!(panel in panelDefaults)) {
+    if (!isKnownPanel(panel)) {
         return;
     }
     const vertical = verticalPanels.has(panel);
@@ -194,10 +209,22 @@ function resizeWithKeyboard(event, root, state, panel) {
     const direction = event.key === increaseKey ? 1 : -1;
     // ArrowUp grows the bottom Analysis panel; ArrowLeft grows the right-anchored properties drawer.
     const signedDirection = panel === "properties" ? -direction : direction;
-    updatePanel(root, state, panel, state.values[panel] + signedDirection * 16, true);
+    updatePanel(root, state, panel, currentSize(root, state, panel) + signedDirection * 16, true);
+}
+
+// The focus column starts from its measured width (40% of the work area) until it is dragged.
+function currentSize(root, state, panel) {
+    return state.values[panel] ?? root.querySelector(".ws-left")?.getBoundingClientRect().width ?? panelLimits[panel][0];
 }
 
 function resetPanel(root, state, panel) {
+    if (panel === "focus") {
+        delete state.values.focus;
+        root.style.removeProperty("--focus-size");
+        persist(state, ["focus"]);
+        return;
+    }
+
     if (panel in panelDefaults) {
         updatePanel(root, state, panel, panelDefaults[panel], true);
     }
@@ -224,9 +251,12 @@ function apply(root, panel, value) {
     }
 }
 
-function persist(state) {
+function persist(state, removedKeys = []) {
     try {
         const saved = JSON.parse(window.localStorage.getItem(state.storageKey) ?? "{}") ?? {};
+        for (const key of removedKeys) {
+            delete saved[key];
+        }
         window.localStorage.setItem(state.storageKey, JSON.stringify({ ...saved, ...state.values }));
     } catch {
         // Resizing remains functional without persistence.

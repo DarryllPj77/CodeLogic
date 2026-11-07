@@ -178,6 +178,53 @@ public sealed class PlaygroundLayoutStateTests
     }
 
     [Fact]
+    public void TheCodeViewIsUsedByFlowchartFullAndFlowchartFocusOnly()
+    {
+        var layout = new PlaygroundLayoutState();
+        Assert.False(layout.IsCodeView);
+        layout.ToggleEditor();
+
+        layout.ToggleMaximized(WorkspacePanel.Flowchart);
+        Assert.True(layout.IsCodeView);
+        Assert.False(layout.IsEditorCollapsed);
+        Assert.True(layout.HandleEscape());
+        Assert.False(layout.IsCodeView);
+
+        layout.ToggleMaximized(WorkspacePanel.Editor);
+        Assert.False(layout.IsCodeView);
+        layout.ToggleMaximized(WorkspacePanel.Analysis);
+        Assert.False(layout.IsCodeView);
+
+        layout.HandleEscape();
+        layout.SetMode(WorkspaceMode.FlowchartFocus);
+        Assert.True(layout.IsCodeView);
+    }
+
+    [Fact]
+    public void TheEditorCanBeClosedInTheCodeViewAndComesBackWhenReopenedOrReEntered()
+    {
+        var layout = new PlaygroundLayoutState();
+        layout.ToggleMaximized(WorkspacePanel.Flowchart);
+
+        layout.ToggleEditorHidden();
+        Assert.True(layout.IsEditorClosedInCodeView);
+
+        layout.ToggleEditorHidden();
+        Assert.False(layout.IsEditorClosedInCodeView);
+
+        layout.ToggleEditorHidden();
+        layout.ShowEditor();
+        Assert.False(layout.IsEditorHidden);
+
+        // Leaving FULL shows the normal layout; entering it again starts with the editor visible.
+        layout.ToggleEditorHidden();
+        layout.ToggleMaximized(WorkspacePanel.Flowchart);
+        Assert.False(layout.IsEditorClosedInCodeView);
+        layout.ToggleMaximized(WorkspacePanel.Flowchart);
+        Assert.False(layout.IsEditorHidden);
+    }
+
+    [Fact]
     public void FlowchartFocusRestoresAMaximizedEditorAndShowsTheFlowchart()
     {
         var layout = new PlaygroundLayoutState();

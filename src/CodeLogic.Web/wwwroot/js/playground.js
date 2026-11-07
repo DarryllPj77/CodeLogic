@@ -1,3 +1,5 @@
+import { enableNodeDragging, prepareLayout, resetLayout } from "./flowchart.js?v=1";
+
 const shortcutHandlers = new WeakMap();
 const editorTabModes = new WeakMap();
 const codeEditors = new WeakMap();
@@ -425,6 +427,8 @@ export async function renderMermaid(container, definition, renderId, sourceMap, 
     bindDiagramNodes(container, sourceMap, dotNetReference);
     initializeSourceSynchronization(document.getElementById("code-editor"), container, sourceMap, dotNetReference);
     initializeCanvasInteractions(container, sourceMap, dotNetReference);
+    // Positions the learner dragged survive a re-render of the same graph.
+    prepareLayout(container, definition);
 
     // Open at a readable zoom: large graphs scroll instead of shrinking until the text disappears.
     const zoom = openingZoomFor(container);
@@ -550,6 +554,11 @@ export function fitFlowchart(container, mode = "all") {
     return zoom;
 }
 
+/** Auto layout: puts every dragged node and its connectors back where Mermaid placed them. */
+export function resetFlowchartLayout(container) {
+    return resetLayout(container);
+}
+
 /** Scrolls to the program's Start or End node and focuses it, so keyboard users land on it too. */
 export function goToFlowchartNode(container, which) {
     const sourceMap = canvasSourceMaps.get(container) ?? [];
@@ -663,9 +672,51 @@ export function showTraceStep(editor, container, currentMermaidId, startOffset, 
         window.setTimeout(() => suppressedSelections.delete(editor), 0);
     }
 
+    highlightTraceLines(editor, container, startOffset, length, skippedMermaidIds);
+
     if (current !== null) {
         revealNode(container, current);
     }
+}
+
+/** Removes the step and skipped-branch line highlights from the code view. */
+export function clearTraceHighlights(editor) {
+    const state = codeEditors.get(editor);
+    state?.traceDecorations?.clear();
+}
+
+// The active statement's lines are highlighted and the skipped branch's lines are dimmed, matching
+// the nodes highlighted and dimmed in the flowchart.
+function highlightTraceLines(editor, container, startOffset, length, skippedMermaidIds) {
+    const state = codeEditors.get(editor);
+    const monaco = window.monaco;
+    if (state === undefined || monaco === undefined) {
+        return;
+    }
+
+    const lines = (offset, size) => {
+        const start = state.model.getPositionAt(offset).lineNumber;
+        const end = state.model.getPositionAt(offset + Math.max(size, 1) - 1).lineNumber;
+        return new monaco.Range(start, 1, end, 1);
+    };
+    const decorations = [];
+    if (Number.isInteger(startOffset) && Number.isInteger(length)) {
+        decorations.push({
+            range: lines(startOffset, length),
+            options: { isWholeLine: true, className: "trace-current-line", linesDecorationsClassName: "trace-current-gutter" }
+        });
+    }
+
+    const sourceMap = canvasSourceMaps.get(container) ?? [];
+    for (const mermaidId of skippedMermaidIds ?? []) {
+        const span = sourceMap.find(item => item.mermaidId === mermaidId)?.sourceSpan;
+        if (span !== null && span !== undefined) {
+            decorations.push({ range: lines(span.startOffset, span.length), options: { isWholeLine: true, inlineClassName: "trace-skipped-line" } });
+        }
+    }
+
+    state.traceDecorations?.clear();
+    state.traceDecorations = state.editor.createDecorationsCollection(decorations);
 }
 
 export function focusElement(element) {
@@ -978,6 +1029,7 @@ function initializeCanvasInteractions(container, sourceMap, dotNetReference) {
         container.classList.remove("flowchart-canvas--panning");
     };
     container.addEventListener("pointerup", stopPanning, { signal: controller.signal });
+    enableNodeDragging(container, controller.signal);
     container.addEventListener("pointercancel", stopPanning, { signal: controller.signal });
 
     // The wheel scrolls (Shift+wheel sideways) natively; Ctrl+wheel zooms around the cursor.

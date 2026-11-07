@@ -77,7 +77,17 @@
             <button type="button" class="rail-button @(ActiveSidebarPanel == "explorer" && Layout.IsExplorerOpen ? "rail-button--active" : null)" title="File Explorer" aria-label="File Explorer" aria-controls="workspace-explorer" aria-expanded="@Pressed(ActiveSidebarPanel == "explorer" && Layout.IsExplorerOpen)" @onclick='() => ActivateSidebarAsync("explorer")'>▱</button>
             <button type="button" class="rail-button @(ActiveSidebarPanel == "structure" && Layout.IsExplorerOpen ? "rail-button--active" : null)" title="Code Structure" aria-label="Code Structure" aria-controls="workspace-explorer" aria-expanded="@Pressed(ActiveSidebarPanel == "structure" && Layout.IsExplorerOpen)" @onclick='() => ActivateSidebarAsync("structure")'>{ }</button>
             <button type="button" class="rail-button" title="Open diagnostics" aria-label="Open diagnostics" @onclick="OpenDiagnostics">△</button>
-            <button type="button" class="rail-button" title="Focus source editor" aria-label="Focus source editor" @onclick="FocusEditorAsync">⌨</button>
+            <button type="button" class="rail-button @(Layout.IsEditorClosedInCodeView ? "rail-button--attention" : null)" title="@(Layout.IsEditorClosedInCodeView ? "Reopen and focus the source editor" : "Focus source editor")" aria-label="@(Layout.IsEditorClosedInCodeView ? "Reopen and focus the source editor" : "Focus source editor")" @onclick="FocusEditorAsync">⌨</button>
+            @if (Layout.IsCodeView)
+            {
+                @* Close (or reopen) the Monaco C# Editor pane so the flowchart can use the full width. *@
+                <button type="button" class="rail-button rail-button--editor-toggle @(Layout.IsEditorHidden ? "rail-button--active" : null)"
+                        title="@(Layout.IsEditorHidden ? "Reopen the Monaco C# Editor" : "Close the Monaco C# Editor")"
+                        aria-label="@(Layout.IsEditorHidden ? "Reopen the Monaco C# Editor" : "Close the Monaco C# Editor")"
+                        aria-controls="editor-panel-body"
+                        aria-expanded="@Pressed(!Layout.IsEditorHidden)"
+                        @onclick="ToggleEditorPaneAsync">@(Layout.IsEditorHidden ? "⇥" : "×")</button>
+            }
         </nav>
 
         <aside id="workspace-explorer" class="workspace-explorer" aria-labelledby="explorer-title">
@@ -151,6 +161,27 @@
                     </div>
 
                     <div id="editor-panel-body" class="ws-panel__body editor-panel__body">
+                        @* Code view toolbar: outside Monaco's scroll area, so it stays visible while the code scrolls. *@
+                        <nav class="editor-rail" aria-label="Code view tools">
+                            <button type="button" class="editor-rail__button editor-rail__button--primary" aria-label="Analyze code: check syntax and build the flowchart" title="Analyze code" @onclick="AnalyzeCodeAsync" disabled="@(!BrowserReady || IsAnalyzing || IsRendering)"><span aria-hidden="true">▶</span><small>Run</small></button>
+                            <button type="button" class="editor-rail__button" aria-label="@(TraceNavigator is null ? "Build the step trace and show its first step" : "Next trace step")" title="Step (builds the trace first if needed)" @onclick="StepFromRailAsync" disabled="@(!BrowserReady || IsTracing || IsTracePlaying || (TraceNavigator is not null && (!TraceNavigator.CanStep || (IsPredictionMode && CurrentPrediction is not null))))"><span aria-hidden="true">⤼</span><small>Step</small></button>
+                            <button type="button" class="editor-rail__button" aria-label="Previous trace step" title="Back" @onclick="PreviousTraceStepAsync" disabled="@(TraceNavigator is null || !TraceNavigator.CanStepBack || IsTracePlaying)"><span aria-hidden="true">⤺</span><small>Back</small></button>
+                            <button type="button" class="editor-rail__button" aria-label="Reset the trace to its first step" title="Reset" @onclick="ResetTraceAsync" disabled="@(TraceNavigator is null)"><span aria-hidden="true">⟲</span><small>Reset</small></button>
+                            <button type="button" class="editor-rail__button" aria-label="Predict before each meaningful step" aria-pressed="@Pressed(IsPredictionMode)" title="Predict" @onclick="TogglePredictionFromRailAsync" disabled="@(TraceNavigator is null)"><span aria-hidden="true">?</span><small>Predict</small></button>
+                            <span class="editor-rail__divider" aria-hidden="true"></span>
+                            <button type="button" id="editor-rail-snippets" class="editor-rail__button" aria-label="Choose a curated snippet" aria-haspopup="true" aria-expanded="@Pressed(IsSnippetMenuOpen)" aria-controls="editor-rail-snippet-menu" title="Snippets" @onclick="ToggleSnippetMenu" disabled="@(!BrowserReady)"><span aria-hidden="true">❏</span><small>Snippet</small></button>
+                            <button type="button" class="editor-rail__button" aria-label="Save browser draft" title="Save draft (Ctrl+S)" @onclick="SaveDraftAsync" disabled="@(!BrowserReady || JavaScriptModule is null)"><span aria-hidden="true">⤓</span><small>Save</small></button>
+                            <button type="button" class="editor-rail__button" aria-label="@CodeViewExitLabel" title="@CodeViewExitLabel" @onclick="ExitCodeViewAsync"><span aria-hidden="true">⤡</span><small>@(Layout.IsMaximized(WorkspacePanel.Flowchart) ? "Restore" : "Exit")</small></button>
+                        </nav>
+                        @if (IsSnippetMenuOpen)
+                        {
+                            <div id="editor-rail-snippet-menu" class="editor-rail__menu" role="menu" aria-label="Curated snippets">
+                                @foreach (var snippet in EditorState.Snippets)
+                                {
+                                    <button type="button" role="menuitem" class="@(snippet.Id == EditorState.ActiveSnippet.Id ? "editor-rail__menu-item--active" : null)" @onclick="() => LoadSnippetFromRailAsync(snippet.Id)">@snippet.Title</button>
+                                }
+                            </div>
+                        }
                         <span class="visually-hidden" id="code-editor-label">C# source text</span>
                         <div id="code-editor"
                              @ref="EditorElement"
@@ -477,6 +508,7 @@
                         <div class="toolbar-group" role="group" aria-label="Flowchart navigation">
                             <button type="button" class="icon-button" aria-label="Go to the Start node" title="Go to Start (Home)" @onclick='() => GoToFlowchartNodeAsync("start")' disabled="@(FlowchartDocument is null)">⤒ Start</button>
                             <button type="button" class="icon-button" aria-label="Go to the End node" title="Go to End (End)" @onclick='() => GoToFlowchartNodeAsync("end")' disabled="@(FlowchartDocument is null)">⤓ End</button>
+                            <button type="button" class="icon-button" aria-label="Auto layout: put dragged nodes back in their computed positions" title="Auto layout" @onclick="AutoLayoutAsync" disabled="@(FlowchartDocument is null)">Auto layout</button>
                         </div>
                         <button type="button" class="icon-button flowchart-legend-button" aria-label="Show the flowchart legend" aria-controls="node-properties" aria-pressed="@Pressed(Layout.IsPropertiesOpen && Layout.DrawerTab == DrawerTab.Legend)" @onclick="Layout.ToggleLegend">Legend</button>
                     </div>
@@ -830,6 +862,8 @@
     {
         "ws",
         Layout.Mode == WorkspaceMode.FlowchartFocus ? "ws--focus" : null,
+        Layout.IsCodeView ? "ws--codeview" : null,
+        Layout.IsEditorClosedInCodeView ? "ws--editor-hidden" : null,
         Layout.IsExplorerOpen ? "ws--explorer-open" : null,
         Layout.IsEditorCollapsed ? "ws--editor-collapsed" : null,
         Layout.IsAnalysisOpen ? "ws--analysis-open" : null,
@@ -895,10 +929,10 @@
             {
                 JavaScriptModule = await JavaScript.InvokeAsync<IJSObjectReference>(
                     "import",
-                    "./js/playground.js?v=9");
+                    "./js/playground.js?v=10");
                 WorkspaceModule = await JavaScript.InvokeAsync<IJSObjectReference>(
                     "import",
-                    "./js/workspace.js?v=4");
+                    "./js/workspace.js?v=6");
                 ComponentReference = DotNetObjectReference.Create(this);
                 var layoutRestored = await WorkspaceModule.InvokeAsync<bool>(
                     "initializeWorkspace",
@@ -1469,14 +1503,14 @@
             ? TraceResult?.Steps[TraceNavigator.CurrentIndex - 1].ActiveNodeId
             : null;
         var previous = FlowchartDocument.SourceMap.FirstOrDefault(item => item.NodeId == previousNodeId);
-        var skippedTargets = previousNodeId is null || FlowchartResult?.Graph is null
-            ? []
-            : FlowchartResult.Graph.Edges
-                .Where(edge => edge.FromNodeId == previousNodeId && edge.ToNodeId != current.NodeId)
-                .Select(edge => FlowchartDocument.SourceMap.FirstOrDefault(item => item.NodeId == edge.ToNodeId)?.MermaidId)
-                .Where(id => id is not null)
-                .Cast<string>()
-                .ToArray();
+        // Every node only the untaken branch reaches is dimmed, in the flowchart and in the code.
+        var skippedIds = FlowchartResult?.Graph is null
+            ? new HashSet<string>()
+            : TraceBranchHighlighter.SkippedNodeIds(FlowchartResult.Graph, previousNodeId, current.NodeId);
+        var skippedTargets = FlowchartDocument.SourceMap
+            .Where(item => skippedIds.Contains(item.NodeId))
+            .Select(item => item.MermaidId)
+            .ToArray();
 
         await JavaScriptModule.InvokeVoidAsync(
             "showTraceStep",
@@ -1622,6 +1656,20 @@
         }
     }
 
+    // Dragging nodes only moves them on the canvas; Auto layout restores the computed positions.
+    private async Task AutoLayoutAsync()
+    {
+        if (JavaScriptModule is null)
+        {
+            return;
+        }
+
+        var moved = await JavaScriptModule.InvokeAsync<int>("resetFlowchartLayout", FlowchartContainer);
+        StatusMessage = moved == 0
+            ? "The flowchart already uses its computed layout."
+            : $"Auto layout restored {moved} moved node(s). The source code was not changed.";
+    }
+
     private async Task GoToFlowchartNodeAsync(string which)
     {
         if (JavaScriptModule is not null)
@@ -1687,6 +1735,49 @@
         PendingFocusElementId = Layout.IsHelpOpen ? "workspace-help-close" : null;
     }
 
+    private bool IsSnippetMenuOpen { get; set; }
+
+    private string CodeViewExitLabel => Layout.IsMaximized(WorkspacePanel.Flowchart)
+        ? "Restore: leave FULL"
+        : "Exit Flowchart focus";
+
+    // Step builds the trace first when there is none, so one button walks through the program.
+    private async Task StepFromRailAsync()
+    {
+        if (TraceNavigator is null)
+        {
+            await BuildTraceAsync();
+            return;
+        }
+
+        await NextTraceStepAsync();
+    }
+
+    private Task TogglePredictionFromRailAsync() =>
+        TogglePredictionModeAsync(new ChangeEventArgs { Value = !IsPredictionMode });
+
+    private void ToggleSnippetMenu() => IsSnippetMenuOpen = !IsSnippetMenuOpen;
+
+    private async Task LoadSnippetFromRailAsync(string snippetId)
+    {
+        IsSnippetMenuOpen = false;
+        SelectedSnippetId = snippetId;
+        await LoadSelectedSnippet();
+        PendingFocusElementId = "editor-rail-snippets";
+    }
+
+    private async Task ExitCodeViewAsync()
+    {
+        IsSnippetMenuOpen = false;
+        if (Layout.IsMaximized(WorkspacePanel.Flowchart))
+        {
+            Layout.ToggleMaximized(WorkspacePanel.Flowchart);
+            return;
+        }
+
+        await SetWorkspaceModeAsync(WorkspaceMode.Analyze);
+    }
+
     private void OpenSnippets()
     {
         if (Layout.Mode == WorkspaceMode.FlowchartFocus)
@@ -1717,6 +1808,13 @@
     [JSInvokable]
     public async Task<bool> HandleWorkspaceEscape()
     {
+        if (IsSnippetMenuOpen)
+        {
+            IsSnippetMenuOpen = false;
+            await InvokeAsync(StateHasChanged);
+            return true;
+        }
+
         var handled = Layout.HandleEscape();
         if (handled)
         {
@@ -1734,13 +1832,22 @@
         }
     }
 
+    // Hiding only removes the pane from view; the editor keeps its code and cursor, and the trace,
+    // node selection, and zoom stay as they were.
+    private Task ToggleEditorPaneAsync()
+    {
+        Layout.ToggleEditorHidden();
+        StatusMessage = Layout.IsEditorHidden
+            ? "Code editor closed; the flowchart uses the full width. Your code and trace position are kept."
+            : "Code editor reopened.";
+        return Layout.IsEditorHidden ? Task.CompletedTask : FocusEditorAsync();
+    }
+
+    // Flowchart focus already shows the editor beside the chart, so focusing it only needs to reopen a
+    // closed or collapsed editor (in one column, the Editor view replaces the chart).
     private Task FocusEditorAsync()
     {
-        if (Layout.Mode == WorkspaceMode.FlowchartFocus)
-        {
-            Layout.SetMode(WorkspaceMode.Analyze);
-        }
-
+        Layout.ShowEditor();
         if (Layout.IsEditorCollapsed)
         {
             Layout.ToggleEditor();
@@ -1814,6 +1921,12 @@
 
     private void ClearTraceAndFeedback()
     {
+        if (TraceNavigator is not null && JavaScriptModule is not null)
+        {
+            // Remove the code view's step and skipped-line highlights along with the trace.
+            _ = JavaScriptModule.InvokeVoidAsync("clearTraceHighlights", EditorElement).AsTask();
+        }
+
         StopTracePlayback();
         TraceResult = null;
         TraceNavigator = null;
