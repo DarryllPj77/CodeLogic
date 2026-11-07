@@ -3,7 +3,7 @@
 ## Document Status
 
 - Tasks: Prompts 13–19 plus the owner-directed IDE workspace redesign
-- Last updated: 2026-11-07
+- Last updated: 2026-11-07 (non-scrolling workspace layout)
 - Editor: Monaco Editor 0.57.0 (pinned CDN) with Roslyn-driven code folding, falling back to an accessible HTML textarea when Monaco cannot load
 
 ## Scope
@@ -28,23 +28,32 @@ Fold regions come from `IEditorStructureService` (Application), implemented by `
 
 ## IDE Workspace Layout
 
-The redesign uses centralized dark design tokens and keeps the source editor as the source of truth. At desktop widths the workspace includes:
+`/playground` uses its own lean `WorkspaceLayout` and draws one non-scrolling viewport. `html` and `body` are locked to the viewport height only while the workspace is on screen (`html:has(.ws)`), so Lessons, Progress, Login, and Authoring keep the shared `MainLayout` header and normal page scrolling. Navigation in the workspace happens through buttons and tabs. Only panel bodies scroll.
 
-- a compact menu/action bar and status bar;
-- an activity rail and read-only explorer representation;
-- a split source editor and grid-backed flowchart canvas;
-- a properties panel populated only from the selected `FlowNodeSourceMap`;
-- pointer- and keyboard-resizable Explorer, editor, properties, and output panels, with browser-local size persistence and double-click reset;
-- zoom-in, zoom-out, fit, Ctrl+wheel zoom, and background drag-to-pan controls for the rendered SVG;
-- an output area for diagnostics, analysis, bounded trace, and the explicitly non-executing terminal state.
+From top to bottom and left to right:
 
-Selecting a node in the diagram or text map updates the property panel, highlights the generated Mermaid node, focuses the editor (unfolding the target if needed), and selects the exact source span. Moving the caret into a mapped source span selects the corresponding node. Decision properties show only real graph edges, including their True/False destinations and whether a loop-back edge targets that decision. Smaller widths turn properties into an explicit drawer and stack editor, canvas, feedback, and trace without removing their keyboard-accessible content. “Flowchart focus” hides the editor visually at desktop width but never changes source or graph data.
+- **Header:** brand, an **Edit** menu (Fold All / Unfold All), a centered **Analyze Code / Flowchart focus** mode switch, a *Safe sandbox · Not executed* pill, the account card (*Guest · Sign in to save progress*, or your name), and **Exit**. For a guest, Exit returns home; when signed in, it posts to `/account/logout`.
+- **Left rail:** toggles the collapsible Explorer / Code structure sidebar, opens Diagnostics, and focuses the editor.
+- **Editor column:** the *Monaco C# editor* panel (snippet picker, **Load snippet**, `Program.cs` tag, **Light mode** editor theme, **FULL**, collapse chevron), the editor body that fills the remaining height, and a footer. The footer holds the Tab/Esc hint, the shortcuts, the `x / 10,000` counter, the dominant yellow **Analyze code** button, and **Check syntax**, **Preview flowchart**, **Build step trace**, **Save browser draft**, and **Reset editor**.
+- **Analysis panel (collapsed by default):** below the editor, behind a draggable splitter. Its tabs are **Diagnostics** (with a count badge and the syntax-result card), **Analysis output** (status plus a one-line summary of each feature), **Execution trace** (active operation, variables, console output), **Logic checks** (the instructor-defined age exercise), and **Terminal** (the non-executing safe state).
+- **Control flow graph panel:** a header with node count and safety status, then one toolbar row (Play, Step, Back, Reset, Speed, Predict | zoom −, %, +, Fit | Legend | FULL) that wraps only when it lacks room. Below it are the step-explanation line, the canvas, which fills the remaining height, and a collapsible equivalent text map. With no graph, the canvas reads "Run ANALYZE CODE to generate the Control Flow Graph".
+- **Node Properties drawer:** slides over the right edge of the canvas when a node is clicked, inspected from the text map, or chosen in Code structure. Moving the editor caret still highlights the matching node, but it never opens the drawer, so typing does not cover the graph.
+- **Right activity bar:** Settings (light editor theme, Explorer, reset panel sizes), Save browser draft, Snippets (focuses the snippet picker), and Help (shortcuts and the safety model and limitations, previously shown above the workspace).
+- **Status bar:** *Ready* or *Working*, the latest status message, and *Deterministic analysis · No arbitrary .NET execution*.
+
+**Analyze code** runs the syntax check and builds the graph. It opens Diagnostics only when there is something to fix. **Check syntax** always opens Diagnostics; **Check known cases** and **Load age exercise** open Logic checks; a failed trace opens Execution trace.
+
+**FULL** places its panel over the whole work area between the two icon bars, and the button changes to **EXIT FULL**. **Esc** pressed outside the editor and form fields closes the most temporary layer first: Help or Settings, then a FULL panel, then Node Properties. Esc inside Monaco keeps its tab-release meaning. These rules live in `PlaygroundLayoutState` and are covered by `PlaygroundLayoutStateTests`.
+
+Below 1,100 CSS pixels the main area becomes one column. **Editor & analysis / Flowchart** buttons choose the visible column, and the Explorer opens as an overlay. The page still does not scroll. Below 768 pixels the header keeps only the brand mark, account avatar, and Exit.
+
+The graph auto-fits in both dimensions on load and whenever its canvas is resized while unzoomed. Manual zoom, Ctrl+wheel, and drag-to-pan still work. Workspace mode, editor theme, Explorer visibility, and splitter sizes are saved in `CodeLogic.Playground.Workspace.v1`.
 
 Source-backed nodes can be edited from the properties panel or by double-clicking the canvas node. The replacement applies only to the node's exact source span and is first translated as a complete candidate document. Empty, stale, oversized, invalid, or unsupported edits are rejected without changing the editor or last valid graph. **Reveal in source** remains as a secondary keyboard-accessible action.
 
-The trace panel also offers optional **Predict before each meaningful step** practice. Before a changed variable or decision branch advances, the learner enters the expected value or True/False path. Answers use trimmed, case-insensitive exact comparison against the already-built bounded trace; feedback explains the expected snapshot without evaluating arbitrary expressions. Automatic Play is unavailable while this deliberate practice mode is enabled, while Back and Reset prepare a fresh prediction for the selected step.
+The flowchart toolbar also offers optional **Predict** practice before each meaningful step. Before a changed variable or decision branch advances, the learner enters the expected value or True/False path. Answers use trimmed, case-insensitive exact comparison against the already-built bounded trace; feedback explains the expected snapshot without evaluating arbitrary expressions. Automatic Play is unavailable while this deliberate practice mode is enabled, while Back and Reset prepare a fresh prediction for the selected step.
 
-The same Play, Step, Back, Reset, Speed, and Predict state is available in a sticky header directly above the flowchart. A one-line current-step explanation and prediction prompt keep the teaching loop beside the active node; the detailed trace remains available in the lower panel. Each rendered graph auto-fits on load, and trace movement pans the canvas to keep the active node visible. Mermaid nodes use wider label bounds and safe punctuation wrap opportunities, while the original full statement remains available through the node's accessible name and hover title.
+Play, Step, Back, Reset, Speed, and Predict live only in the flowchart toolbar. The one-line step explanation and the prediction prompt sit directly under it, beside the active node. The Execution trace tab shows the full snapshot. Trace movement pans the canvas to keep the active node visible. Mermaid nodes use wider label bounds and safe punctuation wrap opportunities, while the original full statement remains available through the node's accessible name and hover title.
 
 Resize handles use native separator semantics. Drag one with a pointer, focus it and use arrow keys, or double-click it to reset its panel. Operation status is indeterminate because analysis and rendering do not provide measured progress. Toasts report only completed success, warning, or failure states; they do not predict outcomes.
 
@@ -105,9 +114,8 @@ Analysis is limited to 10,000 characters, three control-flow nesting levels, and
 - Monaco loads from a pinned CDN URL, so the rich editor needs network access. Without it, the plain-text fallback has no highlighting, gutter, or folding.
 - Analysis diagnostics outline the matching flowchart nodes after **Check syntax**, but they are not yet shown as squiggles inside Monaco.
 - Source-to-node synchronization follows caret and selection changes rather than hover. Diagram nodes provide hover/focus highlights and source-backed tooltips.
-- Panel collapse and maximize states reset when the page is reloaded.
+- Panel collapse, FULL, the active Analysis tab, and the compact view reset when the page is reloaded; mode, editor theme, Explorer visibility, and sizes persist.
 - Node properties expose graph type, label, and exact source span. Rich semantic fields such as inferred variable type require a future semantic-analysis contract and are not fabricated.
-- Panel sizes persist locally, but the selected sidebar panel, open/closed panels, and split/focus mode reset when the page is reloaded.
 - One local draft only; loading another snippet does not create a separate saved file.
 - Browser storage can be unavailable in restricted privacy modes.
 - Drafts are device/browser-specific and are not account data.

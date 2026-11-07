@@ -79,7 +79,7 @@ Perform these checks in Microsoft Edge or Chrome before accepting Prompt 10:
 
 1. Press `Tab` immediately after loading a page. Confirm the skip link appears and moves focus to the main heading when activated.
 2. Continue pressing `Tab`. Confirm application-menu links, workspace actions, activity-rail links, editor controls, canvas controls, and output controls receive a visible focus outline in a logical order.
-3. Activate File, View, Analysis, and Settings links with `Enter`. Confirm each moves to its named workspace region.
+3. On Playground, operate the mode switch, the editor and Analysis collapse chevrons (`aria-expanded`), the Analysis tabs, FULL / EXIT FULL, and the right activity bar with `Enter` or `Space`. Confirm `Esc`, pressed outside the editor, closes Help or Settings, restores a FULL panel, then closes Node properties, and that the page itself never scrolls.
 4. At 200% browser zoom, confirm content remains readable and actions do not overlap.
 5. Resize the viewport to 320 CSS pixels wide. Confirm there is no page-level horizontal scrolling; the code sample may scroll inside its own block.
 6. Enable a reduced-motion preference. Confirm the interface remains understandable without animation.
@@ -95,7 +95,7 @@ Perform these checks in Microsoft Edge or Chrome before accepting Prompt 10:
 16. Follow `docs/END_TO_END_TEST.md`. Confirm an incorrect answer adds an attempt without completion and a correct answer updates the lesson and dashboard.
 17. Review the dashboard at 200% zoom and 320 CSS pixels. Confirm summary cards, lesson cards, attempt history, and the recommended-next action remain readable.
 18. Open a separate InPrivate window. Confirm progress requires sign-in and a second account cannot see the first learner's data.
-19. Open Playground and reach the snippet selector, load button, textarea, save button, and reset button using only `Tab` and `Shift+Tab`.
+19. Open Playground and reach the snippet selector, load button, editor, Analyze code, save button, and reset button using only `Tab` and `Shift+Tab`.
 20. Confirm Tab leaves the textarea instead of inserting indentation or trapping focus.
 21. With focus in the editor, confirm `Ctrl+S` saves and `Ctrl+Alt+R` resets; verify the live status text announces each result.
 22. Enter text up to the displayed 10,000-character limit and confirm the character count remains understandable without color.

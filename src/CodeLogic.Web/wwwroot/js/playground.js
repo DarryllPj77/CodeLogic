@@ -12,7 +12,7 @@ let mermaidPromise = null;
 let monacoPromise = null;
 
 // Returns "monaco" when the rich editor loaded, or "plain" when the accessible textarea fallback is used.
-export async function initializeCodeEditor(host, initialValue, maximumCharacters, dotNetReference, foldRanges) {
+export async function initializeCodeEditor(host, initialValue, maximumCharacters, dotNetReference, foldRanges, lightTheme = false) {
     disposeCodeEditor(host);
     let monaco;
     try {
@@ -24,6 +24,7 @@ export async function initializeCodeEditor(host, initialValue, maximumCharacters
     }
     const model = monaco.editor.createModel(initialValue, "csharp");
     model.updateOptions({ tabSize: 4, insertSpaces: true });
+    monaco.editor.setTheme(lightTheme ? "vs" : "vs-dark");
     const editor = monaco.editor.create(host, {
         model,
         ariaLabel: "C# source text. Tab indents. Press Escape, then Tab to leave the editor.",
@@ -448,15 +449,44 @@ export function setFlowchartZoom(container, scale) {
     container.dataset.zoom = String(scale);
 }
 
+// Monaco's theme is global, so one call switches the only editor on the page. The plain-text
+// fallback follows the host's code-editor--light class instead.
+export function setEditorTheme(lightTheme) {
+    window.monaco?.editor.setTheme(lightTheme ? "vs" : "vs-dark");
+}
+
+export function focusById(elementId) {
+    document.getElementById(elementId)?.focus();
+}
+
+/**
+ * Width that fits a diagram with the given viewBox inside the available box without overflowing
+ * either dimension, never wider than its natural size and never smaller than a readable minimum.
+ */
+export function computeFitWidth(availableWidth, availableHeight, viewBoxWidth, viewBoxHeight, minimumWidth = 160) {
+    if (!(availableWidth > 0) || !(viewBoxWidth > 0) || !(viewBoxHeight > 0)) {
+        return null;
+    }
+    const heightBound = availableHeight > 0 ? availableHeight * (viewBoxWidth / viewBoxHeight) : availableWidth;
+    const fitted = Math.min(availableWidth, heightBound, viewBoxWidth * 1.5);
+    return Math.max(Math.min(minimumWidth, availableWidth), Math.floor(fitted));
+}
+
 export function fitFlowchart(container, smooth = true) {
     const svg = container.querySelector(".flowchart-svg");
     if (svg === null) {
         return;
     }
 
+    const style = window.getComputedStyle(container);
+    const availableWidth = container.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    const availableHeight = container.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+    const viewBox = svg.viewBox?.baseVal;
+    const width = computeFitWidth(availableWidth, availableHeight, viewBox?.width, viewBox?.height);
+
     svg.style.minWidth = "0";
     svg.style.transform = "none";
-    svg.style.width = "100%";
+    svg.style.width = width === null ? "100%" : `${width}px`;
     container.dataset.zoom = "1";
     container.scrollTo({ top: 0, left: 0, behavior: smooth ? "smooth" : "auto" });
 }
@@ -524,7 +554,7 @@ function bindDiagramNodes(container, sourceMap, dotNetReference) {
         const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
         title.textContent = `${nodeType}: ${item.label}${line ? ` (line ${line})` : ""}`;
         node.prepend(title);
-        const activate = () => dotNetReference?.invokeMethodAsync("SelectNodeFromBrowser", item.nodeId);
+        const activate = () => dotNetReference?.invokeMethodAsync("SelectNodeFromBrowser", item.nodeId, true);
         node.addEventListener("click", activate);
         if (item.sourceSpan !== null && item.sourceSpan !== undefined) {
             node.addEventListener("dblclick", event => {
@@ -585,7 +615,7 @@ function initializeSourceSynchronization(editor, container, sourceMap, dotNetRef
             if (item !== undefined && item.nodeId !== lastNodeId) {
                 lastNodeId = item.nodeId;
                 highlightNode(container, item.mermaidId);
-                dotNetReference?.invokeMethodAsync("SelectNodeFromBrowser", item.nodeId);
+                dotNetReference?.invokeMethodAsync("SelectNodeFromBrowser", item.nodeId, false);
             }
         });
         return;
@@ -606,7 +636,7 @@ function initializeSourceSynchronization(editor, container, sourceMap, dotNetRef
         if (item !== undefined && item.nodeId !== lastNodeId) {
             lastNodeId = item.nodeId;
             highlightNode(container, item.mermaidId);
-            dotNetReference?.invokeMethodAsync("SelectNodeFromBrowser", item.nodeId);
+            dotNetReference?.invokeMethodAsync("SelectNodeFromBrowser", item.nodeId, false);
         }
     };
 
@@ -803,6 +833,25 @@ function initializeCanvasInteractions(container, dotNetReference) {
         setFlowchartZoom(container, next);
         dotNetReference?.invokeMethodAsync("UpdateZoomFromBrowser", next);
     }, { passive: false, signal: controller.signal });
+
+    // Panels collapse, maximize, and resize without a page scroll, so refit an unzoomed chart
+    // whenever its canvas changes size.
+    if (typeof ResizeObserver === "function") {
+        let timer = 0;
+        const observer = new ResizeObserver(() => {
+            window.clearTimeout(timer);
+            timer = window.setTimeout(() => {
+                if (container.dataset.zoom === "1") {
+                    fitFlowchart(container, false);
+                }
+            }, 80);
+        });
+        observer.observe(container);
+        controller.signal.addEventListener("abort", () => {
+            window.clearTimeout(timer);
+            observer.disconnect();
+        }, { once: true });
+    }
 }
 
 function highlightNode(container, mermaidId) {

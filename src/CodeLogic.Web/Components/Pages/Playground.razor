@@ -1,4 +1,5 @@
 @page "/playground"
+@layout WorkspaceLayout
 @rendermode InteractiveServer
 @implements IAsyncDisposable
 @inject ICodeAnalysisService CodeAnalysisService
@@ -16,673 +17,710 @@
     <meta name="description" content="Edit supported C# snippets, review diagnostics, and preview a safe explanatory flowchart without compiling or executing them." />
 </HeadContent>
 
-<section class="page-header workspace-intro" aria-labelledby="playground-title">
-    <p class="eyebrow">Analysis workspace</p>
-    <h1 id="playground-title">C# control-flow studio</h1>
-    <p>Edit supported source, inspect Roslyn diagnostics, generate a deterministic graph, and step through a bounded simulation. Nothing is compiled or run by .NET.</p>
-</section>
+<div @ref="WorkspaceRoot" class="@WorkspaceClasses">
+    <header class="ws-header">
+        <div class="ws-header__start">
+            <a class="ws-brand" href="/" aria-label="CodeLogic home">
+                <span class="ws-brand__mark" aria-hidden="true">&lt;/&gt;</span>
+                <span class="ws-brand__name">CodeLogic</span>
+            </a>
+            <details class="menu-dropdown ws-menu">
+                <summary>Edit</summary>
+                <div class="menu-dropdown__content">
+                    <button type="button" data-editor-command="foldAll">Fold All</button>
+                    <button type="button" data-editor-command="unfoldAll">Unfold All</button>
+                </div>
+            </details>
+        </div>
 
-<details class="notice notice--warning workspace-limitations">
-    <summary id="editor-limitations-title">Safety model and current limitations</summary>
-    <h2>Visible limitations</h2>
-    <ul>
-        <li>The editor uses Monaco for highlighting and code folding, without IntelliSense or compilation. If Monaco cannot load, a plain-text editor is used instead.</li>
-        <li>Code is parsed and may be interpreted by CodeLogic's small teaching model. It is never compiled or executed as a .NET program.</li>
-        <li>Flowcharts support sequence, nested <code>if/else</code>, <code>while</code>, <code>for</code>, and <code>do-while</code> within the stated nesting limit.</li>
-        <li><code>break</code> and <code>continue</code> are not supported yet and produce an explanation.</li>
-        <li>Traces support scalar values, expressions, output, branches, and the supported loops; arrays, methods, live input, and general .NET behavior are not simulated.</li>
-        <li>A trace stops after @PedagogicalInterpreter.Limits.MaximumOperations operations.</li>
-        <li>The editor accepts at most @EditorState.MaximumCharacters.ToString("N0") characters.</li>
-        <li>Analysis stops after @CodeAnalysisService.Limits.MaximumDuration.TotalSeconds.ToString("N0") seconds and supports at most @CodeAnalysisService.Limits.MaximumNestingDepth nested control-flow statements.</li>
-        <li>Save keeps one draft only in this browser's local storage. It is not synced to your account or another device.</li>
-    </ul>
-</details>
+        <div class="ws-mode-switch" role="group" aria-label="Workspace mode">
+            <button type="button" class="ws-mode-button" aria-pressed="@Pressed(Layout.Mode == WorkspaceMode.Analyze)" @onclick="() => SetWorkspaceModeAsync(WorkspaceMode.Analyze)">
+                <span aria-hidden="true">⌕</span> Analyze Code
+            </button>
+            <button type="button" class="ws-mode-button" aria-pressed="@Pressed(Layout.Mode == WorkspaceMode.FlowchartFocus)" @onclick="() => SetWorkspaceModeAsync(WorkspaceMode.FlowchartFocus)">
+                <span aria-hidden="true">◇</span> Flowchart focus
+            </button>
+        </div>
 
-<div class="workspace-toolbar" id="workspace-settings">
-    <div class="workspace-file-tab"><span aria-hidden="true">#</span> Program.cs <span class="unsaved-indicator" title="Browser-local draft">●</span></div>
-    <div class="workspace-operation-status" role="status" aria-live="polite" aria-busy="@IsBusy.ToString().ToLowerInvariant()">
-        @if (IsBusy)
-        {
-            <span class="operation-spinner" aria-hidden="true"></span>
-        }
-        <span>@StatusMessage</span>
-    </div>
-    <div class="workspace-view-actions" aria-label="Workspace view">
-        <button type="button" class="icon-button" title="Split editor and flowchart" aria-pressed="@(WorkspaceMode == "split" ? "true" : "false")" @onclick='() => SetWorkspaceModeAsync("split")'>Split</button>
-        <button type="button" class="icon-button" title="Focus flowchart" aria-pressed="@(WorkspaceMode == "focus" ? "true" : "false")" @onclick='() => SetWorkspaceModeAsync("focus")'>Flowchart focus</button>
-        <button type="button" class="icon-button properties-drawer-trigger" aria-expanded="@IsPropertiesOpen.ToString().ToLowerInvariant()" @onclick="TogglePropertiesAsync">Node properties</button>
-    </div>
-</div>
+        <div class="ws-header__end">
+            <span class="ws-pill" title="CodeLogic parses and simulates a small subset. It never compiles or runs your code.">Safe sandbox · Not executed</span>
+            <AuthorizeView>
+                <Authorized>
+                    <div class="ws-account">
+                        <span class="ws-account__avatar" aria-hidden="true">@ProfileInitial(context.User.Identity?.Name)</span>
+                        <span class="ws-account__text"><strong>@context.User.Identity?.Name</strong><small>Signed in</small></span>
+                    </div>
+                    <form class="ws-exit-form" method="post" action="/account/logout">
+                        <AntiforgeryToken />
+                        <button type="submit" class="ws-exit" aria-label="Sign out and exit the workspace">Exit <span aria-hidden="true">⏻</span></button>
+                    </form>
+                </Authorized>
+                <NotAuthorized>
+                    <a class="ws-account" href="/account/login?returnUrl=%2Fplayground" aria-label="Guest. Sign in to save progress.">
+                        <span class="ws-account__avatar" aria-hidden="true">?</span>
+                        <span class="ws-account__text"><strong>Guest</strong><small>Sign in to save progress</small></span>
+                    </a>
+                    <a class="ws-exit" href="/" aria-label="Exit the workspace to the home page">Exit <span aria-hidden="true">⏻</span></a>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    </header>
 
-<div @ref="WorkspaceRoot" class="ide-workspace ide-workspace--@WorkspaceMode @(IsExplorerCollapsed ? "ide-workspace--explorer-collapsed" : null) @(IsPropertiesOpen ? "ide-workspace--properties-open" : null) @(MaximizedPanel is null ? null : $"ide-workspace--max-{MaximizedPanel}") @(IsEditorCollapsed ? "ide-workspace--editor-collapsed" : null) @(IsFlowchartCollapsed ? "ide-workspace--flowchart-collapsed" : null)">
-    <nav class="workspace-rail" aria-label="Workspace panels">
-        <button type="button" class="rail-button @(ActiveSidebarPanel == "explorer" ? "rail-button--active" : null)" title="File Explorer" aria-label="File Explorer" aria-pressed="@(ActiveSidebarPanel == "explorer" && !IsExplorerCollapsed ? "true" : "false")" @onclick='() => ActivateSidebarAsync("explorer")'>▱</button>
-        <button type="button" class="rail-button @(ActiveSidebarPanel == "structure" ? "rail-button--active" : null)" title="Code Structure" aria-label="Code Structure" aria-pressed="@(ActiveSidebarPanel == "structure" && !IsExplorerCollapsed ? "true" : "false")" @onclick='() => ActivateSidebarAsync("structure")'>{ }</button>
-        <button type="button" class="rail-button" title="Flowchart Navigator" aria-label="Flowchart Navigator" @onclick='() => ScrollToAsync("flowchart-title")'>◇</button>
-        <button type="button" class="rail-button" title="Focus source editor" aria-label="Focus source editor" @onclick="FocusEditorAsync">⌕</button>
-        <button type="button" class="rail-button" title="Open diagnostics" aria-label="Open diagnostics" @onclick="OpenDiagnosticsAsync">△</button>
-    </nav>
+    <div class="ws-body">
+        <nav class="workspace-rail" aria-label="Workspace sidebar">
+            <button type="button" class="rail-button @(ActiveSidebarPanel == "explorer" && Layout.IsExplorerOpen ? "rail-button--active" : null)" title="File Explorer" aria-label="File Explorer" aria-controls="workspace-explorer" aria-expanded="@Pressed(ActiveSidebarPanel == "explorer" && Layout.IsExplorerOpen)" @onclick='() => ActivateSidebarAsync("explorer")'>▱</button>
+            <button type="button" class="rail-button @(ActiveSidebarPanel == "structure" && Layout.IsExplorerOpen ? "rail-button--active" : null)" title="Code Structure" aria-label="Code Structure" aria-controls="workspace-explorer" aria-expanded="@Pressed(ActiveSidebarPanel == "structure" && Layout.IsExplorerOpen)" @onclick='() => ActivateSidebarAsync("structure")'>{ }</button>
+            <button type="button" class="rail-button" title="Open diagnostics" aria-label="Open diagnostics" @onclick="OpenDiagnostics">△</button>
+            <button type="button" class="rail-button" title="Focus source editor" aria-label="Focus source editor" @onclick="FocusEditorAsync">⌨</button>
+        </nav>
 
-    <aside class="workspace-sidebar-strip workspace-sidebar-strip--explorer @(!IsExplorerCollapsed ? "workspace-sidebar-strip--hidden" : null)" aria-label="Collapsed Explorer">
-        <button type="button" class="sidebar-expand-button" title="Expand Explorer" aria-label="Expand Explorer" @onclick="ToggleExplorerAsync">›</button>
-        <span aria-hidden="true">Explorer</span>
-    </aside>
-
-    <aside class="workspace-explorer" aria-labelledby="explorer-title">
-        <div class="panel-title"><h2 id="explorer-title">@(ActiveSidebarPanel == "structure" ? "Code structure" : "Explorer")</h2><button type="button" class="panel-close" aria-label="Collapse Explorer" title="Collapse Explorer" @onclick="ToggleExplorerAsync">×</button></div>
-        @if (ActiveSidebarPanel == "structure")
-        {
-            <p class="tree-heading">GENERATED STRUCTURE</p>
-            @if (FlowchartDocument is null)
+        <aside id="workspace-explorer" class="workspace-explorer" aria-labelledby="explorer-title">
+            <div class="panel-title"><h2 id="explorer-title">@(ActiveSidebarPanel == "structure" ? "Code structure" : "Explorer")</h2><button type="button" class="panel-close" aria-label="Close sidebar" title="Close sidebar" @onclick="ToggleExplorerAsync">×</button></div>
+            @if (ActiveSidebarPanel == "structure")
             {
-                <p class="explorer-note">Preview a flowchart to inspect its source-backed structure.</p>
+                <p class="tree-heading">GENERATED STRUCTURE</p>
+                @if (FlowchartDocument is null)
+                {
+                    <p class="explorer-note">Analyze code to inspect its source-backed structure.</p>
+                }
+                else
+                {
+                    <ul class="file-tree">
+                        @foreach (var item in FlowchartDocument.SourceMap)
+                        {
+                            <li>
+                                <button type="button" class="tree-button" title="@item.NodeType: @item.Label" @onclick="() => SelectNodeAsync(item)">
+                                    <span class="file-tree__icon" aria-hidden="true">◇</span>
+                                    <span class="file-tree__label">@item.NodeType · @item.Label</span>
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                }
             }
             else
             {
+                <p class="tree-heading">CODELOGIC WORKSPACE</p>
                 <ul class="file-tree">
-                    @foreach (var item in FlowchartDocument.SourceMap)
-                    {
-                        <li>
-                            <button type="button" class="tree-button" title="@item.NodeType: @item.Label" @onclick="() => SelectNodeAsync(item)">
-                                <span class="file-tree__icon" aria-hidden="true">◇</span>
-                                <span class="file-tree__label">@item.NodeType · @item.Label</span>
-                            </button>
-                        </li>
-                    }
+                    <li class="file-tree__folder"><span class="file-tree__icon" aria-hidden="true">⌄</span><span class="file-tree__label">Source</span></li>
+                    <li class="file-tree__file file-tree__file--active"><span class="file-tree__icon" aria-hidden="true">#</span><span class="file-tree__label">Program.cs</span></li>
+                    <li class="file-tree__folder"><span class="file-tree__icon" aria-hidden="true">›</span><span class="file-tree__label">Flow graph</span></li>
+                    <li class="file-tree__folder"><span class="file-tree__icon" aria-hidden="true">›</span><span class="file-tree__label">Diagnostics</span></li>
                 </ul>
+                <p class="explorer-note">Source text is the single source of truth. Diagram nodes are generated, not manually edited.</p>
             }
-        }
-        else
-        {
-            <p class="tree-heading">CODELOGIC WORKSPACE</p>
-            <ul class="file-tree">
-                <li class="file-tree__folder"><span class="file-tree__icon" aria-hidden="true">⌄</span><span class="file-tree__label">Source</span></li>
-                <li class="file-tree__file file-tree__file--active"><span class="file-tree__icon" aria-hidden="true">#</span><span class="file-tree__label">Program.cs</span></li>
-                <li class="file-tree__folder"><span class="file-tree__icon" aria-hidden="true">›</span><span class="file-tree__label">Flow graph</span></li>
-                <li class="file-tree__folder"><span class="file-tree__icon" aria-hidden="true">›</span><span class="file-tree__label">Diagnostics</span></li>
-            </ul>
-            <p class="explorer-note">Source text is the single source of truth. Diagram nodes are generated, not manually edited.</p>
-        }
-        <div class="resize-handle resize-handle--vertical" data-resize-panel="explorer" role="separator" tabindex="0" aria-label="Resize Explorer" aria-orientation="vertical" aria-valuemin="120" aria-valuemax="300" aria-valuenow="160" title="Drag or use arrow keys to resize. Double-click to reset."></div>
-        <button type="button" class="sidebar-collapse-button sidebar-collapse-button--explorer" aria-label="Collapse Explorer" title="Collapse Explorer" @onclick="ToggleExplorerAsync"><span aria-hidden="true">‹</span></button>
-    </aside>
+            <div class="resize-handle resize-handle--vertical" data-resize-panel="explorer" role="separator" tabindex="0" aria-label="Resize sidebar" aria-orientation="vertical" aria-valuemin="120" aria-valuemax="300" aria-valuenow="180" title="Drag or use arrow keys to resize. Double-click to reset."></div>
+        </aside>
 
-<div class="playground-layout">
-    <section class="editor-panel workspace-panel @(IsEditorCollapsed ? "workspace-panel--collapsed" : null)" aria-labelledby="editor-title">
-        <div class="resize-handle resize-handle--vertical" data-resize-panel="editor" role="separator" tabindex="0" aria-label="Resize editor and analysis panels" aria-orientation="vertical" aria-valuemin="288" aria-valuemax="720" aria-valuenow="410" title="Drag or use arrow keys to resize. Double-click to reset."></div>
-        <div class="section-heading panel-heading-row">
-            <div>
-                <p class="eyebrow">Monaco C# editor</p>
-                <h2 id="editor-title">Edit a supported learning example</h2>
-                <p>Tab and Shift+Tab indent code. Press Esc, then Tab to move to the next control.</p>
+        <div id="workspace-main" class="ws-main">
+            <div class="ws-compact-switch" role="group" aria-label="Visible panel">
+                <button type="button" aria-pressed="@Pressed(Layout.CompactView == CompactView.Editor)" @onclick="() => Layout.SetCompactView(CompactView.Editor)">Editor &amp; analysis</button>
+                <button type="button" aria-pressed="@Pressed(Layout.CompactView == CompactView.Flowchart)" @onclick="() => Layout.SetCompactView(CompactView.Flowchart)">Flowchart</button>
             </div>
-            <div class="panel-window-actions">
-                <button type="button" class="icon-button" aria-expanded="@(!IsEditorCollapsed)" aria-label="@(IsEditorCollapsed ? "Expand editor" : "Collapse editor")" @onclick='() => TogglePanel("editor")'>@(IsEditorCollapsed ? "›" : "‹")</button>
-                <button type="button" class="icon-button" aria-pressed="@(MaximizedPanel == "editor")" @onclick='() => TogglePanelMaximized("editor")'>FULL</button>
-            </div>
-        </div>
 
-        <div class="snippet-picker">
-            <label for="snippet-select">Curated snippet</label>
-            <select id="snippet-select" @bind="SelectedSnippetId" disabled="@(!BrowserReady)">
-                @foreach (var snippet in EditorState.Snippets)
-                {
-                    <option value="@snippet.Id">@snippet.Title</option>
-                }
-            </select>
-            <button class="button button--secondary" type="button" @onclick="LoadSelectedSnippet" disabled="@(!BrowserReady)">
-                Load snippet
-            </button>
-        </div>
-
-        <p class="snippet-description">@EditorState.ActiveSnippet.Description</p>
-
-        <label class="editor-label" id="code-editor-label">C# source text</label>
-        <div id="code-editor"
-             @ref="EditorElement"
-             class="code-editor"
-             role="region"
-             aria-labelledby="code-editor-label"
-             aria-describedby="editor-tab-help editor-help editor-character-count editor-status"
-             aria-busy="@(BrowserReady ? "false" : "true")"></div>
-
-        <div class="editor-meta">
-            <p id="editor-tab-help">Tab indents. Press Esc, then Tab to leave the editor.</p>
-            <p id="editor-help">
-                Shortcuts: <kbd>Ctrl</kbd>+<kbd>S</kbd> saves; <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd> resets.
-            </p>
-            <p id="editor-character-count">@EditorState.CurrentCode.Length / @EditorState.MaximumCharacters characters</p>
-        </div>
-
-        <div class="button-row" id="editor-actions">
-            <button class="button button--primary" type="button" @onclick="AnalyzeAsync" disabled="@(!BrowserReady || IsAnalyzing)">
-                @(IsAnalyzing ? "Checking…" : "Check syntax")
-            </button>
-            <button class="button button--primary" type="button" @onclick="PreviewFlowchartAsync" disabled="@(!BrowserReady || JavaScriptModule is null || IsRendering)">
-                @(IsRendering ? "Rendering…" : "Preview flowchart")
-            </button>
-            <button class="button button--primary" type="button" @onclick="BuildTraceAsync" disabled="@(!BrowserReady || IsTracing)">
-                @(IsTracing ? "Building trace…" : "Build step trace")
-            </button>
-            <button class="button button--secondary" type="button" @onclick="SaveDraftAsync" disabled="@(!BrowserReady || JavaScriptModule is null)">Save browser draft</button>
-            <button class="button button--secondary" type="button" @onclick="ResetDraftAsync" disabled="@(!BrowserReady)">Reset editor</button>
-        </div>
-
-        <p id="editor-status" class="editor-status">@EditorState.CurrentCode.Length / @EditorState.MaximumCharacters characters · local browser draft</p>
-
-        @if (AnalysisResult is not null)
-        {
-            <section class="analysis-feedback" aria-labelledby="analysis-title" aria-live="polite">
-                <h3 id="analysis-title">@AnalysisHeading(AnalysisResult.Status)</h3>
-                @if (AnalysisResult.IsValid)
-                {
-                    <p>Roslyn understood the syntax, and every construct is inside CodeLogic's current learning subset.</p>
-                    <p class="analysis-caution">This is not proof that the code compiles or produces the intended result. CodeLogic did not perform type checking or run it.</p>
-                }
-                else
-                {
-                    <ol class="analysis-diagnostic-list">
-                        @foreach (var diagnostic in AnalysisResult.Diagnostics)
-                        {
-                            <li>
-                                <p class="analysis-diagnostic-heading">
-                                    <strong>@diagnostic.Code</strong>
-                                    @if (diagnostic.Line is not null && diagnostic.Column is not null)
-                                    {
-                                        <span>Line @diagnostic.Line, column @diagnostic.Column</span>
-                                    }
-                                </p>
-                                <p>@diagnostic.Message</p>
-                                <p class="analysis-explanation">@diagnostic.Explanation</p>
-                            </li>
-                        }
-                    </ol>
-                }
-            </section>
-        }
-    </section>
-
-    <aside class="workspace-sidebar-strip workspace-sidebar-strip--properties @(IsPropertiesOpen ? "workspace-sidebar-strip--hidden" : null)" aria-label="Collapsed Node Properties">
-        <button type="button" class="sidebar-expand-button" title="Expand Node Properties" aria-label="Expand Node Properties" @onclick="TogglePropertiesAsync">‹</button>
-        <span aria-hidden="true">Properties</span>
-    </aside>
-
-    <aside class="playground-guide properties-panel" aria-labelledby="playground-guide-title">
-        <div class="resize-handle resize-handle--vertical resize-handle--leading" data-resize-panel="properties" role="separator" tabindex="0" aria-label="Resize node properties" aria-orientation="vertical" aria-valuemin="220" aria-valuemax="420" aria-valuenow="240" title="Drag or use arrow keys to resize. Double-click to reset."></div>
-        <button type="button" class="sidebar-collapse-button sidebar-collapse-button--properties" aria-label="Collapse Node Properties" title="Collapse Node Properties" @onclick="TogglePropertiesAsync"><span aria-hidden="true">›</span></button>
-        <div class="panel-title"><h2 id="playground-guide-title">Node properties</h2><button type="button" class="panel-close" aria-label="Collapse Node Properties" title="Collapse Node Properties" @onclick="TogglePropertiesAsync">×</button></div>
-        @if (SelectedNode is null)
-        {
-            <div class="properties-empty">
-                <span aria-hidden="true">◇</span>
-                <p>Select a generated node to inspect its source-backed properties.</p>
-            </div>
-        }
-        else
-        {
-            <dl class="property-list">
-                <div><dt>Name</dt><dd>@SelectedNode.Label</dd></div>
-                <div><dt>Node type</dt><dd><span class="node-kind node-kind--@SelectedNode.NodeType.ToString().ToLowerInvariant()">@SelectedNode.NodeType</span></dd></div>
-                <div><dt>Source file</dt><dd><code>Program.cs</code></dd></div>
-                @if (SelectedNode.NodeType == FlowNodeType.Decision)
-                {
-                    <div><dt>Control kind</dt><dd>@(SelectedNodeIsLoop ? "Loop condition" : "Decision")</dd></div>
-                    <div><dt>True path</dt><dd>@(BranchTarget(FlowEdgeType.True) ?? "No true edge")</dd></div>
-                    <div><dt>False path</dt><dd>@(BranchTarget(FlowEdgeType.False) ?? "No false edge")</dd></div>
-                }
-                @if (SelectedNode.SourceSpan is not null)
-                {
-                    <div><dt>Source line</dt><dd>@SelectedNode.SourceSpan.StartLine:@SelectedNode.SourceSpan.StartColumn</dd></div>
-                    <div><dt>Source range</dt><dd>@SelectedNode.SourceSpan.Length characters</dd></div>
-                }
-            </dl>
-            @if (SelectedNode.SourceSpan is not null)
-            {
-                <div class="node-source-editor">
-                    <label for="node-source-text">Mapped C# statement</label>
-                    <textarea id="node-source-text" @bind="NodeEditText" @bind:event="oninput" rows="4" maxlength="@EditorState.MaximumCharacters" spellcheck="false"></textarea>
-                    <button class="button button--primary" type="button" @onclick="ApplyNodeEditAsync">Apply safe edit</button>
-                    @if (NodeEditMessage is not null)
-                    {
-                        <p class="node-edit-message" role="status">@NodeEditMessage</p>
-                    }
-                </div>
-                <button class="button button--secondary" type="button" @onclick="() => ShowSourceAsync(SelectedNode!)">Reveal in source</button>
-            }
-        }
-    </aside>
-</div>
-
-<section class="logic-feedback-panel" aria-labelledby="logic-feedback-title" aria-live="polite">
-    <div class="section-heading">
-        <p class="eyebrow">Instructor-defined checks</p>
-        <h2 id="logic-feedback-title">Logical mistake feedback</h2>
-        <p>Try the known age exercise, then compare its output for values below, at, and above the adult boundary.</p>
-    </div>
-
-    <div class="known-exercise-card">
-        <div>
-            <h3>@LogicalExercise.Title</h3>
-            <p>@LogicalExercise.Objective</p>
-        </div>
-        <div class="button-row">
-            <button class="button button--secondary" type="button" @onclick="LoadLogicalExercise" disabled="@(!BrowserReady)">Load age exercise</button>
-            <button class="button button--primary" type="button" @onclick="CheckLogicAsync" disabled="@(!BrowserReady || IsCheckingLogic)">
-                @(IsCheckingLogic ? "Checking cases…" : "Check known cases")
-            </button>
-        </div>
-    </div>
-
-    @if (LogicalFeedbackResult is null)
-    {
-        <div class="flowchart-empty">
-            <h3>No logical check yet</h3>
-            <p>These checks are available only for this known exercise. They are separate from C# syntax diagnostics.</p>
-        </div>
-    }
-    else if (!LogicalFeedbackResult.HasTestResults)
-    {
-        <div class="analysis-feedback" role="status">
-            <h3>Fix syntax or supported-subset issues first</h3>
-            <p>No logical verdict was produced. Review these analysis or exercise-setup items:</p>
-            <ol class="analysis-diagnostic-list">
-                @foreach (var diagnostic in LogicalFeedbackResult.Diagnostics)
-                {
-                    <li>
-                        <p class="analysis-diagnostic-heading">
-                            <strong>@diagnostic.Code</strong>
-                            @if (diagnostic.Line is not null && diagnostic.Column is not null)
-                            {
-                                <span>Line @diagnostic.Line, column @diagnostic.Column</span>
-                            }
-                        </p>
-                        <p>@diagnostic.Message</p>
-                        <p class="analysis-explanation">@diagnostic.Explanation</p>
-                    </li>
-                }
-            </ol>
-        </div>
-    }
-    else
-    {
-        <div class="logic-summary @(LogicalFeedbackResult.Status == LogicalFeedbackStatus.Passed ? "logic-summary--passed" : "logic-summary--failed")" role="status">
-            <h3>@(LogicalFeedbackResult.Status == LogicalFeedbackStatus.Passed ? "All known cases passed" : "One or more known cases failed")</h3>
-            <p>@(LogicalFeedbackResult.Status == LogicalFeedbackStatus.Passed
-                ? "The output matched every instructor-defined case below."
-                : "Compare expected and actual output, then use the hint for the failing case.")</p>
-        </div>
-
-        <div class="logic-table-wrapper">
-            <table class="logic-table">
-                <thead>
-                    <tr>
-                        <th scope="col">Case</th>
-                        <th scope="col">Input</th>
-                        <th scope="col">Expected</th>
-                        <th scope="col">Actual</th>
-                        <th scope="col">Result</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var test in LogicalFeedbackResult.Tests)
-                    {
-                        <tr>
-                            <th scope="row">
-                                @test.Name
-                                @if (test.IsBoundary)
+            <div class="ws-left">
+                <section class="ws-panel editor-panel @(Layout.IsEditorCollapsed ? "ws-panel--collapsed" : null)" aria-labelledby="editor-title">
+                    <div class="ws-panel__header">
+                        <div class="ws-panel__title-row">
+                            <h2 id="editor-title" class="ws-panel__title"><span class="ws-panel__marker" aria-hidden="true"></span>Monaco C# editor</h2>
+                            <span class="ws-file-tag" title="One browser-local draft">Program.cs</span>
+                            <div class="ws-panel__actions">
+                                <button type="button" class="ws-chip-button" aria-pressed="@Pressed(IsEditorLight)" aria-label="Light editor theme" title="Switch the editor between dark and light themes" @onclick="ToggleEditorThemeAsync"><span aria-hidden="true">☀</span> Light mode</button>
+                                <button type="button" class="ws-icon-button" aria-pressed="@Pressed(Layout.IsMaximized(WorkspacePanel.Editor))" aria-label="@(Layout.IsMaximized(WorkspacePanel.Editor) ? "Restore editor panel" : "Maximize editor panel")" title="Maximize or restore (Esc restores)" @onclick="() => Layout.ToggleMaximized(WorkspacePanel.Editor)">@(Layout.IsMaximized(WorkspacePanel.Editor) ? "EXIT FULL" : "FULL")</button>
+                                <button type="button" class="ws-icon-button ws-chevron" aria-expanded="@Pressed(!Layout.IsEditorCollapsed)" aria-controls="editor-panel-body" aria-label="@(Layout.IsEditorCollapsed ? "Expand source editor" : "Collapse source editor")" @onclick="Layout.ToggleEditor"><span aria-hidden="true">⌃</span></button>
+                            </div>
+                        </div>
+                        <div class="snippet-picker">
+                            <label for="snippet-select">Snippet</label>
+                            <select id="snippet-select" @bind="SelectedSnippetId" disabled="@(!BrowserReady)" aria-describedby="snippet-description" title="@EditorState.ActiveSnippet.Description">
+                                @foreach (var snippet in EditorState.Snippets)
                                 {
-                                    <span class="boundary-badge">Boundary</span>
+                                    <option value="@snippet.Id">@snippet.Title</option>
                                 }
-                            </th>
-                            <td><code>age = @test.Input</code></td>
-                            <td><code>@test.ExpectedOutput</code></td>
-                            <td><code>@test.ActualOutput</code></td>
-                            <td><strong>@(test.Passed ? "Pass" : "Fail")</strong></td>
-                        </tr>
-                        @if (test.Hint is not null)
-                        {
-                            <tr class="logic-hint-row">
-                                <td colspan="5"><strong>Hint:</strong> @test.Hint</td>
-                            </tr>
-                        }
-                    }
-                </tbody>
-            </table>
-        </div>
-
-        <div class="notice notice--warning logic-limitation">
-            <h3>Important limitation</h3>
-            <p>@LogicalFeedbackResult.CoverageLimitation</p>
-            <p>For example, code written only for ages 18 and 19 can pass these checks while still classifying age 20 incorrectly.</p>
-        </div>
-    }
-</section>
-
-<section class="flowchart-panel workspace-panel @(IsFlowchartCollapsed ? "workspace-panel--collapsed" : null)" aria-labelledby="flowchart-title" aria-live="polite">
-    <div class="canvas-header-sticky">
-        <div class="panel-heading-row">
-            <div>
-                <p class="eyebrow">Deterministic visualization</p>
-                <h2 id="flowchart-title">Flowchart canvas</h2>
-            </div>
-            <div class="canvas-header-actions">
-                <div class="panel-window-actions">
-                    <button type="button" class="icon-button" aria-expanded="@(!IsFlowchartCollapsed)" aria-label="@(IsFlowchartCollapsed ? "Expand flowchart" : "Collapse flowchart")" @onclick='() => TogglePanel("flowchart")'>@(IsFlowchartCollapsed ? "‹" : "›")</button>
-                    <button type="button" class="icon-button" aria-pressed="@(MaximizedPanel == "flowchart")" @onclick='() => TogglePanelMaximized("flowchart")'>FULL</button>
-                </div>
-                @if (TraceNavigator is not null)
-                {
-                    <div class="canvas-trace-controls" aria-label="Canvas trace controls">
-                        <button class="icon-button canvas-play-button" type="button" @onclick="ToggleTracePlaybackAsync" disabled="@(IsPredictionMode || (!TraceNavigator.CanStep && !IsTracePlaying))">@(IsTracePlaying ? "Pause" : "Play")</button>
-                        <button class="icon-button" type="button" @onclick="NextTraceStepAsync" disabled="@(!TraceNavigator.CanStep || IsTracePlaying || (IsPredictionMode && CurrentPrediction is not null))">Step</button>
-                        <button class="icon-button" type="button" @onclick="PreviousTraceStepAsync" disabled="@(!TraceNavigator.CanStepBack || IsTracePlaying)">Back</button>
-                        <button class="icon-button" type="button" @onclick="ResetTraceAsync">Reset</button>
-                        <label class="canvas-trace-speed" for="canvas-trace-speed">
-                            Speed
-                            <input id="canvas-trace-speed" type="range" min="200" max="1600" step="100" @bind="TracePlaybackDelayMilliseconds" @bind:event="oninput" aria-valuetext="@TraceSpeedDescription" />
-                        </label>
-                        <label class="canvas-prediction-toggle">
-                            <input type="checkbox" checked="@IsPredictionMode" @onchange="TogglePredictionModeAsync" />
-                            Predict
-                        </label>
+                            </select>
+                            <button class="button button--secondary" type="button" @onclick="LoadSelectedSnippet" disabled="@(!BrowserReady)">Load snippet</button>
+                        </div>
+                        <p id="snippet-description" class="snippet-description">@EditorState.ActiveSnippet.Description</p>
                     </div>
-                }
-                <div class="canvas-controls" aria-label="Flowchart zoom controls">
-                    <button type="button" class="icon-button" @onclick="() => AdjustFlowchartZoomAsync(-0.1)" aria-label="Zoom out">−</button>
-                    <output aria-label="Current zoom">@($"{FlowchartZoom:P0}")</output>
-                    <button type="button" class="icon-button" @onclick="() => AdjustFlowchartZoomAsync(0.1)" aria-label="Zoom in">+</button>
-                    <button type="button" class="icon-button" @onclick="FitFlowchartAsync">Fit</button>
-                </div>
-                <details class="flowchart-legend">
-                    <summary>Legend</summary>
-                    <ul>
-                        <li><span class="legend-swatch legend-swatch--selected"></span>Selected</li>
-                        <li><span class="legend-swatch legend-swatch--decision"></span>Decision</li>
-                        <li><span class="legend-swatch legend-swatch--error"></span>Diagnostic</li>
-                        <li><span class="legend-line legend-line--loop"></span>Loop</li>
-                        <li><span class="legend-line legend-line--exit"></span>Exit</li>
-                    </ul>
-                </details>
-            </div>
-        </div>
-        <p class="canvas-step-summary" role="status">@TraceCanvasDescription · Explored @ExploredNodeIds.Count/@(FlowchartDocument?.SourceMap.Count ?? 0) nodes</p>
-        @if (IsPredictionMode && CurrentPrediction is not null)
-        {
-            <form class="canvas-prediction" @onsubmit="SubmitPredictionAsync" @onsubmit:preventDefault>
-                <AntiforgeryToken />
-                <label for="canvas-trace-prediction-answer">@CurrentPrediction.Prompt</label>
-                <input id="canvas-trace-prediction-answer" type="text" @bind="PredictionAnswer" @bind:event="oninput" autocomplete="off" />
-                <button class="icon-button canvas-play-button" type="submit">Check and step</button>
-            </form>
-        }
-        @if (PredictionFeedback is not null && IsPredictionMode)
-        {
-            <p class="canvas-prediction-feedback" role="status">@PredictionFeedback</p>
-        }
-    </div>
 
-    @if (FlowchartResult is null)
-    {
-        <div class="flowchart-empty">
-            <h3>No preview yet</h3>
-            <p>Choose <strong>Preview flowchart</strong> to visualize supported sequence, branching, or loop source.</p>
-        </div>
-    }
-    else if (!FlowchartResult.IsSuccess)
-    {
-        <div class="analysis-feedback" role="status">
-            <h3>@FlowchartHeading(FlowchartResult.Status)</h3>
-            <ol class="analysis-diagnostic-list">
-                @foreach (var diagnostic in FlowchartResult.Diagnostics)
-                {
-                    <li>
-                        <p class="analysis-diagnostic-heading">
-                            <strong>@diagnostic.Code</strong>
-                            @if (diagnostic.Line is not null && diagnostic.Column is not null)
-                            {
-                                <span>Line @diagnostic.Line, column @diagnostic.Column</span>
-                            }
-                        </p>
-                        <p>@diagnostic.Message</p>
-                        <p class="analysis-explanation">@diagnostic.Explanation</p>
-                    </li>
-                }
-            </ol>
-        </div>
-    }
-    else if (FlowchartDocument is not null)
-    {
-        @if (LiveFlowchartFailure is not null)
-        {
-            <div class="analysis-feedback live-flowchart-diagnostics" role="status">
-                <h3>Keeping the last valid flowchart</h3>
-                <p>The latest editor text could not produce a supported graph. Fix these items or use Preview flowchart to retry:</p>
-                <ol class="analysis-diagnostic-list">
-                    @foreach (var diagnostic in LiveFlowchartFailure.Diagnostics)
-                    {
-                        <li><strong>@diagnostic.Code</strong> @diagnostic.Message</li>
-                    }
-                </ol>
-            </div>
-        }
+                    <div id="editor-panel-body" class="ws-panel__body editor-panel__body">
+                        <span class="visually-hidden" id="code-editor-label">C# source text</span>
+                        <div id="code-editor"
+                             @ref="EditorElement"
+                             class="code-editor @(IsEditorLight ? "code-editor--light" : null)"
+                             role="region"
+                             aria-labelledby="code-editor-label"
+                             aria-describedby="editor-tab-help editor-help editor-character-count"
+                             aria-busy="@(BrowserReady ? "false" : "true")"></div>
+                    </div>
 
-        @if (RendererError is not null)
-        {
-            <div class="notice notice--warning" role="alert">
-                <h3>Diagram renderer unavailable</h3>
-                <p>@RendererError</p>
-                <p>The source and deterministic text map remain available below.</p>
-            </div>
-        }
-
-        <div class="flowchart-canvas"
-             @ref="FlowchartContainer"
-             aria-label="Rendered CodeLogic flowchart"
-             aria-busy="@IsRendering.ToString().ToLowerInvariant()"></div>
-
-        <div class="flowchart-text-map">
-            <h3>Equivalent text and source map</h3>
-            <p>Select a source-backed node to return to the exact text that produced it.</p>
-            <ol class="flowchart-node-list">
-                @foreach (var item in FlowchartDocument.SourceMap)
-                {
-                    <li class="@(SelectedNode?.NodeId == item.NodeId ? "source-map-item--selected" : null)">
-                        <strong>@item.NodeType:</strong> @item.Label
-                        <button class="text-button" type="button" @onclick="() => SelectNodeAsync(item)">
-                            @(item.SourceSpan is null ? "Inspect node" : $"Show line {item.SourceSpan.StartLine}")
+                    <div class="ws-panel__footer editor-footer">
+                        <div class="editor-meta">
+                            <p id="editor-tab-help">Tab indents · Esc, then Tab leaves the editor</p>
+                            <p id="editor-help"><kbd>Ctrl</kbd>+<kbd>S</kbd> save · <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd> reset</p>
+                            <p id="editor-character-count" class="@(EditorState.CurrentCode.Length > EditorState.MaximumCharacters * 0.9 ? "editor-meta__count--near" : null)">@EditorState.CurrentCode.Length.ToString("N0") / @EditorState.MaximumCharacters.ToString("N0") characters</p>
+                        </div>
+                        <button class="ws-primary-action" type="button" @onclick="AnalyzeCodeAsync" disabled="@(!BrowserReady || IsAnalyzing || IsRendering)">
+                            @(IsAnalyzing || IsRendering ? "Analyzing…" : "Analyze code")
                         </button>
-                    </li>
-                }
-            </ol>
-
-            <h3>Connections</h3>
-            <ul class="flowchart-edge-list">
-                @foreach (var edge in FlowchartResult.Graph!.Edges)
-                {
-                    <li>@DescribeEdge(edge, FlowchartResult.Graph)</li>
-                }
-            </ul>
-        </div>
-    }
-</section>
-
-<section class="trace-panel bottom-panel bottom-panel--@ActiveBottomTab @(IsBottomPanelCollapsed ? "bottom-panel--collapsed" : null)" id="analysis-output" aria-labelledby="trace-title" aria-live="polite">
-    <div class="resize-handle resize-handle--horizontal" data-resize-panel="bottom" role="separator" tabindex="0" aria-label="Resize output panel" aria-orientation="horizontal" aria-valuemin="160" aria-valuemax="520" aria-valuenow="280" title="Drag or use arrow keys to resize. Double-click to reset."></div>
-    <div class="bottom-tabs" role="tablist" aria-label="Output panels">
-        <button type="button" class="bottom-tab @(ActiveBottomTab == "diagnostics" ? "bottom-tab--active" : null)" role="tab" aria-selected="@(ActiveBottomTab == "diagnostics")" @onclick='() => ActiveBottomTab = "diagnostics"'>Diagnostics <span>@(AnalysisResult?.Diagnostics.Count ?? 0)</span></button>
-        <button type="button" class="bottom-tab @(ActiveBottomTab == "analysis" ? "bottom-tab--active" : null)" role="tab" aria-selected="@(ActiveBottomTab == "analysis")" @onclick='() => ActiveBottomTab = "analysis"'>Analysis output</button>
-        <button type="button" class="bottom-tab @(ActiveBottomTab == "trace" ? "bottom-tab--active" : null)" role="tab" aria-selected="@(ActiveBottomTab == "trace")" @onclick='() => ActiveBottomTab = "trace"'>Execution trace</button>
-        <button type="button" class="bottom-tab @(ActiveBottomTab == "terminal" ? "bottom-tab--active" : null)" role="tab" aria-selected="@(ActiveBottomTab == "terminal")" @onclick='() => ActiveBottomTab = "terminal"'>Terminal</button>
-        <button type="button" class="bottom-panel-toggle" aria-expanded="@(!IsBottomPanelCollapsed)" aria-label="@(IsBottomPanelCollapsed ? "Expand bottom panel" : "Collapse bottom panel")" @onclick="() => IsBottomPanelCollapsed = !IsBottomPanelCollapsed">@(IsBottomPanelCollapsed ? "⌃" : "⌄")</button>
-        <button type="button" class="bottom-panel-toggle" aria-pressed="@(MaximizedPanel == "bottom")" @onclick='() => TogglePanelMaximized("bottom")'>FULL</button>
-    </div>
-
-    @if (ActiveBottomTab == "diagnostics")
-    {
-        <div class="bottom-tab-summary" role="tabpanel">
-            <h2>Diagnostics</h2>
-            <p>@(AnalysisResult is null ? "Run Analyze code to populate syntax and supported-subset diagnostics." : $"Analysis reported {AnalysisResult.Diagnostics.Count} diagnostic item(s). Full positioned explanations remain beside the editor.")</p>
-        </div>
-    }
-    else if (ActiveBottomTab == "analysis")
-    {
-        <div class="bottom-tab-summary" role="tabpanel">
-            <h2>Analysis output</h2>
-            <p>@StatusMessage</p>
-        </div>
-    }
-    else if (ActiveBottomTab == "terminal")
-    {
-        <div class="bottom-tab-summary terminal-safe-state" role="tabpanel">
-            <h2>Terminal unavailable</h2>
-            <p>CodeLogic does not expose a shell or run arbitrary .NET code. Use the bounded Execution trace for supported teaching examples.</p>
-        </div>
-    }
-
-    <div class="trace-tab-content">
-    <div class="section-heading">
-        <p class="eyebrow">Bounded teaching model</p>
-        <h2 id="trace-title">Step trace</h2>
-        <p>This is CodeLogic's deterministic simulation of a small C#-shaped subset. It is not the .NET runtime and does not claim general C# behavior.</p>
-    </div>
-
-    @if (TraceResult is null)
-    {
-        <div class="flowchart-empty">
-            <h3>No trace yet</h3>
-            <p>Choose <strong>Build step trace</strong> to inspect the program counter, active graph node, variables, and simulated output.</p>
-        </div>
-    }
-    else if (!TraceResult.HasTrace)
-    {
-        <div class="analysis-feedback" role="status">
-            <h3>@TraceHeading(TraceResult.Status)</h3>
-            <ol class="analysis-diagnostic-list">
-                @foreach (var diagnostic in TraceResult.Diagnostics)
-                {
-                    <li>
-                        <p class="analysis-diagnostic-heading">
-                            <strong>@diagnostic.Code</strong>
-                            @if (diagnostic.Line is not null && diagnostic.Column is not null)
-                            {
-                                <span>Line @diagnostic.Line, column @diagnostic.Column</span>
-                            }
-                        </p>
-                        <p>@diagnostic.Message</p>
-                        <p class="analysis-explanation">@diagnostic.Explanation</p>
-                    </li>
-                }
-            </ol>
-        </div>
-    }
-    else if (TraceNavigator is not null)
-    {
-        @if (TraceResult.Status == ExecutionTraceStatus.StepLimitReached)
-        {
-            <div class="notice notice--warning" role="status">
-                <h3>Operation limit reached</h3>
-                <p>@TraceResult.Diagnostics[0].Message @TraceResult.Diagnostics[0].Explanation</p>
-            </div>
-        }
-
-        <div class="trace-controls">
-            <p><strong>Trace step @TraceNavigator.StepNumber of @TraceNavigator.StepCount</strong></p>
-            <div class="trace-playback-row">
-                <div class="button-row" aria-label="Trace playback controls">
-                    <button class="button button--primary" type="button" @onclick="ToggleTracePlaybackAsync" disabled="@(IsPredictionMode || (!TraceNavigator.CanStep && !IsTracePlaying))">@(IsTracePlaying ? "Pause" : "Play")</button>
-                    <button class="button button--secondary" type="button" @onclick="NextTraceStepAsync" disabled="@(!TraceNavigator.CanStep || IsTracePlaying || (IsPredictionMode && CurrentPrediction is not null))">Step</button>
-                    <button class="button button--secondary" type="button" @onclick="PreviousTraceStepAsync" disabled="@(!TraceNavigator.CanStepBack || IsTracePlaying)">Back</button>
-                    <button class="button button--secondary" type="button" @onclick="ResetTraceAsync">Reset</button>
-                </div>
-                <label class="trace-speed" for="trace-speed">
-                    Speed
-                    <input id="trace-speed" type="range" min="200" max="1600" step="100" @bind="TracePlaybackDelayMilliseconds" @bind:event="oninput" aria-valuetext="@TraceSpeedDescription" />
-                    <span>@TraceSpeedDescription</span>
-                </label>
-            </div>
-            <label class="prediction-toggle">
-                <input type="checkbox" checked="@IsPredictionMode" @onchange="TogglePredictionModeAsync" />
-                Predict before each meaningful step
-            </label>
-            @if (IsPredictionMode && CurrentPrediction is not null)
-            {
-                <form class="trace-prediction" @onsubmit="SubmitPredictionAsync" @onsubmit:preventDefault>
-                    <AntiforgeryToken />
-                    <label for="trace-prediction-answer">@CurrentPrediction.Prompt</label>
-                    <div class="trace-prediction-row">
-                        <input id="trace-prediction-answer" type="text" @bind="PredictionAnswer" @bind:event="oninput" autocomplete="off" />
-                        <button class="button button--primary" type="submit">Check and step</button>
+                        <div class="editor-actions" id="editor-actions" role="group" aria-label="Editor actions">
+                            <button class="button button--secondary" type="button" @onclick="CheckSyntaxAsync" disabled="@(!BrowserReady || IsAnalyzing)">@(IsAnalyzing ? "Checking…" : "Check syntax")</button>
+                            <button class="button button--secondary" type="button" @onclick="PreviewFlowchartAsync" disabled="@(!BrowserReady || JavaScriptModule is null || IsRendering)">@(IsRendering ? "Rendering…" : "Preview flowchart")</button>
+                            <button class="button button--secondary" type="button" @onclick="BuildTraceAsync" disabled="@(!BrowserReady || IsTracing)">@(IsTracing ? "Building trace…" : "Build step trace")</button>
+                            <button class="button button--secondary" type="button" @onclick="SaveDraftAsync" disabled="@(!BrowserReady || JavaScriptModule is null)">Save browser draft</button>
+                            <button class="button button--secondary" type="button" @onclick="ResetDraftAsync" disabled="@(!BrowserReady)">Reset editor</button>
+                        </div>
                     </div>
-                </form>
-            }
-            @if (PredictionFeedback is not null)
-            {
-                <p class="prediction-feedback prediction-feedback--@(PredictionWasCorrect == true ? "correct" : "incorrect")" role="status">@PredictionFeedback</p>
-            }
+                </section>
+
+                <div class="ws-splitter ws-splitter--horizontal" data-resize-panel="analysis" role="separator" tabindex="0" aria-label="Resize analysis panel" aria-orientation="horizontal" aria-valuemin="140" aria-valuemax="640" aria-valuenow="300" title="Drag or use arrow keys to resize. Double-click to reset."></div>
+
+                <section class="ws-panel analysis-panel @(Layout.IsAnalysisOpen ? null : "ws-panel--collapsed")" aria-labelledby="analysis-panel-title">
+                    <div class="ws-panel__header">
+                        <div class="ws-panel__title-row">
+                            <h2 id="analysis-panel-title" class="ws-panel__title"><span class="ws-panel__marker ws-panel__marker--muted" aria-hidden="true"></span>Analysis</h2>
+                            @if (DiagnosticCount > 0)
+                            {
+                                <span class="ws-badge ws-badge--warning">@DiagnosticCount <span class="visually-hidden">diagnostic item(s)</span></span>
+                            }
+                            <div class="ws-panel__actions">
+                                <button type="button" class="ws-icon-button" aria-pressed="@Pressed(Layout.IsMaximized(WorkspacePanel.Analysis))" aria-label="@(Layout.IsMaximized(WorkspacePanel.Analysis) ? "Restore analysis panel" : "Maximize analysis panel")" title="Maximize or restore (Esc restores)" @onclick="() => Layout.ToggleMaximized(WorkspacePanel.Analysis)">@(Layout.IsMaximized(WorkspacePanel.Analysis) ? "EXIT FULL" : "FULL")</button>
+                                <button type="button" class="ws-icon-button ws-chevron" aria-expanded="@Pressed(Layout.IsAnalysisOpen)" aria-controls="analysis-tabpanel" aria-label="@(Layout.IsAnalysisOpen ? "Collapse analysis panel" : "Expand analysis panel")" @onclick="Layout.ToggleAnalysis"><span aria-hidden="true">⌃</span></button>
+                            </div>
+                        </div>
+                        <div class="ws-tabs" role="tablist" aria-label="Analysis views">
+                            @foreach (var tab in AnalysisTabs)
+                            {
+                                <button type="button" id="@TabId(tab)" class="ws-tab" role="tab" aria-selected="@Pressed(Layout.ActiveTab == tab)" aria-controls="analysis-tabpanel" @onclick="() => Layout.ShowTab(tab)">
+                                    @TabLabel(tab)
+                                    @if (tab == WorkspaceTab.Diagnostics)
+                                    {
+                                        <span class="ws-tab__count">@DiagnosticCount</span>
+                                    }
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    <div id="analysis-tabpanel" class="ws-panel__body analysis-panel__body" role="tabpanel" aria-labelledby="@TabId(Layout.ActiveTab)" tabindex="0">
+                        @switch (Layout.ActiveTab)
+                        {
+                            case WorkspaceTab.Diagnostics:
+                                @if (AnalysisResult is null)
+                                {
+                                    <div class="ws-empty-note">
+                                        <h3>No syntax check yet</h3>
+                                        <p>Choose <strong>Analyze code</strong> or <strong>Check syntax</strong> to list syntax and supported-subset diagnostics here.</p>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <section class="analysis-feedback @(AnalysisResult.IsValid ? "analysis-feedback--passed" : null)" aria-labelledby="analysis-title">
+                                        <h3 id="analysis-title">@AnalysisHeading(AnalysisResult.Status)</h3>
+                                        @if (AnalysisResult.IsValid)
+                                        {
+                                            <p>Roslyn understood the syntax, and every construct is inside CodeLogic's current learning subset.</p>
+                                            <p class="analysis-caution">This is not proof that the code compiles or produces the intended result. CodeLogic did not perform type checking or run it.</p>
+                                        }
+                                        else
+                                        {
+                                            <ol class="analysis-diagnostic-list">
+                                                @foreach (var diagnostic in AnalysisResult.Diagnostics)
+                                                {
+                                                    <li>
+                                                        <p class="analysis-diagnostic-heading">
+                                                            <strong>@diagnostic.Code</strong>
+                                                            @if (diagnostic.Line is not null && diagnostic.Column is not null)
+                                                            {
+                                                                <span>Line @diagnostic.Line, column @diagnostic.Column</span>
+                                                            }
+                                                        </p>
+                                                        <p>@diagnostic.Message</p>
+                                                        <p class="analysis-explanation">@diagnostic.Explanation</p>
+                                                    </li>
+                                                }
+                                            </ol>
+                                        }
+                                    </section>
+                                }
+                                break;
+
+                            case WorkspaceTab.Output:
+                                <h3 class="ws-tab-heading">Analysis output</h3>
+                                <p class="ws-output-status">@StatusMessage</p>
+                                <dl class="ws-output-summary">
+                                    <div><dt>Syntax check</dt><dd>@(AnalysisResult is null ? "Not run" : AnalysisResult.IsValid ? "Passed" : $"{AnalysisResult.Diagnostics.Count} item(s) to review")</dd></div>
+                                    <div><dt>Flowchart</dt><dd>@GraphSummary</dd></div>
+                                    <div><dt>Step trace</dt><dd>@(TraceNavigator is not null ? $"Step {TraceNavigator.StepNumber} of {TraceNavigator.StepCount}" : TraceResult is not null ? "Needs attention" : "Not built")</dd></div>
+                                    <div><dt>Logic checks</dt><dd>@(LogicalFeedbackResult is null ? "Not run" : LogicalFeedbackResult.Status.ToString())</dd></div>
+                                </dl>
+                                break;
+
+                            case WorkspaceTab.Trace:
+                                <h3 class="ws-tab-heading" id="trace-title">Step trace</h3>
+                                <p class="ws-tab-intro">CodeLogic's deterministic simulation of a small C#-shaped subset. It is not the .NET runtime. Use Play, Step, and Back above the flowchart.</p>
+                                @if (TraceResult is null)
+                                {
+                                    <div class="ws-empty-note">
+                                        <p>Choose <strong>Build step trace</strong> to inspect the program counter, active graph node, variables, and simulated output.</p>
+                                    </div>
+                                }
+                                else if (!TraceResult.HasTrace)
+                                {
+                                    <div class="analysis-feedback" role="status">
+                                        <h3>@TraceHeading(TraceResult.Status)</h3>
+                                        <ol class="analysis-diagnostic-list">
+                                            @foreach (var diagnostic in TraceResult.Diagnostics)
+                                            {
+                                                <li>
+                                                    <p class="analysis-diagnostic-heading">
+                                                        <strong>@diagnostic.Code</strong>
+                                                        @if (diagnostic.Line is not null && diagnostic.Column is not null)
+                                                        {
+                                                            <span>Line @diagnostic.Line, column @diagnostic.Column</span>
+                                                        }
+                                                    </p>
+                                                    <p>@diagnostic.Message</p>
+                                                    <p class="analysis-explanation">@diagnostic.Explanation</p>
+                                                </li>
+                                            }
+                                        </ol>
+                                    </div>
+                                }
+                                else if (TraceNavigator is not null)
+                                {
+                                    @if (TraceResult.Status == ExecutionTraceStatus.StepLimitReached)
+                                    {
+                                        <div class="notice notice--warning" role="status">
+                                            <h3>Operation limit reached</h3>
+                                            <p>@TraceResult.Diagnostics[0].Message @TraceResult.Diagnostics[0].Explanation</p>
+                                        </div>
+                                    }
+                                    <p class="trace-position"><strong>Trace step @TraceNavigator.StepNumber of @TraceNavigator.StepCount</strong> · @TraceSpeedDescription playback</p>
+                                    @if (PredictionFeedback is not null)
+                                    {
+                                        <p class="prediction-feedback prediction-feedback--@(PredictionWasCorrect == true ? "correct" : "incorrect")">@PredictionFeedback</p>
+                                    }
+                                    <div class="trace-state">
+                                        <section aria-labelledby="trace-operation-title">
+                                            <h3 id="trace-operation-title">Active operation</h3>
+                                            <dl class="trace-details">
+                                                <div><dt>Program counter</dt><dd>@TraceNavigator.Current.ProgramCounter</dd></div>
+                                                <div><dt>Graph node</dt><dd><code>@TraceNavigator.Current.ActiveNodeId</code> · @TraceNavigator.Current.ActiveNodeType</dd></div>
+                                                <div><dt>Source meaning</dt><dd>@TraceNavigator.Current.ActiveNodeLabel</dd></div>
+                                                @if (CurrentTraceNodeIsLoop)
+                                                {
+                                                    <div><dt>Loop iteration</dt><dd>@Math.Max(0, TraceNavigator.CurrentNodeVisitCount - 1)</dd></div>
+                                                }
+                                            </dl>
+                                            <p>@TraceNavigator.Current.Explanation</p>
+                                        </section>
+
+                                        <section aria-labelledby="trace-variables-title">
+                                            <h3 id="trace-variables-title">Variables</h3>
+                                            @if (TraceNavigator.Current.Variables.Count == 0)
+                                            {
+                                                <p>No variables have values yet.</p>
+                                            }
+                                            else
+                                            {
+                                                <table class="trace-table">
+                                                    <thead><tr><th scope="col">Name</th><th scope="col">Value</th></tr></thead>
+                                                    <tbody>
+                                                        @foreach (var variable in TraceNavigator.Current.Variables)
+                                                        {
+                                                            <tr class="@(TraceNavigator.ChangedVariables.Contains(variable.Key) ? "trace-variable--changed" : null)">
+                                                                <th scope="row"><code>@variable.Key</code></th>
+                                                                <td><code>@variable.Value</code>@if (TraceNavigator.ChangedVariables.Contains(variable.Key)) { <span class="visually-hidden"> changed this step</span> }</td>
+                                                            </tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
+                                            }
+                                        </section>
+
+                                        <section aria-labelledby="trace-output-title">
+                                            <h3 id="trace-output-title">Console output</h3>
+                                            @if (TraceNavigator.Current.Output.Count == 0)
+                                            {
+                                                <p>No <code>Console.WriteLine</code> output has been produced at this step.</p>
+                                            }
+                                            else
+                                            {
+                                                <pre class="trace-output">@string.Join(Environment.NewLine, TraceNavigator.Current.Output)</pre>
+                                            }
+                                        </section>
+                                    </div>
+                                }
+                                break;
+
+                            case WorkspaceTab.Logic:
+                                <h3 class="ws-tab-heading" id="logic-feedback-title">Instructor-defined checks · Logical mistake feedback</h3>
+                                <p class="ws-tab-intro">Try the known age exercise, then compare its output for values below, at, and above the adult boundary.</p>
+                                <div class="known-exercise-card">
+                                    <div>
+                                        <h4>@LogicalExercise.Title</h4>
+                                        <p>@LogicalExercise.Objective</p>
+                                    </div>
+                                    <div class="button-row">
+                                        <button class="button button--secondary" type="button" @onclick="LoadLogicalExercise" disabled="@(!BrowserReady)">Load age exercise</button>
+                                        <button class="button button--primary" type="button" @onclick="CheckLogicAsync" disabled="@(!BrowserReady || IsCheckingLogic)">@(IsCheckingLogic ? "Checking cases…" : "Check known cases")</button>
+                                    </div>
+                                </div>
+
+                                @if (LogicalFeedbackResult is null)
+                                {
+                                    <p class="ws-empty-note">These checks are available only for this known exercise. They are separate from C# syntax diagnostics.</p>
+                                }
+                                else if (!LogicalFeedbackResult.HasTestResults)
+                                {
+                                    <div class="analysis-feedback" role="status">
+                                        <h4>Fix syntax or supported-subset issues first</h4>
+                                        <p>No logical verdict was produced. Review these analysis or exercise-setup items:</p>
+                                        <ol class="analysis-diagnostic-list">
+                                            @foreach (var diagnostic in LogicalFeedbackResult.Diagnostics)
+                                            {
+                                                <li>
+                                                    <p class="analysis-diagnostic-heading">
+                                                        <strong>@diagnostic.Code</strong>
+                                                        @if (diagnostic.Line is not null && diagnostic.Column is not null)
+                                                        {
+                                                            <span>Line @diagnostic.Line, column @diagnostic.Column</span>
+                                                        }
+                                                    </p>
+                                                    <p>@diagnostic.Message</p>
+                                                    <p class="analysis-explanation">@diagnostic.Explanation</p>
+                                                </li>
+                                            }
+                                        </ol>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="logic-summary @(LogicalFeedbackResult.Status == LogicalFeedbackStatus.Passed ? "logic-summary--passed" : "logic-summary--failed")" role="status">
+                                        <h4>@(LogicalFeedbackResult.Status == LogicalFeedbackStatus.Passed ? "All known cases passed" : "One or more known cases failed")</h4>
+                                        <p>@(LogicalFeedbackResult.Status == LogicalFeedbackStatus.Passed
+                                            ? "The output matched every instructor-defined case below."
+                                            : "Compare expected and actual output, then use the hint for the failing case.")</p>
+                                    </div>
+
+                                    <div class="logic-table-wrapper">
+                                        <table class="logic-table">
+                                            <thead>
+                                                <tr>
+                                                    <th scope="col">Case</th>
+                                                    <th scope="col">Input</th>
+                                                    <th scope="col">Expected</th>
+                                                    <th scope="col">Actual</th>
+                                                    <th scope="col">Result</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var test in LogicalFeedbackResult.Tests)
+                                                {
+                                                    <tr>
+                                                        <th scope="row">
+                                                            @test.Name
+                                                            @if (test.IsBoundary)
+                                                            {
+                                                                <span class="boundary-badge">Boundary</span>
+                                                            }
+                                                        </th>
+                                                        <td><code>age = @test.Input</code></td>
+                                                        <td><code>@test.ExpectedOutput</code></td>
+                                                        <td><code>@test.ActualOutput</code></td>
+                                                        <td><strong>@(test.Passed ? "Pass" : "Fail")</strong></td>
+                                                    </tr>
+                                                    @if (test.Hint is not null)
+                                                    {
+                                                        <tr class="logic-hint-row">
+                                                            <td colspan="5"><strong>Hint:</strong> @test.Hint</td>
+                                                        </tr>
+                                                    }
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div class="notice notice--warning logic-limitation">
+                                        <h4>Important limitation</h4>
+                                        <p>@LogicalFeedbackResult.CoverageLimitation</p>
+                                        <p>For example, code written only for ages 18 and 19 can pass these checks while still classifying age 20 incorrectly.</p>
+                                    </div>
+                                }
+                                break;
+
+                            case WorkspaceTab.Terminal:
+                                <div class="terminal-safe-state">
+                                    <h3 class="ws-tab-heading">Terminal unavailable</h3>
+                                    <p>CodeLogic does not expose a shell or run arbitrary .NET code. Use the bounded Execution trace for supported teaching examples.</p>
+                                </div>
+                                break;
+                        }
+                    </div>
+                </section>
+            </div>
+
+            <div class="ws-splitter ws-splitter--vertical ws-column-splitter" data-resize-panel="editor" role="separator" tabindex="0" aria-label="Resize editor and flowchart columns" aria-orientation="vertical" aria-valuemin="320" aria-valuemax="900" aria-valuenow="520" title="Drag or use arrow keys to resize. Double-click to reset."></div>
+
+            <section class="ws-panel flowchart-panel" aria-labelledby="flowchart-title">
+                <div class="ws-panel__header flowchart-header">
+                    <div class="ws-panel__title-row">
+                        <h2 id="flowchart-title" class="ws-panel__title"><span class="ws-panel__marker ws-panel__marker--info" aria-hidden="true"></span>Control flow graph</h2>
+                        <span class="ws-meta">@NodeCount nodes</span>
+                        <span class="ws-status-chip ws-status-chip--@GraphStatusKind">@GraphStatusLabel</span>
+                        <div class="ws-panel__actions">
+                            <button type="button" class="ws-icon-button" aria-pressed="@Pressed(Layout.IsMaximized(WorkspacePanel.Flowchart))" aria-label="@(Layout.IsMaximized(WorkspacePanel.Flowchart) ? "Restore flowchart panel" : "Maximize flowchart panel")" title="Maximize or restore (Esc restores)" @onclick="() => Layout.ToggleMaximized(WorkspacePanel.Flowchart)">@(Layout.IsMaximized(WorkspacePanel.Flowchart) ? "EXIT FULL" : "FULL")</button>
+                        </div>
+                    </div>
+
+                    <div class="flowchart-toolbar">
+                        <div class="toolbar-group" role="group" aria-label="Trace playback">
+                            <button class="icon-button canvas-play-button" type="button" aria-label="@(IsTracePlaying ? "Pause trace" : "Play trace")" @onclick="ToggleTracePlaybackAsync" disabled="@(TraceNavigator is null || IsPredictionMode || (!TraceNavigator.CanStep && !IsTracePlaying))">@(IsTracePlaying ? "Pause" : "Play")</button>
+                            <button class="icon-button" type="button" aria-label="Next trace step" @onclick="NextTraceStepAsync" disabled="@(TraceNavigator is null || !TraceNavigator.CanStep || IsTracePlaying || (IsPredictionMode && CurrentPrediction is not null))">Step</button>
+                            <button class="icon-button" type="button" aria-label="Previous trace step" @onclick="PreviousTraceStepAsync" disabled="@(TraceNavigator is null || !TraceNavigator.CanStepBack || IsTracePlaying)">Back</button>
+                            <button class="icon-button" type="button" aria-label="Reset trace to the first step" @onclick="ResetTraceAsync" disabled="@(TraceNavigator is null)">Reset</button>
+                            <label class="canvas-trace-speed" for="canvas-trace-speed">
+                                Speed
+                                <input id="canvas-trace-speed" type="range" min="200" max="1600" step="100" @bind="TracePlaybackDelayMilliseconds" @bind:event="oninput" aria-valuetext="@TraceSpeedDescription" />
+                            </label>
+                            <label class="canvas-prediction-toggle">
+                                <input type="checkbox" checked="@IsPredictionMode" @onchange="TogglePredictionModeAsync" disabled="@(TraceNavigator is null)" />
+                                Predict
+                            </label>
+                        </div>
+                        <div class="toolbar-group canvas-controls" role="group" aria-label="Flowchart zoom">
+                            <button type="button" class="icon-button" @onclick="() => AdjustFlowchartZoomAsync(-0.1)" aria-label="Zoom out">−</button>
+                            <output aria-label="Current zoom">@($"{FlowchartZoom:P0}")</output>
+                            <button type="button" class="icon-button" @onclick="() => AdjustFlowchartZoomAsync(0.1)" aria-label="Zoom in">+</button>
+                            <button type="button" class="icon-button" aria-label="Fit flowchart to the canvas" @onclick="FitFlowchartAsync">Fit</button>
+                        </div>
+                        <details class="flowchart-legend">
+                            <summary>Legend</summary>
+                            <ul>
+                                <li><span class="legend-swatch legend-swatch--selected"></span>Selected</li>
+                                <li><span class="legend-swatch legend-swatch--decision"></span>Decision</li>
+                                <li><span class="legend-swatch legend-swatch--error"></span>Diagnostic</li>
+                                <li><span class="legend-line legend-line--loop"></span>Loop</li>
+                                <li><span class="legend-line legend-line--exit"></span>Exit</li>
+                            </ul>
+                        </details>
+                    </div>
+
+                    <p class="canvas-step-summary" role="status">@TraceCanvasDescription · Explored @ExploredNodeIds.Count/@NodeCount nodes</p>
+                    @if (IsPredictionMode && CurrentPrediction is not null)
+                    {
+                        <form class="canvas-prediction" @onsubmit="SubmitPredictionAsync" @onsubmit:preventDefault>
+                            <AntiforgeryToken />
+                            <label for="canvas-trace-prediction-answer">@CurrentPrediction.Prompt</label>
+                            <input id="canvas-trace-prediction-answer" type="text" @bind="PredictionAnswer" @bind:event="oninput" autocomplete="off" />
+                            <button class="icon-button canvas-play-button" type="submit">Check and step</button>
+                        </form>
+                    }
+                    @if (PredictionFeedback is not null && IsPredictionMode)
+                    {
+                        <p class="canvas-prediction-feedback canvas-prediction-feedback--@(PredictionWasCorrect == true ? "correct" : "incorrect")" role="status">@PredictionFeedback</p>
+                    }
+                </div>
+
+                <div class="flowchart-stage">
+                    @if (FlowchartResult is null)
+                    {
+                        <div class="flowchart-empty-state">
+                            <span class="flowchart-empty-state__icon" aria-hidden="true">◇</span>
+                            <p>Run <strong>ANALYZE CODE</strong> to generate<br />the Control Flow Graph</p>
+                        </div>
+                    }
+                    else if (!FlowchartResult.IsSuccess)
+                    {
+                        <div class="analysis-feedback flowchart-stage__message" role="status">
+                            <h3>@FlowchartHeading(FlowchartResult.Status)</h3>
+                            <ol class="analysis-diagnostic-list">
+                                @foreach (var diagnostic in FlowchartResult.Diagnostics)
+                                {
+                                    <li>
+                                        <p class="analysis-diagnostic-heading">
+                                            <strong>@diagnostic.Code</strong>
+                                            @if (diagnostic.Line is not null && diagnostic.Column is not null)
+                                            {
+                                                <span>Line @diagnostic.Line, column @diagnostic.Column</span>
+                                            }
+                                        </p>
+                                        <p>@diagnostic.Message</p>
+                                        <p class="analysis-explanation">@diagnostic.Explanation</p>
+                                    </li>
+                                }
+                            </ol>
+                        </div>
+                    }
+                    else if (FlowchartDocument is not null)
+                    {
+                        @if (LiveFlowchartFailure is not null)
+                        {
+                            <details class="live-flowchart-diagnostics" open>
+                                <summary role="status">Keeping the last valid flowchart · @LiveFlowchartFailure.Diagnostics.Count item(s) in the latest text</summary>
+                                <ol class="analysis-diagnostic-list">
+                                    @foreach (var diagnostic in LiveFlowchartFailure.Diagnostics)
+                                    {
+                                        <li><strong>@diagnostic.Code</strong> @diagnostic.Message</li>
+                                    }
+                                </ol>
+                            </details>
+                        }
+
+                        @if (RendererError is not null)
+                        {
+                            <div class="notice notice--warning flowchart-stage__message" role="alert">
+                                <h3>Diagram renderer unavailable</h3>
+                                <p>@RendererError</p>
+                                <p>The equivalent text map below lists every node and connection.</p>
+                            </div>
+                        }
+
+                        <div class="flowchart-canvas"
+                             @ref="FlowchartContainer"
+                             aria-label="Rendered CodeLogic flowchart"
+                             aria-busy="@(IsRendering ? "true" : "false")"></div>
+                    }
+
+                    <aside id="node-properties" class="properties-drawer" aria-labelledby="node-properties-title" hidden="@(!Layout.IsPropertiesOpen)">
+                        <div class="resize-handle resize-handle--vertical resize-handle--leading" data-resize-panel="properties" role="separator" tabindex="0" aria-label="Resize node properties" aria-orientation="vertical" aria-valuemin="220" aria-valuemax="420" aria-valuenow="260" title="Drag or use arrow keys to resize. Double-click to reset."></div>
+                        <div class="panel-title"><h2 id="node-properties-title">Node properties</h2><button type="button" class="panel-close" aria-label="Close node properties" title="Close (Esc)" @onclick="Layout.CloseProperties">×</button></div>
+                        @if (SelectedNode is null)
+                        {
+                            <div class="properties-empty">
+                                <span aria-hidden="true">◇</span>
+                                <p>Select a generated node to inspect its source-backed properties.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <dl class="property-list">
+                                <div><dt>Name</dt><dd>@SelectedNode.Label</dd></div>
+                                <div><dt>Node type</dt><dd><span class="node-kind node-kind--@SelectedNode.NodeType.ToString().ToLowerInvariant()">@SelectedNode.NodeType</span></dd></div>
+                                <div><dt>Source file</dt><dd><code>Program.cs</code></dd></div>
+                                @if (SelectedNode.NodeType == FlowNodeType.Decision)
+                                {
+                                    <div><dt>Control kind</dt><dd>@(SelectedNodeIsLoop ? "Loop condition" : "Decision")</dd></div>
+                                    <div><dt>True path</dt><dd>@(BranchTarget(FlowEdgeType.True) ?? "No true edge")</dd></div>
+                                    <div><dt>False path</dt><dd>@(BranchTarget(FlowEdgeType.False) ?? "No false edge")</dd></div>
+                                }
+                                @if (SelectedNode.SourceSpan is not null)
+                                {
+                                    <div><dt>Source line</dt><dd>@SelectedNode.SourceSpan.StartLine:@SelectedNode.SourceSpan.StartColumn</dd></div>
+                                    <div><dt>Source range</dt><dd>@SelectedNode.SourceSpan.Length characters</dd></div>
+                                }
+                            </dl>
+                            @if (SelectedNode.SourceSpan is not null)
+                            {
+                                <div class="node-source-editor">
+                                    <label for="node-source-text">Mapped C# statement</label>
+                                    <textarea id="node-source-text" @bind="NodeEditText" @bind:event="oninput" rows="4" maxlength="@EditorState.MaximumCharacters" spellcheck="false"></textarea>
+                                    <button class="button button--primary" type="button" @onclick="ApplyNodeEditAsync">Apply safe edit</button>
+                                    @if (NodeEditMessage is not null)
+                                    {
+                                        <p class="node-edit-message" role="status">@NodeEditMessage</p>
+                                    }
+                                </div>
+                                <button class="button button--secondary" type="button" @onclick="() => ShowSourceAsync(SelectedNode!)">Reveal in source</button>
+                            }
+                        }
+                    </aside>
+                </div>
+
+                @if (FlowchartDocument is not null && FlowchartResult?.Graph is not null)
+                {
+                    <details class="flowchart-text-map">
+                        <summary>Equivalent text map · @NodeCount nodes · @FlowchartResult.Graph.Edges.Count connections</summary>
+                        <div class="flowchart-text-map__body">
+                            <p>Select a source-backed node to return to the exact text that produced it.</p>
+                            <ol class="flowchart-node-list">
+                                @foreach (var item in FlowchartDocument.SourceMap)
+                                {
+                                    <li class="@(SelectedNode?.NodeId == item.NodeId ? "source-map-item--selected" : null)">
+                                        <strong>@item.NodeType:</strong> @item.Label
+                                        <button class="text-button" type="button" @onclick="() => SelectNodeAsync(item)">
+                                            @(item.SourceSpan is null ? "Inspect node" : $"Show line {item.SourceSpan.StartLine}")
+                                        </button>
+                                    </li>
+                                }
+                            </ol>
+                            <h3>Connections</h3>
+                            <ul class="flowchart-edge-list">
+                                @foreach (var edge in FlowchartResult.Graph.Edges)
+                                {
+                                    <li>@DescribeEdge(edge, FlowchartResult.Graph)</li>
+                                }
+                            </ul>
+                        </div>
+                    </details>
+                }
+            </section>
         </div>
 
-        <div class="trace-state">
-            <section aria-labelledby="trace-operation-title">
-                <h3 id="trace-operation-title">Active operation</h3>
-                <dl class="trace-details">
-                    <div><dt>Program counter</dt><dd>@TraceNavigator.Current.ProgramCounter</dd></div>
-                    <div><dt>Graph node</dt><dd><code>@TraceNavigator.Current.ActiveNodeId</code> · @TraceNavigator.Current.ActiveNodeType</dd></div>
-                    <div><dt>Source meaning</dt><dd>@TraceNavigator.Current.ActiveNodeLabel</dd></div>
-                    @if (CurrentTraceNodeIsLoop)
-                    {
-                        <div><dt>Loop iteration</dt><dd>@Math.Max(0, TraceNavigator.CurrentNodeVisitCount - 1)</dd></div>
-                    }
+        <nav class="ws-activity" aria-label="Quick tools">
+            <button type="button" class="ws-activity__button" title="Settings" aria-label="Settings" aria-controls="workspace-settings" aria-expanded="@Pressed(Layout.IsSettingsOpen)" @onclick="ToggleSettings">⚙</button>
+            <button type="button" class="ws-activity__button" title="Save browser draft (Ctrl+S)" aria-label="Save browser draft" @onclick="SaveDraftAsync" disabled="@(!BrowserReady || JavaScriptModule is null)">⤓</button>
+            <button type="button" class="ws-activity__button" title="Curated snippets" aria-label="Choose a curated snippet" @onclick="OpenSnippets">❏</button>
+            <button type="button" class="ws-activity__button" title="Help and shortcuts" aria-label="Help and shortcuts" aria-controls="workspace-help" aria-expanded="@Pressed(Layout.IsHelpOpen)" @onclick="ToggleHelp">?</button>
+        </nav>
+
+        <div id="workspace-settings" class="ws-popover" role="dialog" aria-labelledby="workspace-settings-title" hidden="@(!Layout.IsSettingsOpen)">
+            <div class="panel-title"><h2 id="workspace-settings-title">Workspace settings</h2><button type="button" id="workspace-settings-close" class="panel-close" aria-label="Close settings" @onclick="ToggleSettings">×</button></div>
+            <label class="ws-setting"><input type="checkbox" checked="@IsEditorLight" @onchange="ToggleEditorThemeAsync" /> Light editor theme</label>
+            <label class="ws-setting"><input type="checkbox" checked="@Layout.IsExplorerOpen" @onchange="ToggleExplorerAsync" /> Show Explorer sidebar</label>
+            <button type="button" class="button button--secondary" @onclick="ResetPanelSizesAsync">Reset panel sizes</button>
+        </div>
+    </div>
+
+    <footer class="ws-statusbar">
+        <div class="ws-statusbar__status" role="status" aria-live="polite" aria-busy="@(IsBusy ? "true" : "false")">
+            <span class="ws-status-dot @(IsBusy ? "ws-status-dot--busy" : null)" aria-hidden="true"></span>
+            <strong>@(IsBusy ? "Working" : "Ready")</strong>
+            <span class="ws-statusbar__message">@StatusMessage</span>
+        </div>
+        <span class="ws-statusbar__safety">Deterministic analysis · No arbitrary .NET execution</span>
+    </footer>
+
+    @if (Layout.IsHelpOpen)
+    {
+        <div class="ws-dialog-backdrop" @onclick="ToggleHelp">
+            <div id="workspace-help" class="ws-dialog" role="dialog" aria-modal="true" aria-labelledby="workspace-help-title" @onclick:stopPropagation="true">
+                <div class="panel-title"><h2 id="workspace-help-title">C# control-flow studio</h2><button type="button" id="workspace-help-close" class="panel-close" aria-label="Close help" @onclick="ToggleHelp">×</button></div>
+                <p>Edit supported source, inspect Roslyn diagnostics, generate a deterministic graph, and step through a bounded simulation. Nothing is compiled or run by .NET.</p>
+                <h3>Keyboard</h3>
+                <dl class="ws-shortcuts">
+                    <div><dt><kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd></dt><dd>Indent or outdent in the editor</dd></div>
+                    <div><dt><kbd>Esc</kbd>, then <kbd>Tab</kbd></dt><dd>Leave the editor</dd></div>
+                    <div><dt><kbd>Ctrl</kbd>+<kbd>S</kbd></dt><dd>Save the browser draft</dd></div>
+                    <div><dt><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd></dt><dd>Reset the editor</dd></div>
+                    <div><dt><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>[</kbd> / <kbd>]</kbd></dt><dd>Fold or unfold a block</dd></div>
+                    <div><dt><kbd>Esc</kbd> outside the editor</dt><dd>Close a dialog, restore a FULL panel, or close Node properties</dd></div>
                 </dl>
-                <p>@TraceNavigator.Current.Explanation</p>
-            </section>
-
-            <section aria-labelledby="trace-variables-title">
-                <h3 id="trace-variables-title">Variables</h3>
-                @if (TraceNavigator.Current.Variables.Count == 0)
-                {
-                    <p>No variables have values yet.</p>
-                }
-                else
-                {
-                    <table class="trace-table">
-                        <thead><tr><th scope="col">Name</th><th scope="col">Value</th></tr></thead>
-                        <tbody>
-                            @foreach (var variable in TraceNavigator.Current.Variables)
-                            {
-                                <tr class="@(TraceNavigator.ChangedVariables.Contains(variable.Key) ? "trace-variable--changed" : null)">
-                                    <th scope="row"><code>@variable.Key</code></th>
-                                    <td><code>@variable.Value</code>@if (TraceNavigator.ChangedVariables.Contains(variable.Key)) { <span class="visually-hidden"> changed this step</span> }</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                }
-            </section>
-
-            <section aria-labelledby="trace-output-title">
-                <h3 id="trace-output-title">Console output</h3>
-                @if (TraceNavigator.Current.Output.Count == 0)
-                {
-                    <p>No <code>Console.WriteLine</code> output has been produced at this step.</p>
-                }
-                else
-                {
-                    <pre class="trace-output" aria-live="polite">@string.Join(Environment.NewLine, TraceNavigator.Current.Output)</pre>
-                }
-            </section>
+                <h3>Safety model and current limitations</h3>
+                <ul>
+                    <li>The editor uses Monaco for highlighting and code folding, without IntelliSense or compilation. If Monaco cannot load, a plain-text editor is used instead.</li>
+                    <li>Code is parsed and may be interpreted by CodeLogic's small teaching model. It is never compiled or executed as a .NET program.</li>
+                    <li>Flowcharts support sequence, nested <code>if/else</code>, <code>while</code>, <code>for</code>, and <code>do-while</code> within the stated nesting limit.</li>
+                    <li><code>break</code> and <code>continue</code> are not supported yet and produce an explanation.</li>
+                    <li>Traces support scalar values, expressions, output, branches, and the supported loops; arrays, methods, live input, and general .NET behavior are not simulated.</li>
+                    <li>A trace stops after @PedagogicalInterpreter.Limits.MaximumOperations operations.</li>
+                    <li>The editor accepts at most @EditorState.MaximumCharacters.ToString("N0") characters.</li>
+                    <li>Analysis stops after @CodeAnalysisService.Limits.MaximumDuration.TotalSeconds.ToString("N0") seconds and supports at most @CodeAnalysisService.Limits.MaximumNestingDepth nested control-flow statements.</li>
+                    <li>Save keeps one draft only in this browser's local storage. It is not synced to your account or another device.</li>
+                </ul>
+            </div>
         </div>
     }
-    </div>
-</section>
 
-@if (ToastMessage is not null)
-{
-    <div class="workspace-toast workspace-toast--@ToastKind" role="@(ToastKind == "error" ? "alert" : "status")">
-        <span aria-hidden="true">@(ToastKind == "error" ? "!" : "✓")</span>
-        <p>@ToastMessage</p>
-        <button type="button" aria-label="Dismiss notification" @onclick="DismissToast">×</button>
-    </div>
-}
+    @if (ToastMessage is not null)
+    {
+        <div class="workspace-toast workspace-toast--@ToastKind" role="@(ToastKind == "error" ? "alert" : "status")">
+            <span aria-hidden="true">@(ToastKind == "error" ? "!" : "✓")</span>
+            <p>@ToastMessage</p>
+            <button type="button" aria-label="Dismiss notification" @onclick="DismissToast">×</button>
+        </div>
+    }
 </div>
 
 @code {
@@ -708,15 +746,10 @@
     private LogicalFeedbackResult? LogicalFeedbackResult { get; set; }
     private int RenderSequence { get; set; }
     private double FlowchartZoom { get; set; } = 1;
-    private string WorkspaceMode { get; set; } = "split";
+    private PlaygroundLayoutState Layout { get; } = new();
     private string ActiveSidebarPanel { get; set; } = "explorer";
-    private string ActiveBottomTab { get; set; } = "trace";
-    private bool IsBottomPanelCollapsed { get; set; }
-    private bool IsExplorerCollapsed { get; set; }
-    private bool IsPropertiesOpen { get; set; } = true;
-    private bool IsEditorCollapsed { get; set; }
-    private bool IsFlowchartCollapsed { get; set; }
-    private string? MaximizedPanel { get; set; }
+    private bool IsEditorLight { get; set; }
+    private string? PendingFocusElementId { get; set; }
     private bool IsTracePlaying { get; set; }
     private bool IsPredictionMode { get; set; }
     private int TracePlaybackDelayMilliseconds { get; set; } = 700;
@@ -758,6 +791,59 @@
         ? "Build a step trace to control the bounded simulation beside the flowchart."
         : $"Step {TraceNavigator.StepNumber} of {TraceNavigator.StepCount}: {TraceNavigator.Current.Explanation}";
 
+    private static readonly WorkspaceTab[] AnalysisTabs =
+        [WorkspaceTab.Diagnostics, WorkspaceTab.Output, WorkspaceTab.Trace, WorkspaceTab.Logic, WorkspaceTab.Terminal];
+
+    // Root classes drive the CSS grid: mode, open/collapsed panels, FULL, and the compact view.
+    private string WorkspaceClasses => string.Join(' ', new[]
+    {
+        "ws",
+        Layout.Mode == WorkspaceMode.FlowchartFocus ? "ws--focus" : null,
+        Layout.IsExplorerOpen ? "ws--explorer-open" : null,
+        Layout.IsEditorCollapsed ? "ws--editor-collapsed" : null,
+        Layout.IsAnalysisOpen ? "ws--analysis-open" : null,
+        Layout.MaximizedPanel is { } maximized ? $"ws--max ws--max-{maximized.ToString().ToLowerInvariant()}" : null,
+        Layout.CompactView == CompactView.Flowchart ? "ws--compact-flowchart" : "ws--compact-editor",
+    }.Where(value => value is not null));
+
+    private int DiagnosticCount => AnalysisResult?.Diagnostics.Count ?? 0;
+    private int NodeCount => FlowchartDocument?.SourceMap.Count ?? 0;
+
+    private string GraphStatusKind =>
+        FlowchartResult is null ? "idle"
+        : !FlowchartResult.IsSuccess || LiveFlowchartFailure is not null || RendererError is not null ? "warning"
+        : "safe";
+
+    private string GraphStatusLabel => GraphStatusKind switch
+    {
+        "idle" => "No graph yet",
+        "warning" => "Needs attention",
+        _ => "Deterministic · not executed",
+    };
+
+    private string GraphSummary =>
+        FlowchartResult is null ? "Not generated"
+        : !FlowchartResult.IsSuccess ? $"{FlowchartResult.Diagnostics.Count} item(s) to review"
+        : $"{NodeCount} nodes, {FlowchartResult.Graph!.Edges.Count} connections";
+
+    private static string Pressed(bool value) => value ? "true" : "false";
+
+    private static string TabId(WorkspaceTab tab) => $"analysis-tab-{tab.ToString().ToLowerInvariant()}";
+
+    private static string TabLabel(WorkspaceTab tab) => tab switch
+    {
+        WorkspaceTab.Diagnostics => "Diagnostics",
+        WorkspaceTab.Output => "Analysis output",
+        WorkspaceTab.Trace => "Execution trace",
+        WorkspaceTab.Logic => "Logic checks",
+        _ => "Terminal",
+    };
+
+    private static string ProfileInitial(string? name) =>
+        string.IsNullOrWhiteSpace(name) ? "U" : name.Trim()[0].ToString().ToUpperInvariant();
+
+    private sealed record WorkspacePreferences(string? Mode, string? EditorTheme, bool? ExplorerOpen);
+
     protected override void OnInitialized()
     {
         var manifest = CurriculumCatalog.GetManifest();
@@ -783,15 +869,28 @@
             {
                 JavaScriptModule = await JavaScript.InvokeAsync<IJSObjectReference>(
                     "import",
-                    "./js/playground.js?v=3");
+                    "./js/playground.js?v=5");
                 WorkspaceModule = await JavaScript.InvokeAsync<IJSObjectReference>(
                     "import",
-                    "./js/workspace.js?v=2");
+                    "./js/workspace.js?v=3");
                 ComponentReference = DotNetObjectReference.Create(this);
                 var layoutRestored = await WorkspaceModule.InvokeAsync<bool>(
                     "initializeWorkspace",
                     WorkspaceRoot,
+                    WorkspaceStorageKey,
+                    ComponentReference);
+                var preferences = await WorkspaceModule.InvokeAsync<WorkspacePreferences?>(
+                    "loadPanelPreferences",
                     WorkspaceStorageKey);
+                if (preferences is not null)
+                {
+                    IsEditorLight = preferences.EditorTheme == "light";
+                    Layout.SetExplorerOpen(preferences.ExplorerOpen == true);
+                    if (preferences.Mode == "focus")
+                    {
+                        Layout.SetMode(WorkspaceMode.FlowchartFocus);
+                    }
+                }
                 var savedDraft = await JavaScriptModule.InvokeAsync<string?>(
                     "loadDraft",
                     DraftStorageKey);
@@ -823,7 +922,8 @@
                     EditorState.CurrentCode,
                     EditorState.MaximumCharacters,
                     ComponentReference,
-                    EditorFoldRegions);
+                    EditorFoldRegions,
+                    IsEditorLight);
                 if (editorKind == "plain")
                 {
                     StatusMessage = "The Monaco editor could not load, so a plain-text editor is in use. Editing, Tab indentation, analysis, and saving still work; code folding is unavailable.";
@@ -837,6 +937,20 @@
             {
                 BrowserReady = true;
                 StateHasChanged();
+            }
+        }
+
+        // Dialogs and quick tools move keyboard focus only after the target element has rendered.
+        if (PendingFocusElementId is { } focusId && JavaScriptModule is not null)
+        {
+            PendingFocusElementId = null;
+            try
+            {
+                await JavaScriptModule.InvokeVoidAsync("focusById", focusId);
+            }
+            catch (JSException)
+            {
+                // Focus movement is a convenience; the control remains reachable with Tab.
             }
         }
 
@@ -964,6 +1078,24 @@
         StatusMessage = $"Editor reset to {EditorState.ActiveSnippet.Title}; the browser draft was cleared.";
     }
 
+    // The dominant "Analyze code" action: syntax check plus graph in one step. The Diagnostics tab
+    // opens only when there is something to fix, so a clean run leaves the flowchart in view.
+    private async Task AnalyzeCodeAsync()
+    {
+        await AnalyzeAsync();
+        await PreviewFlowchartAsync();
+        if (AnalysisResult is { IsValid: false })
+        {
+            Layout.ShowTab(WorkspaceTab.Diagnostics);
+        }
+    }
+
+    private async Task CheckSyntaxAsync()
+    {
+        await AnalyzeAsync();
+        Layout.ShowTab(WorkspaceTab.Diagnostics);
+    }
+
     private async Task AnalyzeAsync()
     {
         IsAnalyzing = true;
@@ -1075,11 +1207,13 @@
                     ? $"Trace stopped safely at the {TraceResult.MaximumOperations}-operation limit."
                     : $"Trace built with {TraceResult.Steps.Count} snapshots. Use Next step to inspect it.";
                 ShowToast("Bounded execution trace is ready.");
+                Layout.SelectTab(WorkspaceTab.Trace);
                 await SynchronizeTraceStepAsync();
             }
             else
             {
                 StatusMessage = $"Trace simulation found {TraceResult.Diagnostics.Count} item(s) to review.";
+                Layout.ShowTab(WorkspaceTab.Trace);
             }
         }
         finally
@@ -1100,6 +1234,7 @@
 
         await SynchronizeEditorValueAsync();
         StatusMessage = "Loaded the Adult age boundary exercise. Change its comparison, then check the known cases.";
+        Layout.ShowTab(WorkspaceTab.Logic);
     }
 
     private async Task CheckLogicAsync()
@@ -1108,6 +1243,7 @@
         StatusMessage = "Checking three instructor-defined age cases with the bounded interpreter.";
         try
         {
+            Layout.ShowTab(WorkspaceTab.Logic);
             LogicalFeedbackResult = await LogicalFeedbackService.EvaluateAsync(
                 LogicalExercise,
                 EditorState.CurrentCode);
@@ -1336,13 +1472,18 @@
         StatusMessage = $"Selected source for {item.NodeType} on line {item.SourceSpan.StartLine}.";
     }
 
-    private async Task SelectNodeAsync(FlowNodeSourceMap item)
+    // openProperties is true for deliberate inspection (canvas click, text map, structure tree) and false
+    // when the editor caret merely moves into a mapped statement, so typing never covers the graph.
+    private async Task SelectNodeAsync(FlowNodeSourceMap item, bool openProperties = true)
     {
         SelectedNode = item;
         ExploredNodeIds.Add(item.NodeId);
         NodeEditText = item.Label;
         NodeEditMessage = null;
-        IsPropertiesOpen = true;
+        if (openProperties)
+        {
+            Layout.OpenProperties();
+        }
         if (item.SourceSpan is not null)
         {
             await ShowSourceAsync(item);
@@ -1350,12 +1491,12 @@
     }
 
     [JSInvokable]
-    public async Task SelectNodeFromBrowser(string nodeId)
+    public async Task SelectNodeFromBrowser(string nodeId, bool openProperties)
     {
         var item = FlowchartDocument?.SourceMap.FirstOrDefault(candidate => candidate.NodeId == nodeId);
         if (item is not null)
         {
-            await SelectNodeAsync(item);
+            await SelectNodeAsync(item, openProperties);
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -1445,66 +1586,100 @@
         }
     }
 
-    private async Task SetWorkspaceModeAsync(string mode)
+    private async Task SetWorkspaceModeAsync(WorkspaceMode mode)
     {
-        WorkspaceMode = mode == "focus" ? "focus" : "split";
-        await SaveWorkspacePreferenceAsync("mode", WorkspaceMode);
-    }
-
-    private void TogglePanel(string panel)
-    {
-        if (panel == "editor")
-        {
-            IsEditorCollapsed = !IsEditorCollapsed;
-        }
-        else if (panel == "flowchart")
-        {
-            IsFlowchartCollapsed = !IsFlowchartCollapsed;
-        }
-    }
-
-    private void TogglePanelMaximized(string panel)
-    {
-        MaximizedPanel = MaximizedPanel == panel ? null : panel;
-        if (panel == "editor")
-        {
-            IsEditorCollapsed = false;
-        }
-        else if (panel == "flowchart")
-        {
-            IsFlowchartCollapsed = false;
-        }
-        else if (panel == "bottom")
-        {
-            IsBottomPanelCollapsed = false;
-        }
+        Layout.SetMode(mode);
+        await SaveWorkspacePreferenceAsync("mode", mode == WorkspaceMode.FlowchartFocus ? "focus" : "analyze");
     }
 
     private async Task ActivateSidebarAsync(string panel)
     {
-        if (ActiveSidebarPanel == panel && !IsExplorerCollapsed)
+        if (ActiveSidebarPanel == panel && Layout.IsExplorerOpen)
         {
-            IsExplorerCollapsed = true;
+            Layout.SetExplorerOpen(false);
         }
         else
         {
             ActiveSidebarPanel = panel;
-            IsExplorerCollapsed = false;
+            Layout.SetExplorerOpen(true);
         }
 
-        await SaveWorkspacePreferenceAsync("explorerCollapsed", IsExplorerCollapsed);
+        await SaveWorkspacePreferenceAsync("explorerOpen", Layout.IsExplorerOpen);
     }
 
     private async Task ToggleExplorerAsync()
     {
-        IsExplorerCollapsed = !IsExplorerCollapsed;
-        await SaveWorkspacePreferenceAsync("explorerCollapsed", IsExplorerCollapsed);
+        Layout.ToggleExplorer();
+        await SaveWorkspacePreferenceAsync("explorerOpen", Layout.IsExplorerOpen);
     }
 
-    private async Task TogglePropertiesAsync()
+    private async Task ToggleEditorThemeAsync()
     {
-        IsPropertiesOpen = !IsPropertiesOpen;
-        await SaveWorkspacePreferenceAsync("propertiesOpen", IsPropertiesOpen);
+        IsEditorLight = !IsEditorLight;
+        if (JavaScriptModule is not null)
+        {
+            try
+            {
+                await JavaScriptModule.InvokeVoidAsync("setEditorTheme", IsEditorLight);
+            }
+            catch (JSException)
+            {
+                // The CSS class still switches the plain-text fallback.
+            }
+        }
+
+        await SaveWorkspacePreferenceAsync("editorTheme", IsEditorLight ? "light" : "dark");
+    }
+
+    private void ToggleSettings()
+    {
+        Layout.ToggleSettings();
+        PendingFocusElementId = Layout.IsSettingsOpen ? "workspace-settings-close" : null;
+    }
+
+    private void ToggleHelp()
+    {
+        Layout.ToggleHelp();
+        PendingFocusElementId = Layout.IsHelpOpen ? "workspace-help-close" : null;
+    }
+
+    private void OpenSnippets()
+    {
+        if (Layout.Mode == WorkspaceMode.FlowchartFocus)
+        {
+            Layout.SetMode(WorkspaceMode.Analyze);
+        }
+
+        if (Layout.IsEditorCollapsed)
+        {
+            Layout.ToggleEditor();
+        }
+
+        Layout.SetCompactView(CompactView.Editor);
+        PendingFocusElementId = "snippet-select";
+    }
+
+    private async Task ResetPanelSizesAsync()
+    {
+        if (WorkspaceModule is not null)
+        {
+            await WorkspaceModule.InvokeVoidAsync("resetPanelSizes", WorkspaceRoot);
+        }
+
+        StatusMessage = "Panel sizes reset to their defaults.";
+    }
+
+    /// <summary>Called by workspace.js for Esc pressed outside the editor and form fields.</summary>
+    [JSInvokable]
+    public async Task<bool> HandleWorkspaceEscape()
+    {
+        var handled = Layout.HandleEscape();
+        if (handled)
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+
+        return handled;
     }
 
     private async Task SaveWorkspacePreferenceAsync(string name, object value)
@@ -1515,20 +1690,25 @@
         }
     }
 
-    private Task FocusEditorAsync() => JavaScriptModule is null
-        ? Task.CompletedTask
-        : JavaScriptModule.InvokeVoidAsync("focusElement", EditorElement).AsTask();
-
-    private Task ScrollToAsync(string elementId) => JavaScriptModule is null
-        ? Task.CompletedTask
-        : JavaScriptModule.InvokeVoidAsync("scrollToElement", elementId).AsTask();
-
-    private async Task OpenDiagnosticsAsync()
+    private Task FocusEditorAsync()
     {
-        ActiveBottomTab = "diagnostics";
-        IsBottomPanelCollapsed = false;
-        await ScrollToAsync("analysis-output");
+        if (Layout.Mode == WorkspaceMode.FlowchartFocus)
+        {
+            Layout.SetMode(WorkspaceMode.Analyze);
+        }
+
+        if (Layout.IsEditorCollapsed)
+        {
+            Layout.ToggleEditor();
+        }
+
+        Layout.SetCompactView(CompactView.Editor);
+        return JavaScriptModule is null
+            ? Task.CompletedTask
+            : JavaScriptModule.InvokeVoidAsync("focusElement", EditorElement).AsTask();
     }
+
+    private void OpenDiagnostics() => Layout.ShowTab(WorkspaceTab.Diagnostics);
 
     private string? BranchTarget(FlowEdgeType edgeType)
     {
