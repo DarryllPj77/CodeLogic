@@ -41,7 +41,7 @@ public sealed class PlaygroundEditorStateTests
     }
 
     [Fact]
-    public void ResetRestoresCurrentlyLoadedSnippet()
+    public void ResetRestoresTheDefaultSnippetEvenAfterLoadingAnother()
     {
         var state = CreateState();
         state.LoadSnippet("operators");
@@ -49,8 +49,8 @@ public sealed class PlaygroundEditorStateTests
 
         state.Reset();
 
-        Assert.Equal("bool ready = true;", state.CurrentCode);
-        Assert.Equal("operators", state.ActiveSnippet.Id);
+        Assert.Equal("variables", state.ActiveSnippet.Id);
+        Assert.Equal(state.DefaultSnippet.Code, state.CurrentCode);
         Assert.False(state.HasUnsavedChanges);
     }
 

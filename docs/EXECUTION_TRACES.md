@@ -3,7 +3,7 @@
 ## Document Status
 
 - Task: Prompt 18 — Explain execution without running arbitrary code
-- Last updated: 2026-11-01
+- Last updated: 2026-11-07 (classic programs and static method calls)
 - Model: deterministic CodeLogic interpreter, not the .NET runtime
 - Limit: 100 modeled operations per trace
 
@@ -33,11 +33,14 @@ The first interpreter slice supports:
 - direct variable assignment and `+=`, `-=`, `*=`, and `/=`;
 - arithmetic, comparison, equality, Boolean, unary, increment, and decrement expressions already admitted by analysis;
 - interpolated strings;
-- `Console.WriteLine` with zero or one argument;
+- `Console.WriteLine` and `Console.Write` with zero or one argument (`Write` continues the current output line);
 - sequence, nested `if/else`, `while`, `for`, and `do-while`;
+- classic programs starting at `Main`. An `int` Main's `return` value is reported at End. `args` exists but is read-only and empty, and reading it gives a clear diagnostic;
+- calls to the program's static methods. Each call pushes a frame with its own parameters and locals, adds `Called Name with ...` and `Name returned ...` steps at the method's Start and Return nodes, and returns its value to the caller. The variable list shows the current frame only;
+- `return`, except inside loops;
 - omitted `for` conditions, subject to the operation limit.
 
-The trace slice explicitly rejects arrays, element access, live `Console.ReadLine`, local functions, method calls, `return`, `break`, and `continue`. Some of these remain valid in the wider curriculum or analysis subset; passing syntax analysis is not a promise that tracing supports them.
+The trace slice explicitly rejects arrays (including reading `args`), element access, live `Console.ReadLine`, local functions, recursion, `break`, and `continue`. Some of these remain valid in the wider curriculum or analysis subset; passing syntax analysis is not a promise that tracing supports them.
 
 The interpreter is intentionally not a C# type checker. Incompatible values, undeclared variables, unsupported targets, invalid numeric operations, and other cases it cannot explain return a positioned diagnostic instead of guessing.
 

@@ -48,6 +48,11 @@ public sealed class PlaygroundLayoutState
 
     public bool IsSettingsOpen { get; private set; }
 
+    public bool IsWhatsSupportedOpen { get; private set; }
+
+    /// <summary>The registry entry the "What's supported" view should scroll to, if any.</summary>
+    public string? WhatsSupportedTopicId { get; private set; }
+
     public WorkspacePanel? MaximizedPanel { get; private set; }
 
     public WorkspaceTab ActiveTab { get; private set; } = WorkspaceTab.Diagnostics;
@@ -145,12 +150,29 @@ public sealed class PlaygroundLayoutState
     {
         IsHelpOpen = !IsHelpOpen;
         IsSettingsOpen = false;
+        IsWhatsSupportedOpen = false;
     }
 
     public void ToggleSettings()
     {
         IsSettingsOpen = !IsSettingsOpen;
         IsHelpOpen = false;
+        IsWhatsSupportedOpen = false;
+    }
+
+    /// <summary>Opens "What's supported", optionally at one feature (for example from a diagnostic).</summary>
+    public void OpenWhatsSupported(string? topicId = null)
+    {
+        IsWhatsSupportedOpen = true;
+        WhatsSupportedTopicId = topicId;
+        IsHelpOpen = false;
+        IsSettingsOpen = false;
+    }
+
+    public void CloseWhatsSupported()
+    {
+        IsWhatsSupportedOpen = false;
+        WhatsSupportedTopicId = null;
     }
 
     /// <summary>
@@ -159,10 +181,11 @@ public sealed class PlaygroundLayoutState
     /// </summary>
     public bool HandleEscape()
     {
-        if (IsHelpOpen || IsSettingsOpen)
+        if (IsHelpOpen || IsSettingsOpen || IsWhatsSupportedOpen)
         {
             IsHelpOpen = false;
             IsSettingsOpen = false;
+            CloseWhatsSupported();
             return true;
         }
 

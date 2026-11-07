@@ -27,13 +27,35 @@ public sealed class MermaidFlowchartSerializer : IMermaidFlowchartSerializer
             .Append("  accTitle: CodeLogic flowchart\n")
             .Append("  accDescr: Supported C sharp source shown as an ordered flowchart\n\n");
 
-        foreach (var node in graph.Nodes)
+        // The entry flow is drawn first; each static method becomes a labelled subgraph.
+        var methodIndex = 0;
+        foreach (var scope in graph.Nodes.GroupBy(node => node.Scope, StringComparer.Ordinal))
         {
-            definition
-                .Append("  ")
-                .Append(mermaidIds[node.Id])
-                .Append(NodeShape(node.Type, EscapeNodeLabel(node.Label)))
-                .Append('\n');
+            var indent = "  ";
+            if (scope.Key is not null)
+            {
+                definition
+                    .Append("  subgraph method")
+                    .Append(methodIndex++)
+                    .Append("[\"")
+                    .Append(EscapeLabel($"static method {scope.Key}"))
+                    .Append("\"]\n    direction TB\n");
+                indent = "    ";
+            }
+
+            foreach (var node in scope)
+            {
+                definition
+                    .Append(indent)
+                    .Append(mermaidIds[node.Id])
+                    .Append(NodeShape(node.Type, EscapeNodeLabel(node.Label)))
+                    .Append('\n');
+            }
+
+            if (scope.Key is not null)
+            {
+                definition.Append("  end\n");
+            }
         }
 
         definition.Append('\n');
@@ -42,7 +64,7 @@ public sealed class MermaidFlowchartSerializer : IMermaidFlowchartSerializer
             definition
                 .Append("  ")
                 .Append(mermaidIds[edge.FromNodeId])
-                .Append(" -->");
+                .Append(edge.Type == FlowEdgeType.Call ? " -.->" : " -->");
             if (edge.Label is not null)
             {
                 definition
@@ -68,6 +90,7 @@ public sealed class MermaidFlowchartSerializer : IMermaidFlowchartSerializer
         FlowNodeType.Decision => $"{{\"{label}\"}}",
         FlowNodeType.Input or FlowNodeType.Output => $"[/\"{label}\"/]",
         FlowNodeType.Action => $"[\"{label}\"]",
+        FlowNodeType.Call => $"[[\"{label}\"]]",
         _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown flow node type."),
     };
 

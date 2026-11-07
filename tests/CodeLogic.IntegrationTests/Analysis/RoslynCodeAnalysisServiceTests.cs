@@ -27,30 +27,38 @@ public sealed class RoslynCodeAnalysisServiceTests
     }
 
     [Fact]
-    public async Task SupportedControlFlowAndLocalFunctionAreValid()
+    public async Task SupportedControlFlowAndStaticMethodAreValid()
     {
         const string source = """
-            int Double(int value)
-            {
-                return value * 2;
-            }
+            using System;
 
-            int total = 0;
-            for (int index = 0; index < 3; index++)
+            class Program
             {
-                total = total + Double(index);
-            }
+                static void Main(string[] args)
+                {
+                    int total = 0;
+                    for (int index = 0; index < 3; index++)
+                    {
+                        total = total + Double(index);
+                    }
 
-            if (total > 0)
-            {
-                Console.WriteLine(total);
-            }
+                    if (total > 0)
+                    {
+                        Console.WriteLine(total);
+                    }
 
-            do
-            {
-                total--;
+                    do
+                    {
+                        total--;
+                    }
+                    while (total > 0);
+                }
+
+                static int Double(int value)
+                {
+                    return value * 2;
+                }
             }
-            while (total > 0);
             """;
 
         var result = await service.AnalyzeAsync(source);
@@ -111,18 +119,18 @@ public sealed class RoslynCodeAnalysisServiceTests
     }
 
     [Theory]
-    [InlineData("using System;\nint value = 1;", "Using directives")]
-    [InlineData("class Program { }", "class declaration")]
+    [InlineData("using static System.Console;\nint value = 1;", "plain using directives")]
+    [InlineData("class Program { }", "No Main method")]
     [InlineData("foreach (int value in values) { Console.WriteLine(value); }", "foreach loop")]
-    [InlineData("string value = new string('a', 2);", "Object creation")]
+    [InlineData("string value = new string('a', 2);", "Creating objects")]
     [InlineData("string value = File.ReadAllText(\"secret.txt\");", "not supported")]
     [InlineData("File.WriteAllText(\"payload.txt\", \"data\");", "not supported")]
     [InlineData("System.Diagnostics.Process.Start(\"calc\");", "not supported")]
     [InlineData("System.Reflection.Assembly.Load(\"payload\");", "not supported")]
     [InlineData("HttpClient client = new HttpClient();", "not supported")]
     [InlineData("int transform = values.Select(value => value + 1);", "not supported")]
-    [InlineData("while (true) { break; }", "break statement")]
-    [InlineData("for (;;) { continue; }", "continue statement")]
+    [InlineData("while (true) { break; }", "break is not supported")]
+    [InlineData("for (;;) { continue; }", "continue is not supported")]
     public async Task UnsupportedFeaturesReturnActionableDiagnostics(
         string source,
         string expectedMessagePart)
@@ -161,7 +169,8 @@ public sealed class RoslynCodeAnalysisServiceTests
 
         Assert.Equal(CodeAnalysisStatus.Unsupported, result.Status);
         var diagnostic = Assert.Single(result.Diagnostics, item => item.Code == "CL1004");
-        Assert.Contains("exceeds the limit of 3", diagnostic.Message, StringComparison.Ordinal);
+        Assert.Equal("This code is nested 4 levels deep; the limit is 3.", diagnostic.Message);
+        Assert.Contains("static method", diagnostic.Suggestion, StringComparison.Ordinal);
     }
 
     [Fact]

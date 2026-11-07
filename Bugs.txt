@@ -1,0 +1,30 @@
+This syntax is not in the trace subset
+FL1002
+Line 7, column 1
+
+LocalFunctionStatement is not supported by flowchart schema 1.1.
+
+This graph supports declarations, expressions, nested if/else, while, for, and do/while. Break, continue, return, and local functions remain unsupported.
+
+Valid syntax, unsupported CodeLogic feature
+CL1004
+Line 17, column 10
+
+Control-flow nesting depth 4 exceeds the limit of 3.
+
+Reduce nested if statements or loops so the example remains easy to trace.
+
+Valid syntax, unsupported CodeLogic feature
+CL1001
+Line 1, column 1
+
+Using directives are not supported.
+
+The supported examples use built-in C# types and Console directly, without imports.
+
+CL1001
+Line 3, column 1
+
+A class declaration is outside the supported snippet subset.
+
+Use top-level statements and small local functions instead of namespaces, classes, records, or other type declarations.

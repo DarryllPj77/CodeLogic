@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "codelogic-web",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/CodeLogic.Web", "--launch-profile", "http", "-p:UseAppHost=false", "-p:OutDir=../../tests/bin/claude-isolated/", "--", "--urls", "http://localhost:5199"],
+      "port": 5199
+    }
+  ]
+}

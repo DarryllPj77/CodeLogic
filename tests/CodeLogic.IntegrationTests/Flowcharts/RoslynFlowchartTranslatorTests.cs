@@ -27,7 +27,7 @@ public sealed class RoslynFlowchartTranslatorTests
         Assert.Empty(result.Diagnostics);
         Assert.Equal(
             """
-            schema 1.1
+            schema 1.2
             node node-000 Start | Start
             node node-001 Input | string name = Console.ReadLine();
             node node-002 Action | string greeting = "Hello " + name;
@@ -69,7 +69,7 @@ public sealed class RoslynFlowchartTranslatorTests
         Assert.Equal(FlowchartTranslationStatus.Success, result.Status);
         Assert.Equal(
             """
-            schema 1.1
+            schema 1.2
             node node-000 Start | Start
             node node-001 Action | int score = 6;
             node node-002 Decision | score >= 5
@@ -126,7 +126,7 @@ public sealed class RoslynFlowchartTranslatorTests
         Assert.Equal(FlowchartTranslationStatus.Success, result.Status);
         Assert.Equal(
             """
-            schema 1.1
+            schema 1.2
             node node-000 Start | Start
             node node-001 Decision | score >= 5
             node node-002 Decision | hasBonus
@@ -166,7 +166,7 @@ public sealed class RoslynFlowchartTranslatorTests
         Assert.Equal(FlowchartTranslationStatus.Success, result.Status);
         Assert.Equal(
             """
-            schema 1.1
+            schema 1.2
             node node-000 Start | Start
             node node-001 Action | int count = 0;
             node node-002 Decision | count < 3
@@ -201,7 +201,7 @@ public sealed class RoslynFlowchartTranslatorTests
         Assert.Equal(FlowchartTranslationStatus.Success, result.Status);
         Assert.Equal(
             """
-            schema 1.1
+            schema 1.2
             node node-000 Start | Start
             node node-001 Action | for init: int index = 0
             node node-002 Decision | index < 3
@@ -239,7 +239,7 @@ public sealed class RoslynFlowchartTranslatorTests
         Assert.Equal(FlowchartTranslationStatus.Success, result.Status);
         Assert.Equal(
             """
-            schema 1.1
+            schema 1.2
             node node-000 Start | Start
             node node-001 Action | int count = 0;
             node node-002 Output | Console.WriteLine(count);
@@ -310,7 +310,7 @@ public sealed class RoslynFlowchartTranslatorTests
 
     [Theory]
     [InlineData(null, FlowchartTranslationStatus.InvalidInput, "CL0001")]
-    [InlineData("class Program { }", FlowchartTranslationStatus.Unsupported, "CL1001")]
+    [InlineData("class Program { }", FlowchartTranslationStatus.Unsupported, "CL1008")]
     public async Task AnalysisFailuresReturnDiagnosticsWithoutGraph(
         string? source,
         FlowchartTranslationStatus expectedStatus,

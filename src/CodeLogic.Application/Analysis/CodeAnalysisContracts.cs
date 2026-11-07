@@ -69,6 +69,11 @@ public enum CodeDiagnosticSeverity
     Error = 3,
 }
 
+/// <summary>
+/// A positioned diagnostic. <see cref="Message"/> says what is wrong, <see cref="Explanation"/> why,
+/// and <see cref="Suggestion"/> what to do instead. <see cref="HelpTopicId"/> names the
+/// <see cref="SupportedFeatureRegistry"/> entry that the "What's supported" view should open.
+/// </summary>
 public sealed record CodeDiagnostic(
     string Code,
     CodeDiagnosticCategory Category,
@@ -77,7 +82,12 @@ public sealed record CodeDiagnostic(
     string Explanation,
     int? Line,
     int? Column,
-    int Length);
+    int Length)
+{
+    public string? Suggestion { get; init; }
+
+    public string? HelpTopicId { get; init; }
+}
 
 public sealed class CodeAnalysisResult
 {

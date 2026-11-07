@@ -4,6 +4,7 @@ using System.Text;
 using CodeLogic.Application.Analysis;
 using CodeLogic.Application.Execution;
 using CodeLogic.Application.Flowcharts;
+using CodeLogic.Infrastructure.Analysis;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -49,7 +50,8 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
             ParseOptions,
             cancellationToken: cancellationToken);
         var root = await syntaxTree.GetRootAsync(cancellationToken);
-        var unsupported = FindUnsupportedTraceSyntax(root);
+        var structure = ProgramStructure.Read(root);
+        var unsupported = FindUnsupportedTraceSyntax(root, structure);
         if (unsupported is not null)
         {
             return new ExecutionTraceResult(
@@ -58,18 +60,15 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
                 diagnostics: [unsupported]);
         }
 
-        var statements = root.DescendantNodes()
-            .OfType<GlobalStatementSyntax>()
-            .Select(global => global.Statement)
-            .ToArray();
         var interpreter = new Interpreter(
             translation.Graph!,
+            structure,
             Limits.MaximumOperations,
             cancellationToken);
 
         try
         {
-            return interpreter.Run(statements);
+            return interpreter.Run();
         }
         catch (OperationLimitReachedException)
         {
@@ -100,10 +99,17 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
         }
     }
 
-    private static CodeDiagnostic? FindUnsupportedTraceSyntax(SyntaxNode root)
+    private static CodeDiagnostic? FindUnsupportedTraceSyntax(SyntaxNode root, ProgramStructure structure)
     {
+        // Main's string[] args is the one array the trace accepts: it exists but stays empty.
+        var mainParameters = structure.Main?.ParameterList;
         foreach (var node in root.DescendantNodesAndSelf())
         {
+            if (mainParameters is not null && mainParameters.Span.Contains(node.Span))
+            {
+                continue;
+            }
+
             switch (node)
             {
                 case VariableDeclaratorSyntax { Initializer: null } declarator:
@@ -172,34 +178,61 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
         _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Unexpected translation status."),
     };
 
+    /// <summary>
+    /// Steps through the program one statement at a time. Each method call pushes a frame with its own
+    /// variables, so every step shows exactly the variables in scope.
+    /// </summary>
     private sealed class Interpreter
     {
+        private const int MaximumCallDepth = 32;
+
         private readonly FlowGraph graph;
+        private readonly ProgramStructure structure;
         private readonly int maximumOperations;
         private readonly CancellationToken cancellationToken;
-        private readonly Dictionary<string, object> variables = new(StringComparer.Ordinal);
-        private readonly Dictionary<string, SyntaxKind> variableTypes = new(StringComparer.Ordinal);
+        private readonly Stack<Frame> frames = new();
         private readonly List<string> output = [];
         private readonly List<ExecutionTraceStep> steps = [];
+        private bool outputLineOpen;
         private int operations;
 
         public Interpreter(
             FlowGraph graph,
+            ProgramStructure structure,
             int maximumOperations,
             CancellationToken cancellationToken)
         {
             this.graph = graph;
+            this.structure = structure;
             this.maximumOperations = maximumOperations;
             this.cancellationToken = cancellationToken;
+            frames.Push(new Frame(Scope: null));
         }
 
         public IReadOnlyList<ExecutionTraceStep> Steps => steps;
 
-        public ExecutionTraceResult Run(IReadOnlyList<StatementSyntax> statements)
+        private Dictionary<string, object> variables => frames.Peek().Variables;
+
+        private Dictionary<string, SyntaxKind> variableTypes => frames.Peek().Types;
+
+        public ExecutionTraceResult Run()
         {
-            RecordSynthetic(FlowNodeType.Start, "Trace ready. No learner code has been run.");
-            ExecuteStatements(statements);
-            RecordSynthetic(FlowNodeType.End, "The bounded simulation reached the end.");
+            RecordSynthetic(FlowNodeType.Start, scope: null, structure.Main is null
+                ? "Trace ready. No learner code has been run."
+                : "Trace ready. The program starts at Main. No learner code has been run.");
+            object? exitValue = null;
+            try
+            {
+                ExecuteStatements(structure.EntryStatements);
+            }
+            catch (ReturnSignal signal)
+            {
+                exitValue = signal.Value;
+            }
+
+            RecordSynthetic(FlowNodeType.End, scope: null, exitValue is null
+                ? "The bounded simulation reached the end."
+                : $"Main returned {Format(exitValue)}. The bounded simulation reached the end.");
             return new ExecutionTraceResult(
                 ExecutionTraceStatus.Completed,
                 maximumOperations,
@@ -227,14 +260,29 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
                     return;
                 case ExpressionStatementSyntax expressionStatement:
                     var value = Evaluate(expressionStatement.Expression);
-                    var explanation = IsConsoleWriteLine(expressionStatement.Expression)
-                        ? $"Added {Format(value)} to output."
-                        : expressionStatement.Expression is AssignmentExpressionSyntax
-                            or PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax
-                                ? "Updated the variable state."
-                                : $"Evaluated the statement; its value is {Format(value)}.";
+                    var explanation = expressionStatement.Expression switch
+                    {
+                        InvocationExpressionSyntax call when IsConsoleCall(call, "WriteLine") => $"Added {Format(value)} to output.",
+                        InvocationExpressionSyntax call when IsConsoleCall(call, "Write") => $"Wrote {Format(value)} without ending the line.",
+                        InvocationExpressionSyntax call when structure.CalledMethodName(call) is { } name => value is VoidResult
+                            ? $"Called {name}; it finished and control came back here."
+                            : $"Called {name}; it returned {Format(value)}, which is not stored.",
+                        AssignmentExpressionSyntax or PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax => "Updated the variable state.",
+                        _ => $"Evaluated the statement; its value is {Format(value)}.",
+                    };
                     RecordOperation(statement, explanation);
                     return;
+                case ReturnStatementSyntax exit:
+                    var returned = exit.Expression is null ? null : Evaluate(exit.Expression);
+                    if (returned is VoidResult)
+                    {
+                        throw new TraceUnsupportedException(exit, "A void method has no value to return.");
+                    }
+
+                    RecordOperation(exit, returned is null
+                        ? "Returned to the caller."
+                        : $"Returned {Format(returned)} to the caller.");
+                    throw new ReturnSignal(returned);
                 case IfStatementSyntax branch:
                     var branchResult = RequireBoolean(Evaluate(branch.Condition), branch.Condition);
                     RecordOperation(
@@ -409,6 +457,11 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
         {
             var identifier = (IdentifierNameSyntax)assignment.Left;
             var name = identifier.Identifier.ValueText;
+            if (IsMainArgs(identifier))
+            {
+                throw new TraceUnsupportedException(identifier, "args is read-only in the simulation.");
+            }
+
             if (!variables.ContainsKey(name))
             {
                 throw new TraceUnsupportedException(
@@ -490,22 +543,114 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
 
         private object EvaluateInvocation(InvocationExpressionSyntax invocation)
         {
-            if (!IsConsoleWriteLine(invocation))
+            if (structure.CalledMethodName(invocation) is { } method)
             {
-                throw new TraceUnsupportedException(invocation, "Only Console.WriteLine is supported by traces.");
+                return CallMethod(method, invocation);
+            }
+
+            var writesLine = IsConsoleCall(invocation, "WriteLine");
+            if (!writesLine && !IsConsoleCall(invocation, "Write"))
+            {
+                throw new TraceUnsupportedException(invocation, "Only Console.WriteLine, Console.Write, and your static methods are supported by traces.");
             }
 
             if (invocation.ArgumentList.Arguments.Count > 1)
             {
-                throw new TraceUnsupportedException(invocation, "Console.WriteLine traces accept zero or one argument.");
+                throw new TraceUnsupportedException(invocation, "Console output traces accept zero or one argument.");
             }
 
             var value = invocation.ArgumentList.Arguments.Count == 0
                 ? string.Empty
                 : Evaluate(invocation.ArgumentList.Arguments[0].Expression);
-            output.Add(Format(value));
+            if (value is VoidResult)
+            {
+                throw new TraceUnsupportedException(invocation, "A void method has no value to print.");
+            }
+
+            WriteOutput(Format(value), writesLine);
             return value;
         }
+
+        // Write keeps the current line open; WriteLine finishes it.
+        private void WriteOutput(string text, bool endLine)
+        {
+            if (outputLineOpen)
+            {
+                output[^1] += text;
+            }
+            else
+            {
+                output.Add(text);
+            }
+
+            outputLineOpen = !endLine;
+        }
+
+        private object CallMethod(string name, InvocationExpressionSyntax invocation)
+        {
+            if (frames.Count >= MaximumCallDepth)
+            {
+                throw new TraceUnsupportedException(invocation, "The call stack is too deep to trace.");
+            }
+
+            var method = structure.Methods[name];
+            var parameters = method.ParameterList.Parameters;
+            var arguments = invocation.ArgumentList.Arguments
+                .Select(argument => Evaluate(argument.Expression))
+                .ToArray();
+            if (arguments.Length != parameters.Count)
+            {
+                throw new TraceUnsupportedException(invocation, $"{name} expects {parameters.Count} argument(s).");
+            }
+
+            var frame = new Frame(name);
+            for (var index = 0; index < parameters.Count; index++)
+            {
+                var type = TypeOf(parameters[index].Type!);
+                var parameterName = parameters[index].Identifier.ValueText;
+                frame.Variables[parameterName] = Coerce(arguments[index], type, invocation.ArgumentList.Arguments[index]);
+                frame.Types[parameterName] = type;
+            }
+
+            frames.Push(frame);
+            try
+            {
+                var bindings = parameters.Count == 0
+                    ? "no arguments"
+                    : string.Join(", ", parameters.Select(parameter => $"{parameter.Identifier.ValueText} = {Format(frame.Variables[parameter.Identifier.ValueText])}"));
+                RecordSynthetic(FlowNodeType.Start, name, $"Called {name} with {bindings}. Its variables are separate from the caller's.");
+
+                object? returned = null;
+                try
+                {
+                    ExecuteStatements(ProgramStructure.BodyOf(method));
+                }
+                catch (ReturnSignal signal)
+                {
+                    returned = signal.Value;
+                }
+
+                var isVoid = method.ReturnType is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.VoidKeyword);
+                if (!isVoid && returned is null)
+                {
+                    throw new TraceUnsupportedException(invocation, $"{name} ended without returning a value.");
+                }
+
+                var result = isVoid ? VoidResult.Instance : Coerce(returned!, TypeOf(method.ReturnType), invocation);
+                RecordSynthetic(FlowNodeType.End, name, isVoid
+                    ? $"{name} finished. Control goes back to the caller."
+                    : $"{name} returned {Format(result)} to the caller.");
+                return result;
+            }
+            finally
+            {
+                frames.Pop();
+            }
+        }
+
+        private static SyntaxKind TypeOf(TypeSyntax type) => type is PredefinedTypeSyntax predefined
+            ? predefined.Keyword.Kind()
+            : throw new TraceUnsupportedException(type, $"Type '{type}' is not supported by traces.");
 
         private object GetVariable(IdentifierNameSyntax identifier)
         {
@@ -514,14 +659,26 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
                 return value;
             }
 
+            if (IsMainArgs(identifier))
+            {
+                throw new TraceUnsupportedException(
+                    identifier,
+                    "args is read-only and empty in the simulation, and arrays are not traced yet.");
+            }
+
             throw new TraceUnsupportedException(
                 identifier,
                 $"Variable '{identifier.Identifier.ValueText}' has no traced value.");
         }
 
-        private void RecordSynthetic(FlowNodeType type, string explanation)
+        private bool IsMainArgs(IdentifierNameSyntax identifier) =>
+            frames.Count == 1
+            && structure.Main?.ParameterList.Parameters.FirstOrDefault()?.Identifier.ValueText is { } argsName
+            && identifier.Identifier.ValueText == argsName;
+
+        private void RecordSynthetic(FlowNodeType type, string? scope, string explanation)
         {
-            var node = graph.Nodes.Single(item => item.Type == type);
+            var node = graph.Nodes.Single(item => item.Type == type && item.Scope == scope);
             steps.Add(CreateStep(node, explanation));
         }
 
@@ -554,15 +711,13 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
             output,
             explanation);
 
-        private static bool IsConsoleWriteLine(ExpressionSyntax expression) =>
-            expression is InvocationExpressionSyntax invocation && IsConsoleWriteLine(invocation);
-
-        private static bool IsConsoleWriteLine(InvocationExpressionSyntax invocation) =>
+        private static bool IsConsoleCall(InvocationExpressionSyntax invocation, string member) =>
             invocation.Expression is MemberAccessExpressionSyntax
             {
                 Expression: IdentifierNameSyntax { Identifier.ValueText: "Console" },
-                Name.Identifier.ValueText: "WriteLine",
-            };
+                Name.Identifier.ValueText: var name,
+            }
+            && name == member;
 
         private static bool RequireBoolean(object value, SyntaxNode source) => value is bool result
             ? result
@@ -692,6 +847,27 @@ public sealed class RoslynPedagogicalInterpreter : IPedagogicalInterpreter
             IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
             _ => value.ToString() ?? string.Empty,
         };
+    }
+
+    private sealed record Frame(string? Scope)
+    {
+        public Dictionary<string, object> Variables { get; } = new(StringComparer.Ordinal);
+
+        public Dictionary<string, SyntaxKind> Types { get; } = new(StringComparer.Ordinal);
+    }
+
+    /// <summary>The value of a call to a void method; it cannot be stored, printed, or compared.</summary>
+    private sealed class VoidResult
+    {
+        public static VoidResult Instance { get; } = new();
+
+        public override string ToString() => "(no value)";
+    }
+
+    /// <summary>Unwinds a method body when a return statement runs.</summary>
+    private sealed class ReturnSignal(object? value) : Exception
+    {
+        public object? Value { get; } = value;
     }
 
     private sealed class OperationLimitReachedException : Exception;

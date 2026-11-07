@@ -3,7 +3,7 @@
 ## Document Status
 
 - Task: Prompt 14 — Roslyn parse and diagnostics
-- Last updated: 2026-11-06
+- Last updated: 2026-11-07 (classic programs, actionable diagnostics, supported-feature registry)
 - Scope: syntax parsing, fixed-subset validation, beginner explanations, and bounded server-side analysis
 
 ## What the Analyzer Does
@@ -12,20 +12,39 @@ The Playground's **Check syntax** action sends the current editor text to an in-
 
 The Application project owns the `ICodeAnalysisService` contract and result types. Infrastructure owns the Roslyn implementation. Web registers the adapter and presents the result without depending on Roslyn types.
 
-## Fixed Supported Subset
+## Program Forms
 
-Prompt 14 accepts:
+`ProgramStructure` (Infrastructure) reads the shape of the source once, and the analyzer, flowchart translator, and trace interpreter all use it:
 
-- top-level statements and small local functions;
+- **Classic (default):** plain `using` directives, at most one namespace (block or file-scoped), and one class containing exactly one `static Main` (`void` or `int`, no parameters or one `string[]`), plus any other `static` methods. Using directives are kept in the source and ignored for flow. The flowchart and trace start from Main's body.
+- **Top-level statements (secondary):** statements written directly in the file, as before.
+- **Mixed:** top-level statements *and* a Main method. This is rejected (`CL1010`) because there would be two entry points.
+
+The form is detected, not chosen. The Playground shows it as a badge. Zero Main methods give `CL1008`, two or more give `CL1009`, and an unsupported Main signature or a non-static method gives `CL1014`.
+
+## Supported Subset and the Registry
+
+`SupportedFeatureRegistry` (Application) is the single source of truth for what is accepted. Each entry has a section (Program structure, Statements, Not supported yet), a complete example program, and, for unsupported features, the diagnostic code with its what / why / instead text. The validator builds those diagnostics from the registry, and the Playground's **What's supported** dialog renders the same entries, so the two cannot drift. `SupportedFeatureRegistryTests` runs every example: supported ones must analyze, translate, and trace, and unsupported ones must produce exactly the registry's diagnostic.
+
+Accepted inside Main and static methods:
+
 - `int`, `double`, `bool`, `string`, `char`, and arrays of those types;
-- declarations, assignments, `if`/`else`, `for`, `while`, `do-while`, and `return`;
-- number, string, character, and Boolean literals;
-- basic arithmetic, comparison, Boolean, assignment, and increment/decrement operators;
-- array creation, initialization, and element access;
-- interpolated strings;
-- `Console.WriteLine`, `Console.ReadLine`, and calls to local functions declared in the snippet.
+- initialized declarations, assignments, expression statements, `if` / `else if` / `else`, `for`, `while`, `do-while`;
+- `return` anywhere except inside a loop;
+- number, string, character, and Boolean literals; arithmetic, comparison, Boolean, assignment, and increment/decrement operators; interpolated strings;
+- `Console.WriteLine`, `Console.Write`, `Console.ReadLine`, and calls to the program's own static methods (argument count is checked, `CL1015`; recursion is rejected, `CL1013`).
 
-The validator returns an actionable unsupported-feature diagnostic for constructs outside that list, including `break`, `continue`, namespaces, type declarations, `using` directives, `foreach`, `switch`, exception handling, object creation, lambdas, general member access, and framework APIs. Preprocessor directives are rejected too.
+An `else if` chain does not add nesting depth.
+
+## Diagnostic Format
+
+Every unsupported-feature diagnostic says **what** is wrong (`Message`), **why** (`Explanation`), and **what to do instead** (`Suggestion`). It also names a registry entry (`HelpTopicId`) that the Playground's **What's supported** button opens. Examples:
+
+- `CL1001` switch: "switch is not supported yet." Instead: "Use if/else if/else or a small method instead."
+- `CL1004` depth: "This code is nested 4 levels deep; the limit is 3." Instead: extract the innermost block into a static method.
+- `FL1002` local functions: suggests moving the function into the class. In classic programs the Playground offers **Rewrite as static method**, which `IProgramStructureService` performs syntactically. It refuses when the function uses the enclosing method's variables.
+
+Not supported yet (each with its own diagnostic): `switch`, `break`, `continue`, `return` inside loops, local functions, records, properties and fields, generics, `async`/`await`, LINQ, lambdas, object creation, `foreach`, exception handling, and framework APIs (arbitrary .NET execution). Preprocessor directives, `using static`, and alias directives are rejected too.
 
 ## Limits and Outcomes
 

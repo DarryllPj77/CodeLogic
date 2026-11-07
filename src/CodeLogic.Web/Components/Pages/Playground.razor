@@ -4,6 +4,7 @@
 @implements IAsyncDisposable
 @inject ICodeAnalysisService CodeAnalysisService
 @inject IEditorStructureService EditorStructureService
+@inject IProgramStructureService ProgramStructureService
 @inject ICurriculumCatalog CurriculumCatalog
 @inject IFlowchartTranslator FlowchartTranslator
 @inject IMermaidFlowchartSerializer MermaidSerializer
@@ -27,8 +28,13 @@
             <details class="menu-dropdown ws-menu">
                 <summary>Edit</summary>
                 <div class="menu-dropdown__content">
+                    <button type="button" @onclick='() => LoadTemplateAsync(ProgramTemplates.ClassicHelloWorld, "classic program")'>New classic program</button>
+                    <button type="button" @onclick='() => LoadTemplateAsync(ProgramTemplates.TopLevelHelloWorld, "top-level program")'>New top-level program</button>
+                    <hr />
                     <button type="button" data-editor-command="foldAll">Fold All</button>
                     <button type="button" data-editor-command="unfoldAll">Unfold All</button>
+                    <hr />
+                    <button type="button" @onclick="() => OpenWhatsSupported(null)">What's supported</button>
                 </div>
             </details>
         </div>
@@ -124,6 +130,7 @@
                         <div class="ws-panel__title-row">
                             <h2 id="editor-title" class="ws-panel__title"><span class="ws-panel__marker" aria-hidden="true"></span>Monaco C# editor</h2>
                             <span class="ws-file-tag" title="One browser-local draft">Program.cs</span>
+                            <span class="ws-form-badge ws-form-badge--@DetectedForm.ToString().ToLowerInvariant()" role="status" title="Detected automatically from your code">@FormLabel</span>
                             <div class="ws-panel__actions">
                                 <button type="button" class="ws-chip-button" aria-pressed="@Pressed(IsEditorLight)" aria-label="Light editor theme" title="Switch the editor between dark and light themes" @onclick="ToggleEditorThemeAsync"><span aria-hidden="true">☀</span> Light mode</button>
                                 <button type="button" class="ws-icon-button" aria-pressed="@Pressed(Layout.IsMaximized(WorkspacePanel.Editor))" aria-label="@(Layout.IsMaximized(WorkspacePanel.Editor) ? "Restore editor panel" : "Maximize editor panel")" title="Maximize or restore (Esc restores)" @onclick="() => Layout.ToggleMaximized(WorkspacePanel.Editor)">@(Layout.IsMaximized(WorkspacePanel.Editor) ? "EXIT FULL" : "FULL")</button>
@@ -157,6 +164,7 @@
                     <div class="ws-panel__footer editor-footer">
                         <div class="editor-meta">
                             <p id="editor-tab-help">Tab indents · Esc, then Tab leaves the editor</p>
+                            <button type="button" class="ws-link-button" @onclick="() => OpenWhatsSupported(null)">What's supported</button>
                             <p id="editor-help"><kbd>Ctrl</kbd>+<kbd>S</kbd> save · <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd> reset</p>
                             <p id="editor-character-count" class="@(EditorState.CurrentCode.Length > EditorState.MaximumCharacters * 0.9 ? "editor-meta__count--near" : null)">@EditorState.CurrentCode.Length.ToString("N0") / @EditorState.MaximumCharacters.ToString("N0") characters</p>
                         </div>
@@ -227,17 +235,7 @@
                                             <ol class="analysis-diagnostic-list">
                                                 @foreach (var diagnostic in AnalysisResult.Diagnostics)
                                                 {
-                                                    <li>
-                                                        <p class="analysis-diagnostic-heading">
-                                                            <strong>@diagnostic.Code</strong>
-                                                            @if (diagnostic.Line is not null && diagnostic.Column is not null)
-                                                            {
-                                                                <span>Line @diagnostic.Line, column @diagnostic.Column</span>
-                                                            }
-                                                        </p>
-                                                        <p>@diagnostic.Message</p>
-                                                        <p class="analysis-explanation">@diagnostic.Explanation</p>
-                                                    </li>
+                                                    <li>@DiagnosticItem(diagnostic)</li>
                                                 }
                                             </ol>
                                         }
@@ -272,17 +270,7 @@
                                         <ol class="analysis-diagnostic-list">
                                             @foreach (var diagnostic in TraceResult.Diagnostics)
                                             {
-                                                <li>
-                                                    <p class="analysis-diagnostic-heading">
-                                                        <strong>@diagnostic.Code</strong>
-                                                        @if (diagnostic.Line is not null && diagnostic.Column is not null)
-                                                        {
-                                                            <span>Line @diagnostic.Line, column @diagnostic.Column</span>
-                                                        }
-                                                    </p>
-                                                    <p>@diagnostic.Message</p>
-                                                    <p class="analysis-explanation">@diagnostic.Explanation</p>
-                                                </li>
+                                                <li>@DiagnosticItem(diagnostic)</li>
                                             }
                                         </ol>
                                     </div>
@@ -380,17 +368,7 @@
                                         <ol class="analysis-diagnostic-list">
                                             @foreach (var diagnostic in LogicalFeedbackResult.Diagnostics)
                                             {
-                                                <li>
-                                                    <p class="analysis-diagnostic-heading">
-                                                        <strong>@diagnostic.Code</strong>
-                                                        @if (diagnostic.Line is not null && diagnostic.Column is not null)
-                                                        {
-                                                            <span>Line @diagnostic.Line, column @diagnostic.Column</span>
-                                                        }
-                                                    </p>
-                                                    <p>@diagnostic.Message</p>
-                                                    <p class="analysis-explanation">@diagnostic.Explanation</p>
-                                                </li>
+                                                <li>@DiagnosticItem(diagnostic)</li>
                                             }
                                         </ol>
                                     </div>
@@ -503,6 +481,7 @@
                                 <li><span class="legend-swatch legend-swatch--error"></span>Diagnostic</li>
                                 <li><span class="legend-line legend-line--loop"></span>Loop</li>
                                 <li><span class="legend-line legend-line--exit"></span>Exit</li>
+                                <li><span class="legend-line legend-line--call"></span>Calls a method</li>
                             </ul>
                         </details>
                     </div>
@@ -538,17 +517,7 @@
                             <ol class="analysis-diagnostic-list">
                                 @foreach (var diagnostic in FlowchartResult.Diagnostics)
                                 {
-                                    <li>
-                                        <p class="analysis-diagnostic-heading">
-                                            <strong>@diagnostic.Code</strong>
-                                            @if (diagnostic.Line is not null && diagnostic.Column is not null)
-                                            {
-                                                <span>Line @diagnostic.Line, column @diagnostic.Column</span>
-                                            }
-                                        </p>
-                                        <p>@diagnostic.Message</p>
-                                        <p class="analysis-explanation">@diagnostic.Explanation</p>
-                                    </li>
+                                    <li>@DiagnosticItem(diagnostic)</li>
                                 }
                             </ol>
                         </div>
@@ -562,7 +531,7 @@
                                 <ol class="analysis-diagnostic-list">
                                     @foreach (var diagnostic in LiveFlowchartFailure.Diagnostics)
                                     {
-                                        <li><strong>@diagnostic.Code</strong> @diagnostic.Message</li>
+                                        <li>@DiagnosticItem(diagnostic)</li>
                                     }
                                 </ol>
                             </details>
@@ -687,6 +656,7 @@
         <div class="ws-dialog-backdrop" @onclick="ToggleHelp">
             <div id="workspace-help" class="ws-dialog" role="dialog" aria-modal="true" aria-labelledby="workspace-help-title" @onclick:stopPropagation="true">
                 <div class="panel-title"><h2 id="workspace-help-title">C# control-flow studio</h2><button type="button" id="workspace-help-close" class="panel-close" aria-label="Close help" @onclick="ToggleHelp">×</button></div>
+                <p><button type="button" class="button button--secondary" @onclick="() => OpenWhatsSupported(null)">What's supported</button> lists every construct, with an example you can load.</p>
                 <p>Edit supported source, inspect Roslyn diagnostics, generate a deterministic graph, and step through a bounded simulation. Nothing is compiled or run by .NET.</p>
                 <h3>Keyboard</h3>
                 <dl class="ws-shortcuts">
@@ -701,14 +671,52 @@
                 <ul>
                     <li>The editor uses Monaco for highlighting and code folding, without IntelliSense or compilation. If Monaco cannot load, a plain-text editor is used instead.</li>
                     <li>Code is parsed and may be interpreted by CodeLogic's small teaching model. It is never compiled or executed as a .NET program.</li>
-                    <li>Flowcharts support sequence, nested <code>if/else</code>, <code>while</code>, <code>for</code>, and <code>do-while</code> within the stated nesting limit.</li>
+                    <li>Write a classic program (<code>using</code>, <code>namespace</code>, <code>class</code>, <code>static void Main(string[] args)</code>) or top-level statements. CodeLogic detects which.</li>
+                    <li>Flowcharts support sequence, <code>if/else if/else</code>, <code>while</code>, <code>for</code>, <code>do-while</code>, and static methods called from Main, each drawn as its own sub-flowchart.</li>
                     <li><code>break</code> and <code>continue</code> are not supported yet and produce an explanation.</li>
-                    <li>Traces support scalar values, expressions, output, branches, and the supported loops; arrays, methods, live input, and general .NET behavior are not simulated.</li>
+                    <li>Traces support scalar values, expressions, Console output, branches, loops, and calls to your static methods. Arrays (including <code>args</code>), live input, and general .NET behavior are not simulated.</li>
                     <li>A trace stops after @PedagogicalInterpreter.Limits.MaximumOperations operations.</li>
                     <li>The editor accepts at most @EditorState.MaximumCharacters.ToString("N0") characters.</li>
                     <li>Analysis stops after @CodeAnalysisService.Limits.MaximumDuration.TotalSeconds.ToString("N0") seconds and supports at most @CodeAnalysisService.Limits.MaximumNestingDepth nested control-flow statements.</li>
                     <li>Save keeps one draft only in this browser's local storage. It is not synced to your account or another device.</li>
                 </ul>
+            </div>
+        </div>
+    }
+
+    @if (Layout.IsWhatsSupportedOpen)
+    {
+        <div class="ws-dialog-backdrop" @onclick="CloseWhatsSupported">
+            <div id="whats-supported" class="ws-dialog ws-dialog--wide" role="dialog" aria-modal="true" aria-labelledby="whats-supported-title" @onclick:stopPropagation="true">
+                <div class="panel-title"><h2 id="whats-supported-title">What's supported</h2><button type="button" id="whats-supported-close" class="panel-close" aria-label="Close What's supported" @onclick="CloseWhatsSupported">×</button></div>
+                <p class="ws-tab-intro">This list comes from the same registry the analyzer uses. Load any example into the editor to see its flowchart or diagnostic.</p>
+                @foreach (var section in WhatsSupportedView.Sections)
+                {
+                    <section class="supported-section supported-section--@section.Section.ToString().ToLowerInvariant()" aria-labelledby="supported-@section.Section">
+                        <h3 id="supported-@section.Section">@section.Title</h3>
+                        <ul class="supported-list">
+                            @foreach (var feature in section.Features)
+                            {
+                                <li id="feature-@feature.Id" class="supported-item @(Layout.WhatsSupportedTopicId == feature.Id ? "supported-item--focused" : null)" tabindex="-1">
+                                    <div class="supported-item__header">
+                                        <h4>@feature.Title</h4>
+                                        <button type="button" class="button button--secondary" aria-label="Load the @feature.Title example into the editor" @onclick="() => LoadExampleAsync(feature)">Load example</button>
+                                    </div>
+                                    <p>@feature.Summary</p>
+                                    @if (!feature.IsSupported)
+                                    {
+                                        <p class="analysis-explanation"><span class="diagnostic-label">Why:</span> @feature.Why</p>
+                                        <p class="diagnostic-instead"><span class="diagnostic-label">Instead:</span> @feature.Instead</p>
+                                    }
+                                    <details>
+                                        <summary>Example</summary>
+                                        <pre><code>@feature.Example</code></pre>
+                                    </details>
+                                </li>
+                            }
+                        </ul>
+                    </section>
+                }
             </div>
         </div>
     }
@@ -839,6 +847,8 @@
         _ => "Terminal",
     };
 
+    private ProgramForm DetectedForm { get; set; }
+
     private static string ProfileInitial(string? name) =>
         string.IsNullOrWhiteSpace(name) ? "U" : name.Trim()[0].ToString().ToUpperInvariant();
 
@@ -846,19 +856,12 @@
 
     protected override void OnInitialized()
     {
-        var manifest = CurriculumCatalog.GetManifest();
-        var snippets = manifest.Lessons
-            .Where(lesson => lesson.Status == CurriculumLessonStatus.Complete)
-            .Select(lesson => new PlaygroundSnippet(
-                lesson.Lesson.Id.ToString(),
-                lesson.Lesson.Title,
-                lesson.Lesson.Objective,
-                lesson.SampleCode));
-
+        // Lessons keep their own samples; the Playground uses its classic-form catalog.
         EditorState = new PlaygroundEditorState(
-            snippets,
-            manifest.SafeSnippetPolicy.MaximumCharacters);
+            PlaygroundSnippets.All,
+            CurriculumCatalog.GetManifest().SafeSnippetPolicy.MaximumCharacters);
         SelectedSnippetId = EditorState.ActiveSnippet.Id;
+        DetectedForm = ProgramStructureService.DetectForm(EditorState.CurrentCode);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -869,7 +872,7 @@
             {
                 JavaScriptModule = await JavaScript.InvokeAsync<IJSObjectReference>(
                     "import",
-                    "./js/playground.js?v=5");
+                    "./js/playground.js?v=6");
                 WorkspaceModule = await JavaScript.InvokeAsync<IJSObjectReference>(
                     "import",
                     "./js/workspace.js?v=3");
@@ -1003,6 +1006,13 @@
     [JSInvokable]
     public Task UpdateCodeFromBrowser(string code)
     {
+        // The editor echoes values the server just set (snippets, examples, rewrites); ignoring the
+        // echo keeps fresh analysis results instead of clearing them as if the learner had typed.
+        if (string.Equals(code, EditorState.CurrentCode, StringComparison.Ordinal))
+        {
+            return Task.CompletedTask;
+        }
+
         UpdateCode(code);
         return InvokeAsync(StateHasChanged);
     }
@@ -1061,6 +1071,7 @@
         AnalysisResult = null;
         ClearFlowchart();
         EditorState.Reset();
+        SelectedSnippetId = EditorState.ActiveSnippet.Id;
         await SynchronizeEditorValueAsync();
         if (JavaScriptModule is not null)
         {
@@ -1820,6 +1831,7 @@
             FlowEdgeType.True => "True path",
             FlowEdgeType.False => "False path",
             FlowEdgeType.LoopBack => edge.Label ?? "Loop path",
+            FlowEdgeType.Call => "Calls",
             _ => "Next",
         };
         return $"{path}: {from.Label} → {to.Label}";
@@ -1830,6 +1842,13 @@
         var regions = await EditorStructureService.GetFoldRegionsAsync(source, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         EditorFoldRegions = regions;
+        var form = ProgramStructureService.DetectForm(source);
+        if (form != DetectedForm)
+        {
+            DetectedForm = form;
+            await InvokeAsync(StateHasChanged);
+        }
+
         if (JavaScriptModule is null)
         {
             return;
@@ -1877,9 +1896,129 @@
         }
     }
 
-    private Task SynchronizeEditorValueAsync() => JavaScriptModule is null
-        ? Task.CompletedTask
-        : JavaScriptModule.InvokeVoidAsync("setEditorValue", EditorElement, EditorState.CurrentCode).AsTask();
+    private Task SynchronizeEditorValueAsync()
+    {
+        DetectedForm = ProgramStructureService.DetectForm(EditorState.CurrentCode);
+        return JavaScriptModule is null
+            ? Task.CompletedTask
+            : JavaScriptModule.InvokeVoidAsync("setEditorValue", EditorElement, EditorState.CurrentCode).AsTask();
+    }
+
+    private void OpenWhatsSupported(string? topicId)
+    {
+        Layout.OpenWhatsSupported(topicId);
+        PendingFocusElementId = topicId is not null && SupportedFeatureRegistry.TryGet(topicId, out _)
+            ? $"feature-{topicId}"
+            : "whats-supported-close";
+    }
+
+    private void CloseWhatsSupported() => Layout.CloseWhatsSupported();
+
+    // Replaces the editor text through the same path as a snippet load: stale results are cleared
+    // and the live flowchart is rebuilt from the new source.
+    private async Task<bool> LoadSourceAsync(string code, string statusMessage)
+    {
+        AnalysisResult = null;
+        ClearFlowchart();
+        if (!EditorState.TryUpdateCode(code))
+        {
+            StatusMessage = "That source is longer than the editor limit, so it was not loaded.";
+            return false;
+        }
+
+        await SynchronizeEditorValueAsync();
+        if (Layout.Mode == WorkspaceMode.FlowchartFocus)
+        {
+            Layout.SetMode(WorkspaceMode.Analyze);
+        }
+
+        Layout.SetCompactView(CompactView.Editor);
+        StatusMessage = statusMessage;
+        _ = FlowchartDebouncer.ScheduleAsync(EditorState.CurrentCode, UpdateLiveFlowchartAsync);
+        return true;
+    }
+
+    private Task LoadTemplateAsync(string template, string label) =>
+        LoadSourceAsync(template, $"Started a new {label}. Save to keep it as your browser draft.");
+
+    private async Task LoadExampleAsync(SupportedFeature feature)
+    {
+        Layout.CloseWhatsSupported();
+        if (!await LoadSourceAsync(feature.Example, $"Loaded the {feature.Title} example."))
+        {
+            return;
+        }
+
+        if (!feature.IsSupported)
+        {
+            // Show the diagnostic the example demonstrates right away.
+            await CheckSyntaxAsync();
+        }
+    }
+
+    private async Task RewriteLocalFunctionAsync(CodeDiagnostic diagnostic)
+    {
+        if (diagnostic.Line is not { } line || diagnostic.Column is not { } column)
+        {
+            return;
+        }
+
+        var result = ProgramStructureService.RewriteLocalFunctionAsStaticMethod(EditorState.CurrentCode, line, column);
+        if (!result.Succeeded || result.Source is null)
+        {
+            StatusMessage = result.Message;
+            ShowToast(result.Message, "warning");
+            return;
+        }
+
+        if (await LoadSourceAsync(result.Source, result.Message))
+        {
+            await AnalyzeAsync();
+            ShowToast(result.Message);
+        }
+    }
+
+    private static string HelpTopicTitle(string? topicId) =>
+        SupportedFeatureRegistry.TryGet(topicId, out var feature) ? feature!.Title : "all features";
+
+    private string FormLabel => DetectedForm switch
+    {
+        ProgramForm.Classic => "Classic program",
+        ProgramForm.TopLevel => "Top-level statements",
+        ProgramForm.Mixed => "Mixed: two entry points",
+        _ => "No program yet",
+    };
+
+    // One rendering for every diagnostic: what is wrong, why, what to do instead, and where to learn more.
+    private RenderFragment DiagnosticItem(CodeDiagnostic diagnostic) => @<div class="diagnostic-item">
+        <p class="analysis-diagnostic-heading">
+            <strong>@diagnostic.Code</strong>
+            @if (diagnostic.Line is not null && diagnostic.Column is not null)
+            {
+                <span>Line @diagnostic.Line, column @diagnostic.Column</span>
+            }
+        </p>
+        <p class="diagnostic-what">@diagnostic.Message</p>
+        @if (diagnostic.Category == CodeDiagnosticCategory.Unsupported)
+        {
+            <p class="analysis-explanation"><span class="diagnostic-label">Why:</span> @diagnostic.Explanation</p>
+        }
+        else
+        {
+            <p class="analysis-explanation">@diagnostic.Explanation</p>
+        }
+        @if (diagnostic.Suggestion is not null)
+        {
+            <p class="diagnostic-instead"><span class="diagnostic-label">Instead:</span> @diagnostic.Suggestion</p>
+        }
+        <div class="diagnostic-actions">
+            <button type="button" class="ws-link-button" aria-label="What's supported: @HelpTopicTitle(diagnostic.HelpTopicId)" @onclick="() => OpenWhatsSupported(diagnostic.HelpTopicId)">What's supported</button>
+            @if (diagnostic.Code == "FL1002" && DetectedForm == ProgramForm.Classic)
+            {
+                <button type="button" class="button button--secondary" @onclick="() => RewriteLocalFunctionAsync(diagnostic)">Rewrite as static method</button>
+            }
+        </div>
+    </div>;
 
     public async ValueTask DisposeAsync()
     {

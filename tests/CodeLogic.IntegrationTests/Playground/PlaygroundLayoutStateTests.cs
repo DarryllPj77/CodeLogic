@@ -142,6 +142,25 @@ public sealed class PlaygroundLayoutStateTests
     }
 
     [Fact]
+    public void WhatsSupportedOpensAtATopicReplacesOtherDialogsAndClosesOnEscape()
+    {
+        var layout = new PlaygroundLayoutState();
+        layout.ToggleHelp();
+        layout.ToggleMaximized(WorkspacePanel.Editor);
+
+        layout.OpenWhatsSupported("switch");
+
+        Assert.True(layout.IsWhatsSupportedOpen);
+        Assert.Equal("switch", layout.WhatsSupportedTopicId);
+        Assert.False(layout.IsHelpOpen);
+
+        Assert.True(layout.HandleEscape());
+        Assert.False(layout.IsWhatsSupportedOpen);
+        Assert.Null(layout.WhatsSupportedTopicId);
+        Assert.NotNull(layout.MaximizedPanel);
+    }
+
+    [Fact]
     public void FlowchartFocusRestoresAMaximizedEditorAndShowsTheFlowchart()
     {
         var layout = new PlaygroundLayoutState();

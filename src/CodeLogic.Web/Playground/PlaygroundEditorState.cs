@@ -87,8 +87,13 @@ public sealed class PlaygroundEditorState
 
     public void MarkSaved() => HasUnsavedChanges = false;
 
+    /// <summary>The first snippet: the default editor content and the Reset target.</summary>
+    public PlaygroundSnippet DefaultSnippet => snippets[0];
+
+    /// <summary>Restores the default program (the classic Hello World in the Playground catalog).</summary>
     public void Reset()
     {
+        ActiveSnippet = DefaultSnippet;
         CurrentCode = ActiveSnippet.Code;
         HasUnsavedChanges = false;
     }

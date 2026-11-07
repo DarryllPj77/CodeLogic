@@ -5,7 +5,7 @@ const plainEditors = new WeakMap();
 const sourceControllers = new WeakMap();
 const canvasControllers = new WeakMap();
 const suppressedSelections = new WeakSet();
-const nodeTypeNames = Object.freeze({ 1: "Start", 2: "End", 3: "Action", 4: "Decision", 5: "Input", 6: "Output" });
+const nodeTypeNames = Object.freeze({ 1: "Start", 2: "End", 3: "Action", 4: "Decision", 5: "Input", 6: "Output", 7: "Call" });
 const mermaidModuleUrl = "https://cdn.jsdelivr.net/npm/mermaid@12.2.0/dist/mermaid.esm.min.mjs";
 const monacoBaseUrl = "https://cdn.jsdelivr.net/npm/monaco-editor@0.57.0/min/vs";
 let mermaidPromise = null;
@@ -182,7 +182,11 @@ export function setEditorValue(host, value) {
     if (state === undefined || state.model.getValue() === value) {
         return;
     }
-    state.model.setValue(value);
+    // An edit operation (rather than setValue) keeps the change on the undo stack, so Ctrl+Z can
+    // undo a loaded example or an automatic rewrite.
+    state.editor.pushUndoStop();
+    state.editor.executeEdits("codelogic", [{ range: state.model.getFullModelRange(), text: value }]);
+    state.editor.pushUndoStop();
 }
 
 export function updateFoldRegions(host, foldRanges) {

@@ -70,15 +70,26 @@ public static class KnownLogicalExercises
         "Display Adult for age 18 or older and Minor for younger ages.",
         inputVariableName: "age",
         starterCode: """
-            int age = 18;
+            using System;
 
-            if (age >= 18)
+            namespace MyProgram
             {
-                Console.WriteLine("Adult");
-            }
-            else
-            {
-                Console.WriteLine("Minor");
+                class Program
+                {
+                    static void Main(string[] args)
+                    {
+                        int age = 18;
+
+                        if (age >= 18)
+                        {
+                            Console.WriteLine("Adult");
+                        }
+                        else
+                        {
+                            Console.WriteLine("Minor");
+                        }
+                    }
+                }
             }
             """,
         testCases:

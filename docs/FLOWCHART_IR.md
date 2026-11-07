@@ -3,8 +3,8 @@
 ## Document Status
 
 - Tasks: Prompts 15 and 17 — graph IR, loops, and nested control flow
-- Last updated: 2026-11-01
-- Schema version: 1.1
+- Last updated: 2026-11-07
+- Schema version: 1.2 (method scopes and calls)
 - Scope: deterministic graph translation for sequence, nested `if/else`, `while`, `for`, and `do-while`
 
 ## Purpose and Boundary
@@ -13,15 +13,15 @@ The flowchart intermediate representation (IR) is the stable boundary between C#
 
 The translator does not run source, compile source, or infer runtime behavior.
 
-## Schema 1.1
+## Schema 1.2
 
 `FlowGraph` contains:
 
-- `SchemaVersion`: currently `1.1`;
+- `SchemaVersion`: currently `1.2`;
 - an ordered, read-only list of `FlowNode` values;
 - an ordered, read-only list of `FlowEdge` values.
 
-Every graph has exactly one start node and one end node. Node and edge IDs are unique, and every edge must reference existing nodes. Construction rejects an invalid graph rather than allowing broken renderer input.
+Nodes carry an optional `Scope`: `null` for the program's entry flow (Main or the top-level statements), or a static method's name. Every scope has exactly one start node and one end node, and the entry flow must exist. Node and edge IDs are unique, and every edge must reference existing nodes. Construction rejects an invalid graph rather than allowing broken renderer input.
 
 ### Nodes
 
@@ -32,7 +32,8 @@ Every graph has exactly one start node and one end node. Node and edge IDs are u
 | `Action` | Declaration, assignment, calculation, or other supported expression. |
 | `Decision` | An `if` or loop condition. |
 | `Input` | A supported statement containing `Console.ReadLine`. |
-| `Output` | A direct `Console.WriteLine` statement. |
+| `Output` | A direct `Console.WriteLine` or `Console.Write` statement. |
+| `Call` | A statement that calls one of the program's static methods (drawn as a subroutine box). |
 
 Source-backed nodes contain a `SourceSpan` with zero-based character offset and length plus one-based start/end line and column positions. Synthetic start/end nodes have no source span.
 
@@ -44,6 +45,7 @@ Source-backed nodes contain a `SourceSpan` with zero-based character offset and 
 | `True` | `True` | The condition evaluated true. |
 | `False` | `False` | The condition evaluated false. |
 | `LoopBack` | `Repeat` or `True · repeat` | Control returns to a loop condition or the start of a `do-while` body. |
+| `Call` | `calls Name` | From a calling node to the called method's Start node (drawn dotted). |
 
 Both branch exits connect to the next source statement. Loop decisions keep an explicit false exit even when the condition text looks permanently true, because the graph describes syntax rather than proving runtime termination.
 
@@ -68,9 +70,12 @@ The translator first reuses Prompt 14 analysis. It then parses the already-bound
 
 ## Supported Translation Slice
 
-Schema 1.1 translates:
+Schema 1.2 translates:
 
-- top-level declarations and expression statements as sequence;
+- Main's body in classic programs (or the top-level statements) as the entry flow;
+- each static method as its own scoped sub-flowchart, `Start: Name(params)` to `Return from Name`, which Mermaid draws as a labelled subgraph;
+- `return` as an action node connected to its scope's End node;
+- declarations and expression statements as sequence;
 - `Console.ReadLine` statements as input;
 - direct `Console.WriteLine` statements as output;
 - nested `if/else` up to the analyzer's three-level control-flow limit;
@@ -83,7 +88,7 @@ Schema 1.1 translates:
 
 ## Known Limitations
 
-- Local functions and `return` are not translated.
+- Local functions are rejected by analysis (`FL1002`); `return` inside a loop is rejected (`CL1012`).
 - `break` and `continue` are not translated.
 - Conditions are displayed but not semantically evaluated; `while (true)` and `for (;;)` therefore retain a structural false exit alongside the repeat edge.
 - Node labels describe syntax, not evaluated values or program output.

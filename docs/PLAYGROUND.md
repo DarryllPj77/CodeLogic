@@ -3,7 +3,7 @@
 ## Document Status
 
 - Tasks: Prompts 13–19 plus the owner-directed IDE workspace redesign
-- Last updated: 2026-11-07 (non-scrolling workspace layout)
+- Last updated: 2026-11-07 (classic programs, What's supported, non-scrolling workspace layout)
 - Editor: Monaco Editor 0.57.0 (pinned CDN) with Roslyn-driven code folding, falling back to an accessible HTML textarea when Monaco cannot load
 
 ## Scope
@@ -58,6 +58,16 @@ Play, Step, Back, Reset, Speed, and Predict live only in the flowchart toolbar. 
 Resize handles use native separator semantics. Drag one with a pointer, focus it and use arrow keys, or double-click it to reset its panel. Operation status is indeterminate because analysis and rendering do not provide measured progress. Toasts report only completed success, warning, or failure states; they do not predict outcomes.
 
 The Explorer is a size-aware container rather than a scaled desktop panel. At intermediate widths, file and structure labels stay on one line and truncate with an ellipsis. At the 148-pixel compact threshold, prose and labels are hidden while stable, centered icons remain available; expanding past the threshold restores the text. The panel itself remains bounded between 120 and 300 pixels and scrolls internally, so resizing cannot compress prose into vertical letter stacks or overlap neighboring panels.
+
+## Classic Programs, Snippets, and What's Supported
+
+New files, **Reset editor**, and the default snippet all use the classic template (`using System;`, `namespace MyProgram`, `class Program`, `static void Main(string[] args)`). **Edit → New classic program / New top-level program** start blank programs in either form. A badge next to the editor title shows the detected form: *Classic program*, *Top-level statements*, or *Mixed: two entry points*.
+
+The curated snippets live in `PlaygroundSnippets` (Web), separate from lesson content: Hello World, variables, if/else if/else, while, for, do/while, a static method with parameters, and one *(top-level mode)* example. Lesson pages keep their own samples.
+
+**What's supported** (editor footer, Edit menu, Help dialog, and next to every diagnostic) opens a dialog generated from `SupportedFeatureRegistry`. It has three sections: Program structure, Statements, and Not supported yet. Each item has an example and a **Load example** button. Loading an unsupported example runs Check syntax so its diagnostic appears straight away. A diagnostic's button opens the dialog at its own entry.
+
+Diagnostics show the code and position, then **what** is wrong, **Why**, and **Instead**. For `FL1002` in a classic program, **Rewrite as static method** moves the local function into the class. Ctrl+Z undoes the rewrite.
 
 ## Snippets and Size Limit
 

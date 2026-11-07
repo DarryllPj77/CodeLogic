@@ -2049,3 +2049,40 @@ a.ws-account:hover { border-color: #3b5a7a; }
     .workspace-welcome__preview { display: none; }
     .workspace-capabilities { grid-template-columns: 1fr; }
 }
+
+/* Classic programs: form badge, what/why/instead diagnostics, and the What's supported dialog */
+.ws-form-badge { background: #111b2c; border: 1px solid var(--color-border); border-radius: 999px; color: var(--color-text-muted); flex: none; font-size: 0.56rem; font-weight: 800; letter-spacing: 0.05em; padding: 0.1rem 0.5rem; text-transform: uppercase; white-space: nowrap; }
+.ws-form-badge--classic { background: #0f241e; border-color: #23806a; color: #a7f3d0; }
+.ws-form-badge--toplevel { background: #0f2038; border-color: #2f5a8f; color: #93c5fd; }
+.ws-form-badge--mixed { background: #2a2110; border-color: #856a24; color: #fde68a; }
+.ws-link-button { background: none; border: 0; color: var(--color-information); cursor: pointer; font-size: 0.66rem; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
+.ws-link-button:hover { color: #7dd3fc; }
+.diagnostic-item p { margin: 0.15rem 0; }
+.diagnostic-what { color: var(--color-text-primary); font-weight: 600; }
+.diagnostic-label { color: var(--color-text-muted); font-weight: 700; }
+.diagnostic-instead { color: #a7f3d0; }
+.diagnostic-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.35rem; }
+.diagnostic-actions .button { font-size: 0.64rem; min-height: 1.65rem; padding: 0.15rem 0.5rem; }
+.menu-dropdown__content hr { border: 0; border-top: 1px solid var(--color-border); margin: 0.25rem 0; }
+.legend-line--call { border-color: #22d3ee; border-top-style: dotted; }
+.flowchart-node--call rect, .flowchart-node--call path, .flowchart-node--call polygon { stroke: #22d3ee !important; }
+.flowchart-canvas .cluster rect { fill: rgb(34 211 238 / 0.04) !important; stroke: #155e75 !important; stroke-dasharray: 5 4; }
+.flowchart-canvas .cluster-label, .flowchart-canvas .cluster text { fill: #67e8f9 !important; color: #67e8f9; }
+.ws-dialog--wide { max-width: 58rem; }
+.supported-section { margin-top: var(--space-4); }
+.supported-section h3 { border-bottom: 1px solid var(--color-border); color: var(--color-text-secondary); font-size: 0.76rem; letter-spacing: 0.08em; margin: 0 0 0.6rem; padding-bottom: 0.3rem; text-transform: uppercase; }
+.supported-section--notsupportedyet h3 { color: var(--color-warning); }
+.supported-list { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); list-style: none; margin: 0; padding: 0; }
+.supported-item { background: #0f1828; border: 1px solid var(--color-border); border-radius: 0.5rem; padding: 0.6rem 0.75rem; scroll-margin: 1rem; }
+.supported-item--focused { border-color: var(--color-information); box-shadow: 0 0 0 2px rgb(56 189 248 / 0.25); }
+.supported-item__header { align-items: flex-start; display: flex; gap: 0.5rem; justify-content: space-between; }
+.supported-item h4 { font-family: var(--font-mono); font-size: 0.76rem; margin: 0; }
+.supported-item p { font-size: 0.7rem; margin: 0.3rem 0; }
+.supported-item summary { color: var(--color-text-muted); cursor: pointer; font-size: 0.66rem; }
+.supported-item pre { background: #0b0f17; border-radius: 0.35rem; font-size: 0.64rem; margin: 0.35rem 0 0; max-height: 14rem; overflow: auto; padding: 0.5rem; }
+.supported-item .button { flex: none; font-size: 0.62rem; min-height: 1.6rem; padding: 0.15rem 0.45rem; }
+@media (max-width: 93.75rem) {
+    .ws-form-badge ~ .ws-panel__actions .ws-chip-button { font-size: 0; padding-inline: 0.45rem; }
+    .ws-form-badge ~ .ws-panel__actions .ws-chip-button span { font-size: 0.8rem; }
+    .editor-panel .ws-file-tag { display: none; }
+}

@@ -10,6 +10,9 @@ public enum FlowNodeType
     Decision = 4,
     Input = 5,
     Output = 6,
+
+    /// <summary>A statement that calls one of the program's static methods (drawn as a subroutine box).</summary>
+    Call = 7,
 }
 
 public enum FlowEdgeType
@@ -18,6 +21,9 @@ public enum FlowEdgeType
     True = 2,
     False = 3,
     LoopBack = 4,
+
+    /// <summary>From a statement that calls a method to that method's Start node (drawn dotted).</summary>
+    Call = 5,
 }
 
 public sealed record SourceSpan
@@ -64,7 +70,11 @@ public sealed record SourceSpan
 
 public sealed record FlowNode
 {
-    public FlowNode(string id, FlowNodeType type, string label, SourceSpan? sourceSpan)
+    /// <param name="scope">
+    /// The static method this node belongs to, or null for the program's entry flow (Main or the
+    /// top-level statements). Each scope has its own Start and End node.
+    /// </param>
+    public FlowNode(string id, FlowNodeType type, string label, SourceSpan? sourceSpan, string? scope = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentException.ThrowIfNullOrWhiteSpace(label);
@@ -77,6 +87,7 @@ public sealed record FlowNode
         Type = type;
         Label = label;
         SourceSpan = sourceSpan;
+        Scope = string.IsNullOrWhiteSpace(scope) ? null : scope;
     }
 
     public string Id { get; }
@@ -86,6 +97,8 @@ public sealed record FlowNode
     public string Label { get; }
 
     public SourceSpan? SourceSpan { get; }
+
+    public string? Scope { get; }
 }
 
 public sealed record FlowEdge
@@ -125,7 +138,7 @@ public sealed record FlowEdge
 
 public sealed class FlowGraph
 {
-    public const string CurrentSchemaVersion = "1.1";
+    public const string CurrentSchemaVersion = "1.2";
 
     public FlowGraph(IEnumerable<FlowNode> nodes, IEnumerable<FlowEdge> edges)
     {
@@ -149,14 +162,23 @@ public sealed class FlowGraph
 
     private static void Validate(FlowNode[] nodes, FlowEdge[] edges)
     {
-        if (nodes.Count(node => node.Type == FlowNodeType.Start) != 1)
+        if (!nodes.Any(node => node.Scope is null))
         {
-            throw new ArgumentException("A flow graph must contain exactly one start node.", nameof(nodes));
+            throw new ArgumentException("A flow graph must contain the program's entry flow.", nameof(nodes));
         }
 
-        if (nodes.Count(node => node.Type == FlowNodeType.End) != 1)
+        foreach (var scope in nodes.GroupBy(node => node.Scope, StringComparer.Ordinal))
         {
-            throw new ArgumentException("A flow graph must contain exactly one end node.", nameof(nodes));
+            var name = scope.Key ?? "the entry flow";
+            if (scope.Count(node => node.Type == FlowNodeType.Start) != 1)
+            {
+                throw new ArgumentException($"A flow graph must contain exactly one start node for {name}.", nameof(nodes));
+            }
+
+            if (scope.Count(node => node.Type == FlowNodeType.End) != 1)
+            {
+                throw new ArgumentException($"A flow graph must contain exactly one end node for {name}.", nameof(nodes));
+            }
         }
 
         var nodeIds = nodes.Select(node => node.Id).ToHashSet(StringComparer.Ordinal);

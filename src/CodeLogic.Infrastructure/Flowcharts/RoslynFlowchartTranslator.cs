@@ -1,5 +1,6 @@
 using CodeLogic.Application.Analysis;
 using CodeLogic.Application.Flowcharts;
+using CodeLogic.Infrastructure.Analysis;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -32,82 +33,12 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
             ParseOptions,
             cancellationToken: cancellationToken);
         var root = await syntaxTree.GetRootAsync(cancellationToken);
-        var statements = root.DescendantNodes()
-            .OfType<GlobalStatementSyntax>()
-            .Select(global => global.Statement)
-            .ToArray();
+        var structure = ProgramStructure.Read(root);
 
-        var translationDiagnostic = FindUnsupportedTranslationSyntax(statements);
-        if (translationDiagnostic is not null)
-        {
-            return new FlowchartTranslationResult(
-                FlowchartTranslationStatus.Unsupported,
-                diagnostics: [translationDiagnostic]);
-        }
-
-        var builder = new GraphBuilder();
+        var builder = new GraphBuilder(structure);
         return new FlowchartTranslationResult(
             FlowchartTranslationStatus.Success,
-            builder.Build(statements));
-    }
-
-    private static CodeDiagnostic? FindUnsupportedTranslationSyntax(
-        IEnumerable<StatementSyntax> statements)
-    {
-        foreach (var statement in statements)
-        {
-            CodeDiagnostic? diagnostic = statement switch
-            {
-                LocalDeclarationStatementSyntax or ExpressionStatementSyntax or EmptyStatementSyntax => null,
-                IfStatementSyntax branch => FindUnsupportedInBranch(branch),
-                WhileStatementSyntax loop => FindUnsupportedTranslationSyntax(Unwrap(loop.Statement)),
-                ForStatementSyntax loop => FindUnsupportedTranslationSyntax(Unwrap(loop.Statement)),
-                DoStatementSyntax loop => FindUnsupportedTranslationSyntax(Unwrap(loop.Statement)),
-                _ => UnsupportedStatement(statement),
-            };
-
-            if (diagnostic is not null)
-            {
-                return diagnostic;
-            }
-        }
-
-        return null;
-    }
-
-    private static CodeDiagnostic? FindUnsupportedInBranch(IfStatementSyntax branch)
-    {
-        var diagnostic = FindUnsupportedTranslationSyntax(Unwrap(branch.Statement));
-        return diagnostic ?? (branch.Else is null
-            ? null
-            : FindUnsupportedTranslationSyntax(Unwrap(branch.Else.Statement)));
-    }
-
-    private static StatementSyntax[] Unwrap(StatementSyntax statement) =>
-        statement is BlockSyntax block ? [.. block.Statements] : [statement];
-
-    private static CodeDiagnostic UnsupportedStatement(StatementSyntax statement) => Unsupported(
-        statement,
-        "FL1002",
-        $"{statement.Kind()} is not supported by flowchart schema 1.1.",
-        "This graph supports declarations, expressions, nested if/else, while, for, and do/while. Break, continue, return, and local functions remain unsupported.");
-
-    private static CodeDiagnostic Unsupported(
-        SyntaxNode node,
-        string code,
-        string message,
-        string explanation)
-    {
-        var lineSpan = node.GetLocation().GetLineSpan();
-        return new CodeDiagnostic(
-            code,
-            CodeDiagnosticCategory.Unsupported,
-            CodeDiagnosticSeverity.Error,
-            message,
-            explanation,
-            lineSpan.StartLinePosition.Line + 1,
-            lineSpan.StartLinePosition.Character + 1,
-            node.Span.Length);
+            builder.Build());
     }
 
     private static FlowchartTranslationStatus MapStatus(CodeAnalysisStatus status) => status switch
@@ -119,18 +50,68 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
         _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Unexpected analysis status."),
     };
 
-    private sealed class GraphBuilder
+    /// <summary>
+    /// Builds the entry flow (Main or top-level statements) followed by one scoped sub-flowchart per
+    /// static method. Statements that call a method get a dotted Call edge to that method's Start.
+    /// </summary>
+    private sealed class GraphBuilder(ProgramStructure structure)
     {
         private readonly List<FlowNode> nodes = [];
         private readonly List<FlowEdge> edges = [];
+        private readonly List<(string FromNodeId, string Method)> calls = [];
+        private readonly Dictionary<string, string> methodStarts = new(StringComparer.Ordinal);
+        private List<string> returns = [];
+        private string? scope;
 
-        public FlowGraph Build(IReadOnlyList<StatementSyntax> statements)
+        public FlowGraph Build()
         {
-            var start = AddNode(FlowNodeType.Start, "Start", source: null);
-            var exits = AddStatements(statements, [new(start.Id, FlowEdgeType.Next)]);
-            var end = AddNode(FlowNodeType.End, "End", source: null);
-            Connect(exits, end.Id);
+            AddScope(
+                scope: null,
+                startLabel: "Start",
+                endLabel: "End",
+                structure.EntryStatements);
+
+            foreach (var (name, method) in structure.Methods)
+            {
+                AddScope(
+                    name,
+                    $"Start: {ProgramStructure.Signature(method)}",
+                    $"Return from {name}",
+                    ProgramStructure.BodyOf(method));
+            }
+
+            foreach (var (fromNodeId, method) in calls.Distinct())
+            {
+                if (methodStarts.TryGetValue(method, out var startId))
+                {
+                    AddEdge(fromNodeId, startId, FlowEdgeType.Call, $"calls {method}");
+                }
+            }
+
             return new FlowGraph(nodes, edges);
+        }
+
+        private void AddScope(
+            string? scope,
+            string startLabel,
+            string endLabel,
+            IReadOnlyList<StatementSyntax> statements)
+        {
+            this.scope = scope;
+            returns = [];
+            var start = AddNode(FlowNodeType.Start, startLabel, source: null);
+            if (scope is not null)
+            {
+                methodStarts[scope] = start.Id;
+            }
+
+            var exits = AddStatements(statements, [new(start.Id, FlowEdgeType.Next)]);
+            var end = AddNode(FlowNodeType.End, endLabel, source: null);
+            Connect(exits, end.Id);
+            foreach (var returnNodeId in returns)
+            {
+                AddEdge(returnNodeId, end.Id, FlowEdgeType.Next);
+            }
         }
 
         private IReadOnlyList<PendingEdge> AddStatements(
@@ -155,6 +136,7 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
                 WhileStatementSyntax loop => AddWhile(loop, incoming),
                 ForStatementSyntax loop => AddFor(loop, incoming),
                 DoStatementSyntax loop => AddDoWhile(loop, incoming),
+                ReturnStatementSyntax exit => AddReturn(exit, incoming),
                 _ => AddSimpleStatement(statement, incoming),
             };
 
@@ -165,6 +147,20 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
             var node = AddNode(Classify(statement), Text(statement), statement);
             Connect(incoming, node.Id);
             return [new PendingEdge(node.Id, FlowEdgeType.Next)];
+        }
+
+        private static StatementSyntax[] Unwrap(StatementSyntax statement) =>
+            statement is BlockSyntax block ? [.. block.Statements] : [statement];
+
+        // A return leaves the method: it connects to the scope's End node once that node exists.
+        private IReadOnlyList<PendingEdge> AddReturn(
+            ReturnStatementSyntax exit,
+            IReadOnlyList<PendingEdge> incoming)
+        {
+            var node = AddNode(Classify(exit), Text(exit), exit);
+            Connect(incoming, node.Id);
+            returns.Add(node.Id);
+            return [];
         }
 
         private IReadOnlyList<PendingEdge> AddBranch(
@@ -267,8 +263,20 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
                 $"node-{nodes.Count:D3}",
                 type,
                 label,
-                source is null ? null : ToSourceSpan(source));
+                source is null ? null : ToSourceSpan(source),
+                scope);
             nodes.Add(node);
+            if (source is not null)
+            {
+                foreach (var invocation in source.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>())
+                {
+                    if (structure.CalledMethodName(invocation) is { } method)
+                    {
+                        calls.Add((node.Id, method));
+                    }
+                }
+            }
+
             return node;
         }
 
@@ -311,11 +319,19 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
             FlowEdgeType.True => "True",
             FlowEdgeType.False => "False",
             FlowEdgeType.LoopBack => "Repeat",
+            FlowEdgeType.Call => "calls",
             _ => null,
         };
 
-        private static FlowNodeType Classify(StatementSyntax statement)
+        private FlowNodeType Classify(StatementSyntax statement)
         {
+            if (statement.DescendantNodesAndSelf()
+                .OfType<InvocationExpressionSyntax>()
+                .Any(invocation => structure.CalledMethodName(invocation) is not null))
+            {
+                return FlowNodeType.Call;
+            }
+
             if (statement.DescendantNodesAndSelf()
                 .OfType<InvocationExpressionSyntax>()
                 .Any(invocation => IsConsoleCall(invocation, "ReadLine")))
@@ -325,7 +341,7 @@ public sealed class RoslynFlowchartTranslator(ICodeAnalysisService analysisServi
 
             if (statement is ExpressionStatementSyntax expressionStatement
                 && expressionStatement.Expression is InvocationExpressionSyntax invocation
-                && IsConsoleCall(invocation, "WriteLine"))
+                && (IsConsoleCall(invocation, "WriteLine") || IsConsoleCall(invocation, "Write")))
             {
                 return FlowNodeType.Output;
             }
