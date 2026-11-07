@@ -47,7 +47,7 @@ From top to bottom and left to right:
 
 Below 1,100 CSS pixels the main area becomes one column. **Editor & analysis / Flowchart** buttons choose the visible column, and the Explorer opens as an overlay. The page still does not scroll. Below 768 pixels the header keeps only the brand mark, account avatar, and Exit.
 
-The graph auto-fits in both dimensions on load and whenever its canvas is resized while unzoomed. Manual zoom, Ctrl+wheel, and drag-to-pan still work. Workspace mode, editor theme, Explorer visibility, and splitter sizes are saved in `CodeLogic.Playground.Workspace.v1`.
+Graphs open at a readable 100% (small graphs are fitted, up to 125%) and scroll inside the canvas; **Fit** and **Fit width** are available on request. **⤒ Start** / **⤓ End**, Home/End, arrow keys, `+`/`-`, Ctrl+wheel (zoom at the pointer), Shift+wheel, and drag-to-pan move around large graphs. Stepping a trace keeps the active node in view without re-fitting. The **Legend** button opens the right-hand drawer on its Legend tab; the same drawer shows Node Properties. The editor column now starts at 440px so the canvas gets more width. See [FLOWCHART_RENDERER.md](FLOWCHART_RENDERER.md#readable-large-graphs). Workspace mode, editor theme, Explorer visibility, and splitter sizes are saved in `CodeLogic.Playground.Workspace.v1`.
 
 Source-backed nodes can be edited from the properties panel or by double-clicking the canvas node. The replacement applies only to the node's exact source span and is first translated as a complete candidate document. Empty, stale, oversized, invalid, or unsupported edits are rejected without changing the editor or last valid graph. **Reveal in source** remains as a secondary keyboard-accessible action.
 

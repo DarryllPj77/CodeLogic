@@ -161,6 +161,23 @@ public sealed class PlaygroundLayoutStateTests
     }
 
     [Fact]
+    public void TheLegendOpensInTheDrawerAndTheLegendButtonClosesItAgain()
+    {
+        var layout = new PlaygroundLayoutState();
+
+        layout.ToggleLegend();
+        Assert.True(layout.IsPropertiesOpen);
+        Assert.Equal(DrawerTab.Legend, layout.DrawerTab);
+
+        layout.OpenProperties();
+        Assert.Equal(DrawerTab.Properties, layout.DrawerTab);
+
+        layout.ToggleLegend();
+        layout.ToggleLegend();
+        Assert.False(layout.IsPropertiesOpen);
+    }
+
+    [Fact]
     public void FlowchartFocusRestoresAMaximizedEditorAndShowsTheFlowchart()
     {
         var layout = new PlaygroundLayoutState();

@@ -3,7 +3,7 @@ const workspaceStates = new WeakMap();
 // Panel sizes in pixels. "editor" is the left column width; "analysis" is the Analysis panel height.
 export const panelDefaults = Object.freeze({
     explorer: 180,
-    editor: 520,
+    editor: 440,
     properties: 260,
     analysis: 300
 });

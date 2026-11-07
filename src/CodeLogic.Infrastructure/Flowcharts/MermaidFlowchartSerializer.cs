@@ -99,9 +99,109 @@ public sealed class MermaidFlowchartSerializer : IMermaidFlowchartSerializer
         _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown flow node type."),
     };
 
+    /// <summary>Characters per line before a node label wraps; about 285px of 14px monospace text.</summary>
+    public const int MaximumLabelLineLength = 34;
+
+    /// <summary>Lines shown inside a node; longer text ends with "…" and stays complete in the tooltip.</summary>
+    public const int MaximumLabelLines = 3;
+
+    /// <summary>
+    /// Splits a label into at most <paramref name="maximumLines"/> lines of roughly
+    /// <paramref name="lineLength"/> characters. Lines break after spaces and after '.', '(', ',', and
+    /// before '&amp;&amp;' / '||' style operators, so conditions read naturally; a single over-long
+    /// token is cut. When text remains, the last line ends with an ellipsis.
+    /// </summary>
+    public static IReadOnlyList<string> WrapLabel(
+        string label,
+        int lineLength = MaximumLabelLineLength,
+        int maximumLines = MaximumLabelLines)
+    {
+        ArgumentNullException.ThrowIfNull(label);
+        ArgumentOutOfRangeException.ThrowIfLessThan(lineLength, 4);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumLines);
+
+        var remaining = label.Trim();
+
+        // A long condition reads best one clause per line: "a ≥ 1", "∧ b › 2", "∧ c == 3".
+        if (remaining.Length > lineLength && ClausesOf(remaining) is { } clauses
+            && clauses.Count <= maximumLines && clauses.All(clause => clause.Length <= lineLength))
+        {
+            return clauses;
+        }
+
+        var lines = new List<string>();
+        while (remaining.Length > 0)
+        {
+            if (remaining.Length <= lineLength)
+            {
+                lines.Add(remaining);
+                break;
+            }
+
+            var cut = BreakPosition(remaining, lineLength);
+            lines.Add(remaining[..cut].TrimEnd());
+            remaining = remaining[cut..].TrimStart();
+        }
+
+        if (lines.Count <= maximumLines)
+        {
+            return lines;
+        }
+
+        var kept = lines.Take(maximumLines).ToList();
+        var last = kept[^1];
+        kept[^1] = (last.Length >= lineLength ? last[..(lineLength - 1)] : last).TrimEnd() + "…";
+        return kept;
+    }
+
+    // Splits before each logical operator (escaped as ∧ / ∨); null when there is only one clause.
+    private static List<string>? ClausesOf(string text)
+    {
+        var clauses = new List<string>();
+        var start = 0;
+        for (var index = 1; index < text.Length - 1; index++)
+        {
+            if (text[index] is '∧' or '∨' && text[index - 1] == ' ' && text[index + 1] == ' ')
+            {
+                clauses.Add(text[start..index].Trim());
+                start = index;
+            }
+        }
+
+        if (clauses.Count == 0)
+        {
+            return null;
+        }
+
+        clauses.Add(text[start..].Trim());
+        return clauses;
+    }
+
+    private static int BreakPosition(string text, int lineLength)
+    {
+        for (var index = Math.Min(lineLength, text.Length - 1); index > lineLength / 3; index--)
+        {
+            var before = text[index - 1];
+            var at = text[index];
+            if (before == ' ' || before is '.' or '(' or ',' || (at is '∧' or '∨' or '&' or '|' && before == ' '))
+            {
+                return index;
+            }
+        }
+
+        return lineLength;
+    }
+
     private static string EscapeNodeLabel(string label)
     {
         var escaped = EscapeLabel(label);
+        var lines = WrapLabel(escaped);
+        if (lines.Count > 1)
+        {
+            // Mermaid turns <br/> into separate text lines; the escaped label cannot contain '<'.
+            return string.Join("<br/>", lines);
+        }
+
         var wrapped = new StringBuilder(escaped.Length + 8);
         for (var index = 0; index < escaped.Length; index++)
         {

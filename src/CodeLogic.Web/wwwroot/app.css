@@ -1684,7 +1684,7 @@ body:has(.ws) {
 
 .ws {
     --explorer-size: 180px;
-    --editor-size: 520px;
+    --editor-size: 440px;
     --properties-size: 260px;
     --analysis-size: 300px;
     --ws-header-height: 3.25rem;
@@ -1897,10 +1897,7 @@ a.ws-account:hover { border-color: #3b5a7a; }
 .canvas-trace-speed, .canvas-prediction-toggle { align-items: center; color: var(--color-text-secondary); display: inline-flex; font-size: 0.66rem; gap: var(--space-1); }
 .canvas-trace-speed input { inline-size: 5rem; }
 .canvas-controls output { color: var(--color-text-secondary); font-family: var(--font-mono); font-size: 0.66rem; min-width: 2.6rem; text-align: center; }
-.flowchart-legend { color: var(--color-text-secondary); font-size: 0.66rem; margin-left: auto; position: relative; }
-.flowchart-legend summary { cursor: pointer; padding: 0.25rem 0.35rem; }
-.flowchart-legend ul { background: var(--color-background-secondary); border: 1px solid var(--color-border); box-shadow: var(--shadow-lg); display: grid; gap: var(--space-2); list-style: none; margin: var(--space-1) 0 0; min-width: 9rem; padding: var(--space-3); position: absolute; right: 0; z-index: 25; }
-.flowchart-legend li { align-items: center; display: flex; gap: var(--space-2); }
+.flowchart-legend-button { margin-left: auto; }
 .legend-swatch { background: var(--color-elevated); border: 2px solid var(--color-border); display: inline-block; height: 0.75rem; width: 1rem; }
 .legend-swatch--selected { border-color: var(--color-information); }
 .legend-swatch--decision { background: #3b2d16; border-color: var(--color-warning); }
@@ -1919,7 +1916,11 @@ a.ws-account:hover { border-color: #3b5a7a; }
 .flowchart-canvas { background-color: var(--color-canvas); background-image: radial-gradient(#24354c 1px, transparent 1px); background-size: 18px 18px; flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: var(--space-5); scrollbar-width: thin; }
 .flowchart-canvas--interactive { cursor: grab; touch-action: none; }
 .flowchart-canvas--panning { cursor: grabbing; }
-.flowchart-svg { display: block; margin: 0 auto; min-width: 0; transition: transform 150ms ease; width: 100%; }
+/* The SVG is sized by the zoom (natural size x zoom), so the scroll area always reaches every node. */
+.flowchart-svg { display: block; margin: 0 auto; max-width: none; min-width: 0; }
+.flowchart-canvas:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+.flowchart-canvas .flowchart-link, .flowchart-canvas .edgePath path { stroke-width: 1.75px; }
+.flowchart-canvas .edgeLabel, .flowchart-canvas .edgeLabel text { font-size: 13px; }
 .flowchart-empty-state { align-items: center; color: var(--color-text-muted); display: flex; flex: 1; flex-direction: column; font-family: var(--font-mono); font-size: 0.74rem; gap: 0.8rem; justify-content: center; line-height: 1.8; padding: var(--space-6); text-align: center; }
 .flowchart-empty-state p { margin: 0; }
 .flowchart-empty-state strong { color: var(--color-text-secondary); }
@@ -2035,7 +2036,7 @@ a.ws-account:hover { border-color: #3b5a7a; }
     .snippet-picker label { display: none; }
     .ws-chip-button { font-size: 0; padding-inline: 0.45rem; }
     .ws-chip-button span { font-size: 0.8rem; }
-    .flowchart-legend { margin-left: 0; }
+    .flowchart-legend-button { margin-left: 0; }
     .canvas-prediction { grid-template-columns: minmax(0, 1fr) auto; }
     .canvas-prediction label { grid-column: 1 / -1; }
 }
@@ -2088,3 +2089,10 @@ a.ws-account:hover { border-color: #3b5a7a; }
 }
 .legend-line--jump { border-color: #f472b6; border-top-width: 3px; }
 .flowchart-canvas .flowchart-link.thick, .flowchart-canvas path.edge-thickness-thick { stroke: #f472b6 !important; }
+
+/* Side drawer tabs (Properties | Legend) and the legend list */
+.drawer-tabs { border-bottom: 1px solid var(--color-border); display: flex; gap: 0.25rem; margin: -0.25rem 0 0.75rem; }
+.flowchart-legend-list { display: grid; font-size: 0.72rem; gap: 0.55rem; list-style: none; margin: 0 0 0.75rem; padding: 0; }
+.flowchart-legend-list li { align-items: center; color: var(--color-text-secondary); display: flex; gap: 0.6rem; }
+.legend-swatch--call { border-color: #22d3ee; border-style: double; border-width: 3px; }
+.flowchart-legend-button[aria-pressed="true"] { border-color: #2f7d63; color: var(--color-accent); }

@@ -22,6 +22,13 @@ public enum WorkspaceMode
     FlowchartFocus,
 }
 
+/// <summary>What the drawer at the right edge of the canvas shows.</summary>
+public enum DrawerTab
+{
+    Properties,
+    Legend,
+}
+
 public enum CompactView
 {
     Editor,
@@ -43,6 +50,8 @@ public sealed class PlaygroundLayoutState
     public bool IsExplorerOpen { get; private set; }
 
     public bool IsPropertiesOpen { get; private set; }
+
+    public DrawerTab DrawerTab { get; private set; } = DrawerTab.Properties;
 
     public bool IsHelpOpen { get; private set; }
 
@@ -106,7 +115,26 @@ public sealed class PlaygroundLayoutState
 
     public void SetExplorerOpen(bool isOpen) => IsExplorerOpen = isOpen;
 
-    public void OpenProperties() => IsPropertiesOpen = true;
+    public void OpenProperties()
+    {
+        IsPropertiesOpen = true;
+        DrawerTab = DrawerTab.Properties;
+    }
+
+    /// <summary>The Legend toolbar button: opens the drawer on the Legend tab, or closes it if already there.</summary>
+    public void ToggleLegend()
+    {
+        if (IsPropertiesOpen && DrawerTab == DrawerTab.Legend)
+        {
+            IsPropertiesOpen = false;
+            return;
+        }
+
+        IsPropertiesOpen = true;
+        DrawerTab = DrawerTab.Legend;
+    }
+
+    public void SelectDrawerTab(DrawerTab tab) => DrawerTab = tab;
 
     public void CloseProperties() => IsPropertiesOpen = false;
 

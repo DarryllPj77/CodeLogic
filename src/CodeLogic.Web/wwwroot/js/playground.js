@@ -4,6 +4,7 @@ const codeEditors = new WeakMap();
 const plainEditors = new WeakMap();
 const sourceControllers = new WeakMap();
 const canvasControllers = new WeakMap();
+const canvasSourceMaps = new WeakMap();
 const suppressedSelections = new WeakSet();
 const nodeTypeNames = Object.freeze({ 1: "Start", 2: "End", 3: "Action", 4: "Decision", 5: "Input", 6: "Output", 7: "Call" });
 const mermaidModuleUrl = "https://cdn.jsdelivr.net/npm/mermaid@12.2.0/dist/mermaid.esm.min.mjs";
@@ -423,8 +424,14 @@ export async function renderMermaid(container, definition, renderId, sourceMap, 
     container.replaceChildren(document.importNode(svg, true));
     bindDiagramNodes(container, sourceMap, dotNetReference);
     initializeSourceSynchronization(document.getElementById("code-editor"), container, sourceMap, dotNetReference);
-    initializeCanvasInteractions(container, dotNetReference);
-    fitFlowchart(container, false);
+    initializeCanvasInteractions(container, sourceMap, dotNetReference);
+
+    // Open at a readable zoom: large graphs scroll instead of shrinking until the text disappears.
+    const zoom = openingZoomFor(container);
+    applyZoom(container, zoom);
+    container.dataset.autoZoom = "true";
+    container.scrollTo({ top: 0, left: 0 });
+    return zoom;
 }
 
 export function selectSource(editor, container, mermaidId, startOffset, length) {
@@ -438,19 +445,188 @@ export function selectSource(editor, container, mermaidId, startOffset, length) 
     const node = container.querySelector(`[id*="${escapedId}"]`);
     if (node !== null) {
         node.classList.add("flowchart-node--selected");
-        centerNode(container, node);
+        revealNode(container, node);
     }
 }
 
-export function setFlowchartZoom(container, scale) {
-    const svg = container.querySelector(".flowchart-svg");
-    if (svg === null) {
-        return;
+export const minimumZoom = 0.2;
+export const maximumZoom = 2;
+
+/** Mermaid settings that keep large graphs legible: 14px text, roomy spacing, natural SVG size. */
+export const mermaidFlowchartConfig = Object.freeze({
+    fontSize: 14,
+    curve: "linear",
+    useMaxWidth: false,
+    padding: 26,
+    // Wider than a 34-character line of 14px text, so Mermaid never re-wraps CodeLogic's own lines.
+    wrappingWidth: 340,
+    nodeSpacing: 60,
+    rankSpacing: 72,
+    diagramPadding: 24,
+    maxEdges: 400
+});
+
+export function clampZoom(zoom) {
+    return Math.round(Math.min(maximumZoom, Math.max(minimumZoom, zoom)) * 100) / 100;
+}
+
+/**
+ * The zoom a freshly rendered graph opens at. A graph that fits at 100% is fitted (up to 125%);
+ * anything larger opens at 100% so its text stays readable and the canvas scrolls instead.
+ */
+export function computeOpeningZoom(naturalWidth, naturalHeight, availableWidth, availableHeight) {
+    const fit = computeFitZoom(naturalWidth, naturalHeight, availableWidth, availableHeight, "all");
+    return fit === null || fit < 1 ? 1 : Math.min(fit, 1.25);
+}
+
+/** Zoom that shows the whole graph ("all") or its full width ("width"), within the zoom limits. */
+export function computeFitZoom(naturalWidth, naturalHeight, availableWidth, availableHeight, mode = "all") {
+    if (!(naturalWidth > 0) || !(naturalHeight > 0) || !(availableWidth > 0)) {
+        return null;
+    }
+    const byWidth = availableWidth / naturalWidth;
+    const zoom = mode === "width" || !(availableHeight > 0)
+        ? byWidth
+        : Math.min(byWidth, availableHeight / naturalHeight);
+    return clampZoom(zoom);
+}
+
+/**
+ * Scroll position that keeps the same content point under an anchor (the cursor, or the viewport
+ * centre) when zooming from oldZoom to newZoom.
+ */
+export function computeAnchoredScroll(scrollLeft, scrollTop, anchorX, anchorY, oldZoom, newZoom) {
+    const ratio = newZoom / oldZoom;
+    return {
+        left: Math.max(0, (scrollLeft + anchorX) * ratio - anchorX),
+        top: Math.max(0, (scrollTop + anchorY) * ratio - anchorY)
+    };
+}
+
+/**
+ * Scroll position that brings a target box (in scrolled-content coordinates) into the viewport
+ * with a margin, moving as little as possible. Returns null when it is already comfortably visible.
+ */
+export function computeRevealScroll(viewport, target, margin = 48) {
+    const scroll = { left: viewport.left, top: viewport.top };
+    const fitsWide = target.width + 2 * margin <= viewport.width;
+    const fitsTall = target.height + 2 * margin <= viewport.height;
+
+    if (target.x - margin < viewport.left || !fitsWide && target.x < viewport.left) {
+        scroll.left = target.x - margin;
+    } else if (target.x + target.width + margin > viewport.left + viewport.width) {
+        scroll.left = fitsWide ? target.x + target.width + margin - viewport.width : target.x - margin;
     }
 
-    svg.style.transform = `scale(${scale})`;
-    svg.style.transformOrigin = "top center";
-    container.dataset.zoom = String(scale);
+    if (target.y - margin < viewport.top || !fitsTall && target.y < viewport.top) {
+        scroll.top = target.y - margin;
+    } else if (target.y + target.height + margin > viewport.top + viewport.height) {
+        scroll.top = fitsTall ? target.y + target.height + margin - viewport.height : target.y - margin;
+    }
+
+    scroll.left = Math.max(0, scroll.left);
+    scroll.top = Math.max(0, scroll.top);
+    return scroll.left === viewport.left && scroll.top === viewport.top ? null : scroll;
+}
+
+/** Applies a zoom by resizing the SVG itself, so scroll bars always reach the whole graph. */
+export function setFlowchartZoom(container, scale) {
+    const anchor = { x: container.clientWidth / 2, y: container.clientHeight / 2 };
+    container.dataset.autoZoom = "false";
+    return applyZoom(container, scale, anchor);
+}
+
+export function fitFlowchart(container, mode = "all") {
+    const svg = container.querySelector(".flowchart-svg");
+    const natural = naturalSize(svg);
+    if (natural === null) {
+        return 1;
+    }
+    const available = availableSize(container);
+    const zoom = computeFitZoom(natural.width, natural.height, available.width, available.height, mode) ?? 1;
+    container.dataset.autoZoom = "false";
+    applyZoom(container, zoom);
+    container.scrollTo({ top: 0, left: 0 });
+    return zoom;
+}
+
+/** Scrolls to the program's Start or End node and focuses it, so keyboard users land on it too. */
+export function goToFlowchartNode(container, which) {
+    const sourceMap = canvasSourceMaps.get(container) ?? [];
+    const wanted = which === "end" ? 2 : 1;
+    // The entry flow's Start/End come first; method sub-flowcharts follow.
+    const item = sourceMap.find(candidate => candidate.nodeType === wanted);
+    const node = item === undefined ? null : findDiagramNode(container, item.mermaidId);
+    if (node === null) {
+        return false;
+    }
+    revealNode(container, node, false);
+    node.focus?.({ preventScroll: true });
+    return true;
+}
+
+function applyZoom(container, scale, anchor) {
+    const svg = container.querySelector(".flowchart-svg");
+    const natural = naturalSize(svg);
+    const zoom = clampZoom(scale);
+    if (natural === null) {
+        return zoom;
+    }
+
+    const previous = Number.parseFloat(container.dataset.zoom || "1");
+    const scroll = anchor === undefined
+        ? null
+        : computeAnchoredScroll(container.scrollLeft, container.scrollTop, anchor.x, anchor.y, previous, zoom);
+    svg.style.transform = "none";
+    svg.style.width = `${Math.round(natural.width * zoom)}px`;
+    svg.style.height = `${Math.round(natural.height * zoom)}px`;
+    container.dataset.zoom = String(zoom);
+    if (scroll !== null) {
+        container.scrollTo(scroll);
+    }
+    return zoom;
+}
+
+function naturalSize(svg) {
+    const box = svg?.viewBox?.baseVal;
+    return box && box.width > 0 && box.height > 0 ? { width: box.width, height: box.height } : null;
+}
+
+function availableSize(container) {
+    const style = window.getComputedStyle(container);
+    return {
+        width: container.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+        height: container.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)
+    };
+}
+
+function openingZoomFor(container) {
+    const natural = naturalSize(container.querySelector(".flowchart-svg"));
+    if (natural === null) {
+        return 1;
+    }
+    const available = availableSize(container);
+    return computeOpeningZoom(natural.width, natural.height, available.width, available.height);
+}
+
+/**
+ * Keeps a node visible with a margin; the canvas only moves when the node is near or past an edge.
+ * The jump is instant: during Play, steps can arrive faster than a smooth scroll can finish.
+ */
+function revealNode(container, node, smooth = false) {
+    const nodeBox = node.getBoundingClientRect();
+    const canvasBox = container.getBoundingClientRect();
+    const target = {
+        x: nodeBox.left - canvasBox.left + container.scrollLeft,
+        y: nodeBox.top - canvasBox.top + container.scrollTop,
+        width: nodeBox.width,
+        height: nodeBox.height
+    };
+    const viewport = { left: container.scrollLeft, top: container.scrollTop, width: container.clientWidth, height: container.clientHeight };
+    const scroll = computeRevealScroll(viewport, target);
+    if (scroll !== null) {
+        container.scrollTo({ ...scroll, behavior: smooth ? "smooth" : "auto" });
+    }
 }
 
 // Monaco's theme is global, so one call switches the only editor on the page. The plain-text
@@ -461,38 +637,6 @@ export function setEditorTheme(lightTheme) {
 
 export function focusById(elementId) {
     document.getElementById(elementId)?.focus();
-}
-
-/**
- * Width that fits a diagram with the given viewBox inside the available box without overflowing
- * either dimension, never wider than its natural size and never smaller than a readable minimum.
- */
-export function computeFitWidth(availableWidth, availableHeight, viewBoxWidth, viewBoxHeight, minimumWidth = 160) {
-    if (!(availableWidth > 0) || !(viewBoxWidth > 0) || !(viewBoxHeight > 0)) {
-        return null;
-    }
-    const heightBound = availableHeight > 0 ? availableHeight * (viewBoxWidth / viewBoxHeight) : availableWidth;
-    const fitted = Math.min(availableWidth, heightBound, viewBoxWidth * 1.5);
-    return Math.max(Math.min(minimumWidth, availableWidth), Math.floor(fitted));
-}
-
-export function fitFlowchart(container, smooth = true) {
-    const svg = container.querySelector(".flowchart-svg");
-    if (svg === null) {
-        return;
-    }
-
-    const style = window.getComputedStyle(container);
-    const availableWidth = container.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-    const availableHeight = container.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
-    const viewBox = svg.viewBox?.baseVal;
-    const width = computeFitWidth(availableWidth, availableHeight, viewBox?.width, viewBox?.height);
-
-    svg.style.minWidth = "0";
-    svg.style.transform = "none";
-    svg.style.width = width === null ? "100%" : `${width}px`;
-    container.dataset.zoom = "1";
-    container.scrollTo({ top: 0, left: 0, behavior: smooth ? "smooth" : "auto" });
 }
 
 export function showTraceStep(editor, container, currentMermaidId, startOffset, length, previousMermaidId, skippedMermaidIds) {
@@ -520,7 +664,7 @@ export function showTraceStep(editor, container, currentMermaidId, startOffset, 
     }
 
     if (current !== null) {
-        centerNode(container, current);
+        revealNode(container, current);
     }
 }
 
@@ -799,12 +943,20 @@ function makeFoldMarkersAccessible(host, editor) {
     }
 }
 
-function initializeCanvasInteractions(container, dotNetReference) {
+function initializeCanvasInteractions(container, sourceMap, dotNetReference) {
     canvasControllers.get(container)?.abort();
     const controller = new AbortController();
     canvasControllers.set(container, controller);
+    canvasSourceMaps.set(container, sourceMap ?? []);
     container.classList.add("flowchart-canvas--interactive");
     container.dataset.zoom = container.dataset.zoom || "1";
+
+    const reportZoom = zoom => dotNetReference?.invokeMethodAsync("UpdateZoomFromBrowser", zoom);
+    const zoomBy = (step, anchor) => {
+        const current = Number.parseFloat(container.dataset.zoom || "1");
+        container.dataset.autoZoom = "false";
+        reportZoom(applyZoom(container, current + step, anchor));
+    };
 
     let drag = null;
     container.addEventListener("pointerdown", event => {
@@ -827,26 +979,49 @@ function initializeCanvasInteractions(container, dotNetReference) {
     };
     container.addEventListener("pointerup", stopPanning, { signal: controller.signal });
     container.addEventListener("pointercancel", stopPanning, { signal: controller.signal });
+
+    // The wheel scrolls (Shift+wheel sideways) natively; Ctrl+wheel zooms around the cursor.
     container.addEventListener("wheel", event => {
         if (!event.ctrlKey) {
             return;
         }
         event.preventDefault();
-        const current = Number.parseFloat(container.dataset.zoom || "1");
-        const next = Math.min(2, Math.max(0.5, current + (event.deltaY < 0 ? 0.1 : -0.1)));
-        setFlowchartZoom(container, next);
-        dotNetReference?.invokeMethodAsync("UpdateZoomFromBrowser", next);
+        const box = container.getBoundingClientRect();
+        zoomBy(event.deltaY < 0 ? 0.1 : -0.1, { x: event.clientX - box.left, y: event.clientY - box.top });
     }, { passive: false, signal: controller.signal });
 
-    // Panels collapse, maximize, and resize without a page scroll, so refit an unzoomed chart
-    // whenever its canvas changes size.
+    container.addEventListener("keydown", event => {
+        if (event.ctrlKey || event.altKey || event.metaKey) {
+            return;
+        }
+        const step = 80;
+        const actions = {
+            ArrowUp: () => container.scrollBy({ top: -step }),
+            ArrowDown: () => container.scrollBy({ top: step }),
+            ArrowLeft: () => container.scrollBy({ left: -step }),
+            ArrowRight: () => container.scrollBy({ left: step }),
+            "+": () => zoomBy(0.1),
+            "=": () => zoomBy(0.1),
+            "-": () => zoomBy(-0.1),
+            "_": () => zoomBy(-0.1),
+            Home: () => goToFlowchartNode(container, "start"),
+            End: () => goToFlowchartNode(container, "end")
+        };
+        const action = actions[event.key];
+        if (action !== undefined) {
+            event.preventDefault();
+            action();
+        }
+    }, { signal: controller.signal });
+
+    // Until the learner zooms or fits, keep the opening zoom right for the canvas size.
     if (typeof ResizeObserver === "function") {
         let timer = 0;
         const observer = new ResizeObserver(() => {
             window.clearTimeout(timer);
             timer = window.setTimeout(() => {
-                if (container.dataset.zoom === "1") {
-                    fitFlowchart(container, false);
+                if (container.dataset.autoZoom === "true") {
+                    reportZoom(applyZoom(container, openingZoomFor(container)));
                 }
             }, 80);
         });
@@ -869,14 +1044,6 @@ function findDiagramNode(container, mermaidId) {
     return container.querySelector(`[id*="${CSS.escape(`-flowchart-${mermaidId}-`)}"]`);
 }
 
-function centerNode(container, node) {
-    const left = node.getBoundingClientRect().left - container.getBoundingClientRect().left
-        + container.scrollLeft - (container.clientWidth / 2) + (node.getBoundingClientRect().width / 2);
-    const top = node.getBoundingClientRect().top - container.getBoundingClientRect().top
-        + container.scrollTop - (container.clientHeight / 2) + (node.getBoundingClientRect().height / 2);
-    container.scrollTo({ left, top, behavior: "smooth" });
-}
-
 async function loadMermaid() {
     if (mermaidPromise === null) {
         mermaidPromise = import(mermaidModuleUrl).then(module => {
@@ -886,7 +1053,7 @@ async function loadMermaid() {
                 securityLevel: "strict",
                 htmlLabels: false,
                 maxTextSize: 10000,
-                maxEdges: 50,
+                maxEdges: mermaidFlowchartConfig.maxEdges,
                 theme: "base",
                 themeVariables: {
                     background: "#0a1020",
@@ -901,15 +1068,17 @@ async function loadMermaid() {
                     tertiaryTextColor: "#f5d0fe",
                     tertiaryBorderColor: "#d946ef",
                     edgeLabelBackground: "#111b2b",
-                    fontFamily: "Cascadia Code, Consolas, monospace"
+                    fontFamily: "Cascadia Code, Consolas, monospace",
+                    fontSize: `${mermaidFlowchartConfig.fontSize}px`
                 },
                 flowchart: {
-                    curve: "linear",
-                    useMaxWidth: true,
-                    wrappingWidth: 400,
-                    minNodeWidth: 220,
-                    nodeSpacing: 64,
-                    rankSpacing: 64
+                    curve: mermaidFlowchartConfig.curve,
+                    useMaxWidth: mermaidFlowchartConfig.useMaxWidth,
+                    padding: mermaidFlowchartConfig.padding,
+                    wrappingWidth: mermaidFlowchartConfig.wrappingWidth,
+                    nodeSpacing: mermaidFlowchartConfig.nodeSpacing,
+                    rankSpacing: mermaidFlowchartConfig.rankSpacing,
+                    diagramPadding: mermaidFlowchartConfig.diagramPadding
                 }
             });
             return mermaid;

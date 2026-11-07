@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { computeFitWidth } from "../../src/CodeLogic.Web/wwwroot/js/playground.js";
+import { computeFitZoom, computeOpeningZoom } from "../../src/CodeLogic.Web/wwwroot/js/playground.js";
 import {
     clampPanel,
     panelDefaults,
@@ -80,16 +80,19 @@ test("panel sizes clamp to their limits and defaults sit inside them", () => {
     assert.equal(clampPanel("analysis", 300.4), 300);
 });
 
-test("fit width respects both canvas dimensions", () => {
-    // A tall diagram is limited by height: 600px tall canvas, 1:2 aspect → 300px wide.
-    assert.equal(computeFitWidth(800, 600, 200, 400), 300);
-    // A wide diagram is limited by width.
-    assert.equal(computeFitWidth(500, 600, 1000, 200), 500);
-    // A small diagram is not blown up beyond 1.5× its natural width.
-    assert.equal(computeFitWidth(1200, 900, 200, 200), 300);
-    // Very short canvases still keep a readable minimum width.
-    assert.equal(computeFitWidth(800, 40, 200, 400), 160);
-    // Missing geometry falls back to CSS width.
-    assert.equal(computeFitWidth(0, 600, 200, 400), null);
-    assert.equal(computeFitWidth(800, 600, undefined, 400), null);
+test("fit zoom shows the whole graph or its width, within the zoom limits", () => {
+    // A tall 400x1600 graph in an 800x600 canvas: whole graph needs 37.5%, width allows 200%.
+    assert.equal(computeFitZoom(400, 1600, 800, 600, "all"), 0.38);
+    assert.equal(computeFitZoom(400, 1600, 800, 600, "width"), 2);
+    // Never below the 20% floor, however large the graph.
+    assert.equal(computeFitZoom(400, 20000, 800, 600, "all"), 0.2);
+    // Missing geometry gives no answer.
+    assert.equal(computeFitZoom(0, 600, 800, 600), null);
+});
+
+test("large graphs open at a readable 100% instead of shrinking", () => {
+    assert.equal(computeOpeningZoom(500, 3000, 900, 650), 1);
+    // A small graph that fits is fitted, but never enlarged past 125%.
+    assert.equal(computeOpeningZoom(300, 200, 900, 650), 1.25);
+    assert.equal(computeOpeningZoom(700, 600, 800, 650), 1.08);
 });

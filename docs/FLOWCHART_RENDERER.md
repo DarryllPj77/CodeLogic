@@ -45,6 +45,15 @@ Mermaid returns SVG text. The browser module does not assign that text through `
 
 This is defense in depth on top of strict Mermaid configuration and server-side label escaping.
 
+## Readable Large Graphs
+
+- **Label wrapping (server side):** `MermaidFlowchartSerializer.WrapLabel` splits node labels at 34 characters per line and at most 3 lines, joined with `<br/>`, the only markup the serializer emits (escaped text can never contain `<`). Long conditions get one clause per line (`mps[i] ≥ 50` / `∧ xps[i] › 1000` / `∧ hps[i] › 10`). Text beyond 3 lines ends with `…`. The source map keeps the full label, which appears in the node tooltip, its accessible name, and Node Properties.
+- **Mermaid settings** (`mermaidFlowchartConfig` in `playground.js`): 14px text, node padding 26, node spacing 60, rank spacing 72, a wrapping width wider than a 34-character line so Mermaid does not re-wrap, `useMaxWidth: false` so the SVG keeps its natural size, and `maxEdges: 400` (the earlier limit of 50 refused programs of about 40 nodes).
+- **Zoom is real size:** zooming sets the SVG's width and height (natural size × zoom), so the canvas scroll area always reaches every node. The range is 20% to 200%.
+- **Opening zoom:** a graph opens at 100%, scrolling rather than shrinking. Only a graph that already fits at 100% is fitted, and then never above 125%. While the learner has not zoomed or fitted, a canvas resize re-applies this rule.
+- **Fit / Fit width** shrink or grow the graph on request only.
+- **Navigation:** **⤒ Start** and **⤓ End** scroll to and focus the program's Start and End nodes. Stepping a trace scrolls only when the active node is within 48px of an edge or outside the view, and never re-fits.
+
 ## Accessible and Responsive States
 
 - Before rendering, the panel explains how to request a preview.
@@ -53,7 +62,8 @@ This is defense in depth on top of strict Mermaid configuration and server-side 
 - The SVG has an image role and accessible label.
 - Every visual graph has an ordered node list and a connection list that explicitly says `True path`, `False path`, `Repeat`, or `Next`.
 - Source-map controls are native keyboard-operable buttons.
-- The diagram scales to the panel and uses contained horizontal scrolling when its minimum readable width exceeds the viewport.
+- The canvas is focusable (`role="application"`, described by the current step line). Arrow keys pan, `+`/`-` zoom, and Home/End go to the Start/End node. The wheel scrolls, Shift+wheel scrolls sideways, Ctrl+wheel zooms around the pointer, and dragging empty space pans.
+- The diagram keeps a readable size and scrolls inside its panel in both directions; the page itself never scrolls.
 - Editing, loading, or resetting source clears the old diagram so stale output is not presented.
 
 ## External Dependency and Failure Behavior

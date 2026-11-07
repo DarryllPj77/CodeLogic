@@ -76,9 +76,10 @@ public sealed class MermaidFlowchartSerializerTests
 
         var document = serializer.Serialize(graph);
 
+        // Long labels wrap with <br/>; joining the lines again must give the escaped text.
         Assert.Contains(
             "value″] click n000 evil ‹script› ＆ ％％{",
-            document.Definition,
+            document.Definition.Replace("<br/>", " ", StringComparison.Ordinal),
             StringComparison.Ordinal);
         Assert.DoesNotContain("<script>", document.Definition, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("\nclick", document.Definition, StringComparison.Ordinal);
