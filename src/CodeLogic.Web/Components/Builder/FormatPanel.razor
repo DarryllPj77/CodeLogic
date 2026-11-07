@@ -1,0 +1,257 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JavaScript
+
+@*
+    Format panel: Style, Text, and Arrange for the selected Build Flowchart shapes and connectors, or
+    the selected control flow graph nodes and connectors. This component renders the controls once;
+    wwwroot/js/format.js binds them to whichever is active. Formatting is view-only: it never changes
+    the C# source, the analyzer output, the trace, or node IDs.
+*@
+<aside @ref="Panel" id="format-panel" class="format-panel" aria-labelledby="format-panel-title" hidden="@(!IsOpen)">
+    <div class="panel-title">
+        <h2 id="format-panel-title">Format</h2>
+        <button type="button" class="panel-close" aria-label="Close the Format panel" title="Close" @onclick="OnClose">×</button>
+    </div>
+    <p class="format-summary" data-format-summary aria-live="polite"></p>
+
+    <div class="format-tabs" role="tablist" aria-label="Format sections">
+        <button type="button" role="tab" id="format-tab-style" aria-controls="format-pane-style" aria-selected="true" data-format-tab="style">Style</button>
+        <button type="button" role="tab" id="format-tab-text" aria-controls="format-pane-text" aria-selected="false" tabindex="-1" data-format-tab="text">Text</button>
+        <button type="button" role="tab" id="format-tab-arrange" aria-controls="format-pane-arrange" aria-selected="false" tabindex="-1" data-format-tab="arrange">Arrange</button>
+    </div>
+
+    <div class="format-pane" id="format-pane-style" role="tabpanel" aria-labelledby="format-tab-style" data-format-pane="style">
+        <div class="format-swatches" data-format-swatches role="group" aria-label="Colour swatches"></div>
+        <div class="format-pager" data-format-pager role="group" aria-label="Swatch pages"></div>
+
+        <div class="format-row">
+            <label class="format-check"><input type="checkbox" data-format-key="fillEnabled" /> Fill</label>
+            <label class="visually-hidden" for="format-fill-mode">Fill type</label>
+            <select id="format-fill-mode" data-format-key="fillMode">
+                <option value="auto">Automatic</option>
+                <option value="solid">Solid colour</option>
+            </select>
+            <input type="color" data-format-key="fillColor" aria-label="Fill colour" />
+        </div>
+        <div class="format-row">
+            <label class="format-check"><input type="checkbox" data-format-key="gradient" /> Gradient</label>
+            <input type="color" data-format-key="gradientColor" aria-label="Gradient end colour" />
+        </div>
+        <div class="format-row">
+            <label class="format-check"><input type="checkbox" data-format-key="lineEnabled" /> Line</label>
+            <input type="color" data-format-key="lineColor" aria-label="Line colour" />
+        </div>
+        <div class="format-row">
+            <label class="visually-hidden" for="format-line-style">Line style</label>
+            <select id="format-line-style" data-format-key="lineStyle">
+                <option value="solid">Solid</option>
+                <option value="dashed">Dashed</option>
+                <option value="dotted">Dotted</option>
+            </select>
+            <label class="format-number">
+                <input type="number" min="0.25" max="12" step="0.25" data-format-key="lineWidth" aria-label="Line width in points" />
+                <span aria-hidden="true">pt</span>
+            </label>
+        </div>
+        <div class="format-row">
+            <label class="format-field" for="format-perimeter">Perimeter</label>
+            <label class="format-number">
+                <input id="format-perimeter" type="number" min="0" max="40" step="1" data-format-key="perimeter" title="Space between the outline and connector ends (Build Flowchart)" />
+                <span aria-hidden="true">px</span>
+            </label>
+        </div>
+        <div class="format-row">
+            <label class="format-field" for="format-opacity">Opacity</label>
+            <label class="format-number">
+                <input id="format-opacity" type="number" min="0" max="100" step="5" data-format-key="opacity" />
+                <span aria-hidden="true">%</span>
+            </label>
+        </div>
+        <details class="format-section">
+            <summary>Effects</summary>
+            <label class="format-check"><input type="checkbox" data-format-key="shadow" /> Shadow</label>
+            <label class="format-check"><input type="checkbox" data-format-key="rounded" /> Rounded corners</label>
+        </details>
+        <details class="format-section" data-format-edit>
+            <summary>Edit style</summary>
+            <label class="visually-hidden" for="format-edit-text">Style as JSON</label>
+            <textarea id="format-edit-text" rows="6" spellcheck="false" data-format-edit-text></textarea>
+            <button type="button" class="format-button" data-format-command="apply-edit">Apply style</button>
+        </details>
+        <div class="format-actions">
+            <button type="button" class="format-button" data-format-command="copy-style" title="Ctrl+C">Copy Style</button>
+            <button type="button" class="format-button" data-format-command="paste-style" title="Ctrl+V">Paste Style</button>
+            <button type="button" class="format-button" data-format-command="default-style">Set as Default Style</button>
+            <button type="button" class="format-button" data-format-command="reset-style">Reset style</button>
+        </div>
+    </div>
+
+    <div class="format-pane" id="format-pane-text" role="tabpanel" aria-labelledby="format-tab-text" data-format-pane="text" hidden>
+        <div class="format-row">
+            <label class="visually-hidden" for="format-font">Font family</label>
+            <select id="format-font" data-format-key="fontFamily">
+                <option value="default">Default</option>
+                <option value="inter">Inter</option>
+                <option value="arial">Arial</option>
+                <option value="verdana">Verdana</option>
+                <option value="georgia">Georgia</option>
+                <option value="times">Times New Roman</option>
+                <option value="courier">Courier New</option>
+                <option value="cascadia">Cascadia Code</option>
+            </select>
+        </div>
+        <div class="format-row">
+            <label class="format-number">
+                <input type="number" min="6" max="72" step="1" data-format-key="fontSize" aria-label="Font size in pixels" />
+                <span aria-hidden="true">px</span>
+            </label>
+            <button type="button" class="format-icon" data-format-step="fontSize:1" aria-label="Increase font size">▲</button>
+            <button type="button" class="format-icon" data-format-step="fontSize:-1" aria-label="Decrease font size">▼</button>
+        </div>
+        <div class="format-row" role="group" aria-label="Font style">
+            <button type="button" class="format-icon" data-format-toggle="bold" aria-pressed="false" aria-label="Bold"><strong>B</strong></button>
+            <button type="button" class="format-icon" data-format-toggle="italic" aria-pressed="false" aria-label="Italic"><em>I</em></button>
+            <button type="button" class="format-icon" data-format-toggle="underline" aria-pressed="false" aria-label="Underline"><u>U</u></button>
+            <button type="button" class="format-icon" data-format-toggle="strike" aria-pressed="false" aria-label="Strikethrough"><s>S</s></button>
+        </div>
+        <div class="format-row" role="group" aria-label="Horizontal alignment">
+            <button type="button" class="format-icon" data-format-set="align:left" aria-pressed="false" aria-label="Align left">⇤</button>
+            <button type="button" class="format-icon" data-format-set="align:center" aria-pressed="false" aria-label="Align centre">↔</button>
+            <button type="button" class="format-icon" data-format-set="align:right" aria-pressed="false" aria-label="Align right">⇥</button>
+        </div>
+        <div class="format-row" role="group" aria-label="Vertical position">
+            <button type="button" class="format-icon" data-format-set="vertical:top" aria-pressed="false" aria-label="Top">⤒</button>
+            <button type="button" class="format-icon" data-format-set="vertical:middle" aria-pressed="false" aria-label="Centre">↕</button>
+            <button type="button" class="format-icon" data-format-set="vertical:bottom" aria-pressed="false" aria-label="Bottom">⤓</button>
+        </div>
+        <div class="format-row">
+            <label class="format-field" for="format-direction">Writing direction</label>
+            <select id="format-direction" data-format-key="direction">
+                <option value="auto">Automatic</option>
+                <option value="ltr">Left to right</option>
+                <option value="rtl">Right to left</option>
+            </select>
+        </div>
+        <div class="format-row">
+            <label class="format-check"><input type="checkbox" data-format-key="textBackgroundEnabled" /> Background</label>
+            <input type="color" data-format-key="textBackground" aria-label="Text background colour" />
+        </div>
+        <div class="format-row">
+            <label class="format-check"><input type="checkbox" data-format-key="fontColorEnabled" /> Font colour</label>
+            <input type="color" data-format-key="fontColor" aria-label="Font colour" />
+        </div>
+        <div class="format-row">
+            <label class="format-check"><input type="checkbox" data-format-key="borderColorEnabled" /> Border colour</label>
+            <input type="color" data-format-key="borderColor" aria-label="Text border colour" />
+        </div>
+        <div class="format-row">
+            <label class="format-check"><input type="checkbox" data-format-key="textShadow" /> Shadow</label>
+        </div>
+        <div class="format-row">
+            <label class="format-field" for="format-text-opacity">Opacity</label>
+            <label class="format-number">
+                <input id="format-text-opacity" type="number" min="0" max="100" step="5" data-format-key="textOpacity" />
+                <span aria-hidden="true">%</span>
+            </label>
+        </div>
+        <details class="format-section">
+            <summary>Spacing</summary>
+            <div class="format-spacing">
+                <label>Top <input type="number" min="0" max="40" data-format-key="spacingTop" /></label>
+                <label>Global <input type="number" min="0" max="40" data-format-key="spacing" /></label>
+                <label>Left <input type="number" min="0" max="40" data-format-key="spacingLeft" /></label>
+                <label>Bottom <input type="number" min="0" max="40" data-format-key="spacingBottom" /></label>
+                <label>Right <input type="number" min="0" max="40" data-format-key="spacingRight" /></label>
+            </div>
+        </details>
+        <div class="format-actions">
+            <button type="button" class="format-button" data-format-command="copy-text-style">Copy Text Style</button>
+            <button type="button" class="format-button" data-format-command="paste-style">Paste Style</button>
+            <button type="button" class="format-button" data-format-command="clear-formatting">Clear Formatting</button>
+        </div>
+    </div>
+
+    <div class="format-pane" id="format-pane-arrange" role="tabpanel" aria-labelledby="format-tab-arrange" data-format-pane="arrange" hidden>
+        <p class="format-note" data-format-arrange-note hidden></p>
+        <div class="format-grid">
+            <label>X <input type="number" step="1" data-arrange-key="x" /></label>
+            <label>Y <input type="number" step="1" data-arrange-key="y" /></label>
+            <label>Width <input type="number" min="10" max="2000" step="1" data-arrange-key="width" /></label>
+            <label>Height <input type="number" min="10" max="2000" step="1" data-arrange-key="height" /></label>
+            <label>Rotation <input type="number" min="-360" max="360" step="15" data-arrange-key="rotation" /></label>
+        </div>
+        <p class="format-label">Align</p>
+        <div class="format-row" role="group" aria-label="Align selected shapes">
+            <button type="button" class="format-icon" data-format-command="align-left" aria-label="Align left edges">⇤</button>
+            <button type="button" class="format-icon" data-format-command="align-center" aria-label="Align centres">↔</button>
+            <button type="button" class="format-icon" data-format-command="align-right" aria-label="Align right edges">⇥</button>
+            <button type="button" class="format-icon" data-format-command="align-top" aria-label="Align top edges">⤒</button>
+            <button type="button" class="format-icon" data-format-command="align-middle" aria-label="Align middles">↕</button>
+            <button type="button" class="format-icon" data-format-command="align-bottom" aria-label="Align bottom edges">⤓</button>
+        </div>
+        <p class="format-label">Distribute</p>
+        <div class="format-actions">
+            <button type="button" class="format-button" data-format-command="distribute-horizontal">Horizontally</button>
+            <button type="button" class="format-button" data-format-command="distribute-vertical">Vertically</button>
+        </div>
+        <p class="format-label">Order</p>
+        <div class="format-actions">
+            <button type="button" class="format-button" data-format-command="front">Bring to Front</button>
+            <button type="button" class="format-button" data-format-command="back">Send to Back</button>
+        </div>
+    </div>
+
+    <div class="format-footer">
+        <button type="button" class="format-button" data-format-command="undo" title="Ctrl+Z">Undo</button>
+        <button type="button" class="format-button" data-format-command="redo" title="Ctrl+Y">Redo</button>
+    </div>
+    <p class="format-status" role="status" aria-live="polite" data-format-status></p>
+</aside>
+
+@code {
+    [Parameter]
+    public bool IsOpen { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private ElementReference Panel { get; set; }
+
+    private IJSObjectReference? Module { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            Module = await JavaScript.InvokeAsync<IJSObjectReference>("import", "./js/format.js?v=1");
+            await Module.InvokeVoidAsync("mountFormatPanel", Panel);
+        }
+        catch (JSException)
+        {
+            // The rest of the playground keeps working if the Format panel script cannot load.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (Module is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await Module.InvokeVoidAsync("unmountFormatPanel", Panel);
+            await Module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // The browser has already disconnected; no client resource remains to release.
+        }
+    }
+}

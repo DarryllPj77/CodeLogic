@@ -20,6 +20,12 @@ public enum WorkspaceMode
 {
     Analyze,
     FlowchartFocus,
+
+    /// <summary>
+    /// A free-form diagram canvas. Builder diagrams are drawings only: they never read or change the
+    /// C# source, the analyzer output, or the trace.
+    /// </summary>
+    Build,
 }
 
 /// <summary>What the drawer at the right edge of the canvas shows.</summary>
@@ -49,6 +55,19 @@ public sealed class PlaygroundLayoutState
 
     public bool IsExplorerOpen { get; private set; }
 
+    /// <summary>The Build Flowchart shape palette (left side panel); open by default.</summary>
+    public bool IsPaletteOpen { get; private set; } = true;
+
+    public bool IsBuildMode => Mode == WorkspaceMode.Build;
+
+    /// <summary>
+    /// The docked Format panel (right side). It formats Build Flowchart items in Build mode and the
+    /// control flow graph otherwise; formatting is view-only either way.
+    /// </summary>
+    public bool IsFormatOpen { get; private set; }
+
+    public void ToggleFormat() => IsFormatOpen = !IsFormatOpen;
+
     public bool IsPropertiesOpen { get; private set; }
 
     public DrawerTab DrawerTab { get; private set; } = DrawerTab.Properties;
@@ -75,7 +94,7 @@ public sealed class PlaygroundLayoutState
     /// The code view puts the editor (with its vertical toolbar) beside the flowchart. It is used by
     /// Flowchart focus and by FULL on the flowchart, so the syntax and the chart can be followed together.
     /// </summary>
-    public bool IsCodeView => Mode == WorkspaceMode.FlowchartFocus || MaximizedPanel == WorkspacePanel.Flowchart;
+    public bool IsCodeView => Mode == WorkspaceMode.FlowchartFocus || (Mode != WorkspaceMode.Build && MaximizedPanel == WorkspacePanel.Flowchart);
 
     /// <summary>
     /// In the code view the editor pane can be closed so the flowchart takes the full width. The editor
@@ -93,6 +112,13 @@ public sealed class PlaygroundLayoutState
     public void SetMode(WorkspaceMode mode)
     {
         Mode = mode;
+        if (mode == WorkspaceMode.Build)
+        {
+            // The builder replaces the code workspace, so no code panel stays maximized over it.
+            MaximizedPanel = null;
+            return;
+        }
+
         if (mode == WorkspaceMode.FlowchartFocus)
         {
             CompactView = CompactView.Flowchart;
@@ -133,6 +159,8 @@ public sealed class PlaygroundLayoutState
     public void SelectTab(WorkspaceTab tab) => ActiveTab = tab;
 
     public void ToggleExplorer() => IsExplorerOpen = !IsExplorerOpen;
+
+    public void TogglePalette() => IsPaletteOpen = !IsPaletteOpen;
 
     public void SetExplorerOpen(bool isOpen) => IsExplorerOpen = isOpen;
 
@@ -254,6 +282,12 @@ public sealed class PlaygroundLayoutState
         if (IsPropertiesOpen)
         {
             IsPropertiesOpen = false;
+            return true;
+        }
+
+        if (IsFormatOpen)
+        {
+            IsFormatOpen = false;
             return true;
         }
 

@@ -96,6 +96,8 @@ Perform these checks in Microsoft Edge or Chrome before accepting Prompt 10:
 17. Review the dashboard at 200% zoom and 320 CSS pixels. Confirm summary cards, lesson cards, attempt history, and the recommended-next action remain readable.
 18. Open a separate InPrivate window. Confirm progress requires sign-in and a second account cannot see the first learner's data.
 18a. Tab to a flowchart node and move it with the arrow keys (Shift for larger steps); press Enter to select it. Use Auto layout to restore positions.
+18c. Choose Build Flowchart. Press `/` to search the palette, press Enter on a shape to add it, Tab to it on the canvas, move it with the arrow keys, press Enter to edit its text (Ctrl+Enter saves), press Space on a second shape to add it to the selection, and press C to connect them. Confirm the text outline lists both shapes and the connector, and Ctrl+Z undoes the last change.
+18d. Open the Format panel from the right bar. Use Left/Right on the Style/Text/Arrange tabs, Tab through the controls, and confirm the summary line names the selected item. Tab to a flowchart node, change its fill, press Ctrl+Z on the canvas, and confirm the fill returns while the code and trace step are unchanged.
 18b. Open a large program (40+ nodes). Tab to the flowchart canvas and confirm arrow keys pan, `+`/`-` zoom, Home focuses Start, and End focuses the End node, all with a visible focus outline. Confirm the step line is announced as the canvas description.
 19. Open Playground and reach the snippet selector, load button, editor, Analyze code, save button, and reset button using only `Tab` and `Shift+Tab`.
 20. Confirm Tab leaves the textarea instead of inserting indentation or trapping focus.

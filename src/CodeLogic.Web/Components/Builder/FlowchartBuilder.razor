@@ -1,0 +1,112 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JavaScript
+
+@*
+    Build Flowchart: a free-form diagram canvas. This component renders a static skeleton once;
+    wwwroot/js/builder.js fills the palette, draws the diagram, and saves it as JSON in this browser.
+    Builder diagrams are drawings only: they never read or change the C# source, the analyzer
+    output, or the trace.
+*@
+<section @ref="Root" class="builder @(IsPaletteOpen ? null : "builder--palette-closed")" aria-labelledby="builder-title">
+    <aside id="builder-palette" class="builder-palette" aria-label="Shape palette" hidden="@(!IsPaletteOpen)">
+        <div class="builder-palette__search">
+            <label class="visually-hidden" for="builder-search">Search shapes</label>
+            <input id="builder-search" type="search" placeholder="Type / to search" autocomplete="off" data-builder-search />
+        </div>
+
+        <div class="builder-scratchpad" data-builder-scratchpad>
+            <h3 class="builder-palette__heading">Scratchpad</h3>
+            <div class="builder-scratchpad__items" data-builder-scratchpad-items></div>
+            <p class="builder-scratchpad__hint">Drag elements here</p>
+        </div>
+
+        <h3 class="builder-palette__heading">General</h3>
+        <div class="builder-palette__grid" data-builder-shapes></div>
+
+        <h3 class="builder-palette__heading">Connectors</h3>
+        <div class="builder-palette__grid builder-palette__grid--connectors" data-builder-connectors></div>
+        <p class="builder-palette__empty" data-builder-empty-search hidden>No shapes match your search.</p>
+    </aside>
+
+    <div class="builder-main">
+        <div class="builder-toolbar" role="toolbar" aria-label="Diagram tools">
+            <h2 id="builder-title" class="builder-toolbar__title">Build Flowchart</h2>
+            <button type="button" class="builder-tool" data-builder-command="undo" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
+            <button type="button" class="builder-tool" data-builder-command="redo" title="Redo (Ctrl+Y)" aria-label="Redo">↷</button>
+            <button type="button" class="builder-tool" data-builder-command="connect" title="Connect the two selected shapes (C)">Connect</button>
+            <button type="button" class="builder-tool" data-builder-command="delete" title="Delete the selection (Delete)">Delete</button>
+            <span class="builder-toolbar__divider" aria-hidden="true"></span>
+            <button type="button" class="builder-tool" data-builder-command="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+            <output class="builder-toolbar__zoom" data-builder-zoom aria-label="Zoom level">100%</output>
+            <button type="button" class="builder-tool" data-builder-command="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+            <button type="button" class="builder-tool" data-builder-command="zoom-reset" title="Reset zoom to 100%">100%</button>
+            <span class="builder-toolbar__divider" aria-hidden="true"></span>
+            <button type="button" class="builder-tool" data-builder-command="save" title="Save the diagram in this browser (Ctrl+S)">Save</button>
+            <details class="menu-dropdown builder-export">
+                <summary>Export</summary>
+                <div class="menu-dropdown__content">
+                    <button type="button" data-builder-command="export-png">PNG image</button>
+                    <button type="button" data-builder-command="export-svg">SVG image</button>
+                    <button type="button" data-builder-command="export-json">JSON data</button>
+                </div>
+            </details>
+            <button type="button" class="builder-tool" data-builder-command="clear" title="Remove every shape (undoable)">Clear</button>
+        </div>
+
+        <div class="builder-canvas" data-builder-canvas tabindex="0" aria-label="Diagram canvas. Tab to shapes; Arrow keys move, Enter edits text, Space adds to the selection, C connects two selected shapes, Delete removes."></div>
+
+        <p class="builder-status" role="status" aria-live="polite" data-builder-status></p>
+
+        <details class="builder-outline">
+            <summary>Text outline of the diagram</summary>
+            <ul data-builder-outline></ul>
+        </details>
+    </div>
+</section>
+
+@code {
+    private const string StorageKey = "codelogic.playground.builder.v1";
+
+    [Parameter]
+    public bool IsPaletteOpen { get; set; } = true;
+
+    private ElementReference Root { get; set; }
+
+    private IJSObjectReference? Module { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            Module = await JavaScript.InvokeAsync<IJSObjectReference>("import", "./js/builder.js?v=2");
+            await Module.InvokeAsync<int>("mountBuilder", Root, StorageKey);
+        }
+        catch (JSException)
+        {
+            // The rest of the playground keeps working if the builder script cannot load.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (Module is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await Module.InvokeVoidAsync("unmountBuilder", Root);
+            await Module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // The browser has already disconnected; no client resource remains to release.
+        }
+    }
+}

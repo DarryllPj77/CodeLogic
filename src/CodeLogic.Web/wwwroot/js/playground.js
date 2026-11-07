@@ -1,4 +1,6 @@
 import { enableNodeDragging, prepareLayout, resetLayout } from "./flowchart.js?v=2";
+import { applyFlowchartStyles, enableFlowchartFormatting } from "./flowchart-style.js?v=1";
+import { handleFormatShortcut } from "./format.js?v=1";
 
 const shortcutHandlers = new WeakMap();
 const editorTabModes = new WeakMap();
@@ -429,6 +431,8 @@ export async function renderMermaid(container, definition, renderId, sourceMap, 
     initializeCanvasInteractions(container, sourceMap, dotNetReference);
     // Positions the learner dragged survive a re-render of the same graph.
     prepareLayout(container, definition);
+    // View-only formatting (Format panel) is re-applied by node ID; it never changes the definition.
+    applyFlowchartStyles(container);
 
     // Open at a readable zoom: large graphs scroll instead of shrinking until the text disappears.
     const zoom = openingZoomFor(container);
@@ -1033,6 +1037,7 @@ function initializeCanvasInteractions(container, sourceMap, dotNetReference) {
     };
     container.addEventListener("pointerup", stopPanning, { signal: controller.signal });
     enableNodeDragging(container, controller.signal);
+    enableFlowchartFormatting(container, controller.signal, handleFormatShortcut);
     container.addEventListener("pointercancel", stopPanning, { signal: controller.signal });
 
     // The wheel scrolls (Shift+wheel sideways) natively; Ctrl+wheel zooms around the cursor.

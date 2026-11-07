@@ -46,6 +46,9 @@
             <button type="button" class="ws-mode-button" aria-pressed="@Pressed(Layout.Mode == WorkspaceMode.FlowchartFocus)" @onclick="() => SetWorkspaceModeAsync(WorkspaceMode.FlowchartFocus)">
                 <span aria-hidden="true">◇</span> Flowchart focus
             </button>
+            <button type="button" class="ws-mode-button" aria-pressed="@Pressed(Layout.Mode == WorkspaceMode.Build)" @onclick="() => SetWorkspaceModeAsync(WorkspaceMode.Build)">
+                <span aria-hidden="true">✎</span> Build Flowchart
+            </button>
         </div>
 
         <div class="ws-header__end">
@@ -74,6 +77,10 @@
 
     <div class="ws-body">
         <nav class="workspace-rail" aria-label="Workspace sidebar">
+            @if (Layout.IsBuildMode)
+            {
+                <button type="button" class="rail-button rail-button--build @(Layout.IsPaletteOpen ? "rail-button--active" : null)" title="Shape palette" aria-label="Shape palette" aria-controls="builder-palette" aria-expanded="@Pressed(Layout.IsPaletteOpen)" @onclick="Layout.TogglePalette">◫</button>
+            }
             <button type="button" class="rail-button @(ActiveSidebarPanel == "explorer" && Layout.IsExplorerOpen ? "rail-button--active" : null)" title="File Explorer" aria-label="File Explorer" aria-controls="workspace-explorer" aria-expanded="@Pressed(ActiveSidebarPanel == "explorer" && Layout.IsExplorerOpen)" @onclick='() => ActivateSidebarAsync("explorer")'>▱</button>
             <button type="button" class="rail-button @(ActiveSidebarPanel == "structure" && Layout.IsExplorerOpen ? "rail-button--active" : null)" title="Code Structure" aria-label="Code Structure" aria-controls="workspace-explorer" aria-expanded="@Pressed(ActiveSidebarPanel == "structure" && Layout.IsExplorerOpen)" @onclick='() => ActivateSidebarAsync("structure")'>{ }</button>
             <button type="button" class="rail-button" title="Open diagnostics" aria-label="Open diagnostics" @onclick="OpenDiagnostics">△</button>
@@ -127,6 +134,8 @@
             }
             <div class="resize-handle resize-handle--vertical" data-resize-panel="explorer" role="separator" tabindex="0" aria-label="Resize sidebar" aria-orientation="vertical" aria-valuemin="120" aria-valuemax="300" aria-valuenow="180" title="Drag or use arrow keys to resize. Double-click to reset."></div>
         </aside>
+
+        <FlowchartBuilder IsPaletteOpen="Layout.IsPaletteOpen" />
 
         <div id="workspace-main" class="ws-main">
             <div class="ws-compact-switch" role="group" aria-label="Visible panel">
@@ -678,7 +687,10 @@
             </section>
         </div>
 
+        <FormatPanel IsOpen="Layout.IsFormatOpen" OnClose="Layout.ToggleFormat" />
+
         <nav class="ws-activity" aria-label="Quick tools">
+            <button type="button" class="ws-activity__button @(Layout.IsFormatOpen ? "ws-activity__button--active" : null)" title="Format (Style, Text, Arrange)" aria-label="Format panel" aria-controls="format-panel" aria-expanded="@Pressed(Layout.IsFormatOpen)" @onclick="Layout.ToggleFormat">◧</button>
             <button type="button" class="ws-activity__button" title="Settings" aria-label="Settings" aria-controls="workspace-settings" aria-expanded="@Pressed(Layout.IsSettingsOpen)" @onclick="ToggleSettings">⚙</button>
             <button type="button" class="ws-activity__button" title="Save browser draft (Ctrl+S)" aria-label="Save browser draft" @onclick="SaveDraftAsync" disabled="@(!BrowserReady || JavaScriptModule is null)">⤓</button>
             <button type="button" class="ws-activity__button" title="Curated snippets" aria-label="Choose a curated snippet" @onclick="OpenSnippets">❏</button>
@@ -721,6 +733,12 @@
                     <div><dt><kbd>+</kbd> / <kbd>-</kbd>, <kbd>Ctrl</kbd>+wheel</dt><dd>Zoom the flowchart (Ctrl+wheel zooms around the pointer)</dd></div>
                     <div><dt><kbd>Home</kbd> / <kbd>End</kbd> (flowchart focused)</dt><dd>Go to the Start or End node</dd></div>
                     <div><dt>Wheel, <kbd>Shift</kbd>+wheel, drag</dt><dd>Scroll down, scroll sideways, or pan the flowchart</dd></div>
+                    <div><dt><kbd>/</kbd> (Build Flowchart)</dt><dd>Search the shape palette</dd></div>
+                    <div><dt><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> (Build Flowchart)</dt><dd>Undo or redo a diagram change</dd></div>
+                    <div><dt><kbd>Delete</kbd>, <kbd>Enter</kbd>, <kbd>Space</kbd>, <kbd>C</kbd> (diagram shape focused)</dt><dd>Delete the selection, edit text, add to the selection, or connect two selected shapes</dd></div>
+                    <div><dt><kbd>Ctrl</kbd>+<kbd>Enter</kbd> (editing diagram text)</dt><dd>Save the text; <kbd>Enter</kbd> adds a line and <kbd>Esc</kbd> cancels</dd></div>
+                    <div><dt><kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>Ctrl</kbd>+<kbd>V</kbd> (diagram or flowchart focused)</dt><dd>Copy the selected item's style, then paste it onto the selection</dd></div>
+                    <div><dt><kbd>Shift</kbd>+click (flowchart)</dt><dd>Add a node or connector to the Format selection</dd></div>
                 </dl>
                 <h3>Safety model and current limitations</h3>
                 <ul>
@@ -862,6 +880,8 @@
     {
         "ws",
         Layout.Mode == WorkspaceMode.FlowchartFocus ? "ws--focus" : null,
+        Layout.IsBuildMode ? "ws--build" : null,
+        Layout.IsFormatOpen ? "ws--format-open" : null,
         Layout.IsCodeView ? "ws--codeview" : null,
         Layout.IsEditorClosedInCodeView ? "ws--editor-hidden" : null,
         Layout.IsExplorerOpen ? "ws--explorer-open" : null,
@@ -929,7 +949,7 @@
             {
                 JavaScriptModule = await JavaScript.InvokeAsync<IJSObjectReference>(
                     "import",
-                    "./js/playground.js?v=11");
+                    "./js/playground.js?v=12");
                 WorkspaceModule = await JavaScript.InvokeAsync<IJSObjectReference>(
                     "import",
                     "./js/workspace.js?v=6");
@@ -949,6 +969,10 @@
                     if (preferences.Mode == "focus")
                     {
                         Layout.SetMode(WorkspaceMode.FlowchartFocus);
+                    }
+                    else if (preferences.Mode == "build")
+                    {
+                        Layout.SetMode(WorkspaceMode.Build);
                     }
                 }
                 var savedDraft = await JavaScriptModule.InvokeAsync<string?>(
@@ -1688,7 +1712,13 @@
     private async Task SetWorkspaceModeAsync(WorkspaceMode mode)
     {
         Layout.SetMode(mode);
-        await SaveWorkspacePreferenceAsync("mode", mode == WorkspaceMode.FlowchartFocus ? "focus" : "analyze");
+        var preference = mode switch
+        {
+            WorkspaceMode.FlowchartFocus => "focus",
+            WorkspaceMode.Build => "build",
+            _ => "analyze",
+        };
+        await SaveWorkspacePreferenceAsync("mode", preference);
     }
 
     private async Task ActivateSidebarAsync(string panel)

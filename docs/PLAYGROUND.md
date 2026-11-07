@@ -79,6 +79,33 @@ The editor loads sample code from the two complete curriculum lessons rather tha
 
 The HTML `maxlength` attribute prevents ordinary input beyond the limit. `PlaygroundEditorState` independently rejects oversized restored or programmatic text, and the browser storage adapter refuses oversized saves, so local storage cannot bypass the limit. Live flowchart translation remains debounced by 400 milliseconds and bounded analysis retains its two-second cancellation limit.
 
+## Build Flowchart
+
+**Build Flowchart** is the third mode in the header switch. It replaces the Explorer and code workspace with a free-form diagram canvas (`Components/Builder/FlowchartBuilder.razor` and `wwwroot/js/builder.js`). The Monaco editor and the control flow graph stay loaded but hidden, so returning to Analyze Code shows the same code, trace, and graph. Builder diagrams are drawings only: they never generate, read, or change C# source, the analyzer output, or the trace (owner decision).
+
+- **Shape palette** (left side panel; the ◫ rail button hides or shows it): a search box (press `/`), a Scratchpad drop zone, 18 General shapes (rectangle, rounded rectangle, text, heading, ellipse, square, circle, process, decision, input/output parallelogram, hexagon, triangle, cylinder, cloud, document, card, data, actor), and 4 connector styles (straight, dashed, curved, arrow with smart routing). Drag a shape onto the canvas, or click it (Enter) to add it at the centre of the view. Drop palette items or canvas shapes on the Scratchpad to keep reusable copies.
+- **Connectors:** hover a shape to show its four handles and drag from one to another shape. The selected connector style is used for new connectors and applied to selected connectors. Arrow and dashed connectors use the orthogonal routing from `flowchart.js`; every connector re-routes when either shape moves. Keyboard alternative: select two shapes (Space adds the focused shape) and press **C** or **Connect**.
+- **Text:** double-click a shape or connector (or press Enter/F2) to edit inline. Enter adds a line break; Ctrl+Enter or clicking outside saves; Esc cancels. Text is drawn with `textContent`, never as markup.
+- **Canvas:** infinite in every direction (negative coordinates shift the origin without moving shapes relative to each other), drag empty space to pan, zoom 25–200% with the toolbar or Ctrl+wheel, auto-scroll while dragging near an edge. Arrow keys move the selection (Shift for 50px); Delete removes it with its connectors; Ctrl+A selects all shapes.
+- **Undo/redo:** Ctrl+Z and Ctrl+Y (or Ctrl+Shift+Z) and the toolbar buttons step through up to 100 snapshots.
+- **Save and export:** the diagram autosaves as JSON under `codelogic.playground.builder.v1`, separate from the C# draft; **Save** or Ctrl+S saves immediately. A saved draft is validated (known kinds, finite coordinates, at most 500 shapes and 1,000 connectors, 500 characters of text) and ignored if invalid. **Export** downloads PNG, SVG, or JSON.
+- **Text outline:** a collapsible list under the canvas describes every shape and connector for screen-reader and keyboard users.
+
+## Format Panel
+
+The **◧ Format** button at the top of the right activity bar docks the Format panel (`Components/Builder/FormatPanel.razor`, `wwwroot/js/format.js`) between the work area and the bar; Esc closes it after Help, FULL, and Node properties. It edits the Build Flowchart selection in Build mode and the control flow graph selection otherwise. With several items selected, every change applies to all of them (fields show the first item's value and are outlined when the values differ).
+
+- **Style:** colour swatches with a dot pager (3 pages); Fill (on/off, Automatic or Solid colour, colour picker); Gradient (on/off, end colour); Line (on/off, colour, solid/dashed/dotted, width in pt); Perimeter (gap between the outline and connector ends, Build Flowchart only); Opacity (%); Effects (shadow, rounded corners); **Edit style** (the style as JSON; unknown or invalid values are ignored); Copy Style, Paste Style, Set as Default Style (Build Flowchart: new shapes use it), and Reset style / **Reset node style**.
+- **Text:** font family (fixed list), size in px with ▲/▼, bold, italic, underline, strikethrough, left/centre/right, top/centre/bottom, writing direction (automatic, left-to-right, right-to-left), background, font colour, border colour, shadow, opacity, Spacing (global, top, right, bottom, left), Copy Text Style, and Clear Formatting.
+- **Arrange** (Build Flowchart shapes only): X, Y, width, height, rotation; align left/centre/right/top/middle/bottom (2+ shapes); distribute horizontally/vertically (3+ shapes); Bring to Front and Send to Back. Graph nodes keep their computed layout (drag them to move).
+- **Keyboard:** Ctrl+C / Ctrl+V copy and paste the selected item's style, Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) undo and redo formatting, Delete removes Build Flowchart items. Tabs use Left/Right/Home/End.
+
+Every style value is validated against a fixed schema (6-digit hex colours, bounded numbers, fixed choices), so styles cannot carry markup or arbitrary CSS. Build Flowchart styles are part of the diagram JSON and its undo history.
+
+### Formatting the control flow graph
+
+Click a node or connector to select it for formatting; Shift+click adds or removes items without moving the editor. Style and Text changes are **view-only overrides keyed by node ID** (`node:n002`) or Mermaid edge ID (`edge:L_n002_n003_0`), kept in the page's in-memory state (`wwwroot/js/flowchart-style.js`). After every render they become one scoped `<style>` element (and SVG gradients). They never change the C# source, the analyzer output, the Mermaid definition, the trace, or node IDs; they survive re-renders such as zoom, FULL, and Play, follow the same node ID after a new analysis, and reset on page reload. Line overrides step aside while a node is selected or is the current trace step, so those highlights stay visible. **Reset node style** restores the computed style of the selected items; undo and redo cover graph formatting too.
+
 ## Save and Reset
 
 - **Save browser draft** stores the current text under `CodeLogic.Playground.Draft.v1` in browser local storage.
@@ -132,6 +159,9 @@ Analysis is limited to 10,000 characters, three control-flow nesting levels, and
 - Node properties expose graph type, label, and exact source span. Rich semantic fields such as inferred variable type require a future semantic-analysis contract and are not fabricated.
 - One local draft only; loading another snippet does not create a separate saved file.
 - Browser storage can be unavailable in restricted privacy modes.
+- Build Flowchart has no drag handles for resizing (use Arrange width/height), no free-floating connectors, and no rubber-band selection. Connector routing ignores shape rotation.
+- Graph formatting is not saved: it resets on reload. Graph arrowheads keep their default colour when a connector's line colour changes, multi-line graph labels stay centred relative to each other when aligned left or right, and Perimeter applies to Build Flowchart only. Graph connectors are selected by mouse (nodes are also reachable with Tab).
+- Builder diagrams are stored in this browser only and are never turned into C# source.
 - Drafts are device/browser-specific and are not account data.
 - No arbitrary or curated .NET code execution exists; the trace is a separate limited interpreter.
 - Graphs cover the declared sequence, nested branch, and loop subset only; `break`, `continue`, local functions, and `return` are not rendered.

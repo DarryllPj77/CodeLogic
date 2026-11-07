@@ -247,4 +247,45 @@ public sealed class PlaygroundLayoutStateTests
         Assert.Equal(WorkspaceMode.Analyze, layout.Mode);
         Assert.Equal(CompactView.Editor, layout.CompactView);
     }
+
+    [Fact]
+    public void BuildModeReplacesTheCodeWorkspaceWithoutAFullPanelOrCodeView()
+    {
+        var layout = new PlaygroundLayoutState();
+        layout.ToggleMaximized(WorkspacePanel.Flowchart);
+        Assert.True(layout.IsCodeView);
+
+        layout.SetMode(WorkspaceMode.Build);
+
+        Assert.True(layout.IsBuildMode);
+        Assert.Null(layout.MaximizedPanel);
+        Assert.False(layout.IsCodeView);
+        Assert.True(layout.IsPaletteOpen);
+
+        layout.TogglePalette();
+        Assert.False(layout.IsPaletteOpen);
+
+        layout.SetMode(WorkspaceMode.Analyze);
+        Assert.False(layout.IsBuildMode);
+        Assert.False(layout.IsPaletteOpen); // the palette keeps the learner's choice for the next visit
+    }
+
+    [Fact]
+    public void TheFormatPanelTogglesAndEscClosesItAfterTheDrawer()
+    {
+        var layout = new PlaygroundLayoutState();
+        Assert.False(layout.IsFormatOpen);
+
+        layout.ToggleFormat();
+        layout.OpenProperties();
+        Assert.True(layout.IsFormatOpen);
+
+        Assert.True(layout.HandleEscape());
+        Assert.False(layout.IsPropertiesOpen);
+        Assert.True(layout.IsFormatOpen);
+
+        Assert.True(layout.HandleEscape());
+        Assert.False(layout.IsFormatOpen);
+        Assert.False(layout.HandleEscape());
+    }
 }
